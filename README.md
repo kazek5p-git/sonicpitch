@@ -17,6 +17,9 @@ Polish documentation: [README.pl.md](README.pl.md)
 - Speech audio is filtered through Sonic in NVDA's main `WavePlayer`.
 - Standard `sapi5_32` on 64-bit NVDA is deliberately skipped because it speaks
   in a separate 32-bit synth host.
+- The add-on includes an optional support link that opens BuyCoffee in the
+  default browser.
+- During installation, the add-on may ask whether to open the support page.
 
 ## Who This Is For
 
@@ -74,6 +77,7 @@ The `Global Sonic Pitch` panel contains:
 - `Enable global Sonic pitch` - turns global Sonic pitch processing on or off.
 - `Sonic pitch` - sets the pitch value used by Sonic.
 - `Enable debug logging` - writes detailed diagnostic entries to the NVDA log.
+- `Support the author` - opens the external BuyCoffee support page.
 
 NVDA's normal `Pitch` setting remains the active synth's native pitch setting.
 `Sonic pitch` is a separate add-on setting.
@@ -94,11 +98,28 @@ The `Global Sonic Pitch` category in Input Gestures contains:
 
 - `Toggle global Sonic pitch`;
 - `Report global Sonic pitch status`;
+- `Open support page`;
 - `Increase global Sonic pitch`;
 - `Decrease global Sonic pitch`;
 - `Reset global Sonic pitch`.
 
 These commands have no default gestures, so you can assign your own shortcuts.
+
+## Support
+
+The `Support the author` button in the settings panel, and the `Open support
+page` Input Gesture command, open:
+
+```text
+https://buycoffee.to/kazimierz-parzych
+```
+
+This is a voluntary external support link. The add-on does not process payments,
+store payment data, or unlock any features based on support.
+
+During installation or update, Sonic Pitch also shows a small optional support
+message. Choosing `Yes` opens the same page in the default browser. Choosing
+`No` continues installation without changing add-on behavior.
 
 ## Pitch Behavior
 
@@ -255,18 +276,19 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.2.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.3.nvda-addon -Force
 ```
 
 Syntax check:
 
 ```powershell
-python -m py_compile addon\globalPlugins\globalSonicPitch.py
+python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\installTasks.py
 ```
 
 ## Repository Layout
 
 - `addon/manifest.ini` - NVDA add-on manifest.
+- `addon/installTasks.py` - install-time optional support prompt.
 - `addon/globalPlugins/globalSonicPitch.py` - main plugin.
 - `addon/doc/en/readme.md` - English add-on help.
 - `addon/doc/pl/readme.md` - Polish add-on help.

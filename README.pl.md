@@ -19,6 +19,9 @@ Dokumentacja angielska: [README.md](README.md)
 - Audio mowy jest filtrowane przez Sonic w głównym `WavePlayer` NVDA.
 - Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany, bo działa w
   osobnym 32-bitowym hoście.
+- Dodatek zawiera dobrowolny link wsparcia autora, który otwiera BuyCoffee w
+  domyślnej przeglądarce.
+- Podczas instalacji dodatek może zapytać, czy otworzyć stronę wsparcia.
 
 ## Dla Kogo Jest Ten Dodatek
 
@@ -77,6 +80,7 @@ Panel `Global Sonic Pitch` zawiera:
   pitch.
 - `Sonic pitch` - ustawia wartość wysokości używaną przez Sonic.
 - `Enable debug logging` - dodaje szczegółowe wpisy do logu NVDA.
+- `Support the author` - otwiera zewnętrzną stronę wsparcia BuyCoffee.
 
 Normalne ustawienie `Wysokość` w pierścieniu ustawień syntezatora pozostaje
 natywnym ustawieniem aktywnego syntezatora. `Sonic pitch` jest osobnym
@@ -99,11 +103,29 @@ W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` dostępne są komendy:
 
 - `Toggle global Sonic pitch`;
 - `Report global Sonic pitch status`;
+- `Open support page`;
 - `Increase global Sonic pitch`;
 - `Decrease global Sonic pitch`;
 - `Reset global Sonic pitch`.
 
 Komendy nie mają domyślnych gestów, więc możesz przypisać własne skróty.
+
+## Wsparcie Autora
+
+Przycisk `Support the author` w panelu ustawień oraz komenda `Open support page`
+w `Zdarzeniach wejścia` otwierają:
+
+```text
+https://buycoffee.to/kazimierz-parzych
+```
+
+To dobrowolny zewnętrzny link wsparcia. Dodatek nie obsługuje płatności, nie
+zapisuje danych płatniczych i nie odblokowuje żadnych funkcji po wsparciu.
+
+Podczas instalacji albo aktualizacji Sonic Pitch pokazuje też mały opcjonalny
+komunikat wsparcia. Wybranie `Yes` otwiera tę samą stronę w domyślnej
+przeglądarce. Wybranie `No` kontynuuje instalację i nie zmienia działania
+dodatku.
 
 ## Jak Działa Wysokość
 
@@ -263,18 +285,19 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.2.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.3.nvda-addon -Force
 ```
 
 Sprawdzenie składni:
 
 ```powershell
-python -m py_compile addon\globalPlugins\globalSonicPitch.py
+python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\installTasks.py
 ```
 
 ## Układ Repozytorium
 
 - `addon/manifest.ini` - manifest dodatku NVDA.
+- `addon/installTasks.py` - opcjonalny komunikat wsparcia podczas instalacji.
 - `addon/globalPlugins/globalSonicPitch.py` - główny plugin.
 - `addon/doc/en/readme.md` - angielska pomoc dodatku.
 - `addon/doc/pl/readme.md` - polska pomoc dodatku.

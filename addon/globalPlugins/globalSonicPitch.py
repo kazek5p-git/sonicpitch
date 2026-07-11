@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import webbrowser
 from typing import Any, Callable
 
 import addonHandler
@@ -57,6 +58,7 @@ MAX_SEMITONES = 6.0
 MIN_SONIC_PITCH_RATIO = 0.70
 MAX_SONIC_PITCH_RATIO = 1.45
 SONIC_PITCH_SETTING_ID = "sonicPitch"
+SUPPORT_URL = "https://buycoffee.to/kazimierz-parzych"
 
 UNSUPPORTED_GLOBAL_SYNTHS = {
 	# On 64-bit NVDA, sapi5_32 speaks in the separate 32-bit synth host.
@@ -84,6 +86,7 @@ _sonicPitchDriverSetting: Any | None = None
 _missingClassAttr = object()
 _sonicPitchClassPatches: dict[type, Any] = {}
 _configMigrated = False
+_deferSynthPitchPatchDepth = 0
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
 
@@ -138,6 +141,20 @@ def _setGlobalPitch(pitch: int | float) -> int:
 
 def _changeGlobalPitch(delta: int) -> int:
 	return _setGlobalPitch(int(_getConfigValue("pitch", NEUTRAL_PITCH)) + delta)
+
+
+def _openSupportPage() -> None:
+	try:
+		opened = webbrowser.open_new_tab(SUPPORT_URL)
+	except Exception:
+		opened = False
+		log.debugWarning("globalSonicPitch: failed to open support page", exc_info=True)
+	if opened:
+		if ui is not None:
+			ui.message(_("Opening support page"))
+		return
+	if ui is not None:
+		ui.message(_("Cannot open support page. Open this address manually: {url}").format(url=SUPPORT_URL))
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
@@ -266,17 +283,20 @@ class _SonicStreamProcessor:
 	def __init__(self, sonicModule: Any, channels: int, sampleRate: int, pitchPercent: int):
 		self.channels = channels
 		self.sampleRate = sampleRate
-		self.pitchPercent = _clampPitch(pitchPercent)
 		self.stream = sonicModule.SonicStream(sampleRate, channels)
-		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
+		self.pitchPercent = NEUTRAL_PITCH
+		self.setPitch(pitchPercent)
 		self.isFirstAudioChunk = True
 
-	def matches(self, channels: int, sampleRate: int, pitchPercent: int) -> bool:
-		return (
-			self.channels == channels
-			and self.sampleRate == sampleRate
-			and self.pitchPercent == _clampPitch(pitchPercent)
-		)
+	def matchesFormat(self, channels: int, sampleRate: int) -> bool:
+		return self.channels == channels and self.sampleRate == sampleRate
+
+	def setPitch(self, pitchPercent: int) -> None:
+		pitchPercent = _clampPitch(pitchPercent)
+		if self.pitchPercent == pitchPercent:
+			return
+		self.pitchPercent = pitchPercent
+		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
 
 	def _readAvailable(self) -> bytes:
 		if self.stream.samplesAvailable <= 0:
@@ -343,11 +363,12 @@ def _getOrCreatePlayerProcessor(
 	processorKey = _getPlayerProcessorKey(player)
 	processor = _playerProcessors.get(processorKey)
 	tail = b""
-	if processor is not None and not processor.matches(channels, sampleRate, pitchPercent):
+	if processor is not None and not processor.matchesFormat(channels, sampleRate):
 		tail = processor.finish()
 		_playerProcessors.pop(processorKey, None)
 		processor = None
 	if processor is not None:
+		processor.setPitch(pitchPercent)
 		return processor, tail
 	sonic = _getSonicModule()
 	if sonic is None:
@@ -386,6 +407,15 @@ def _logProcessedOnce(synthName: str, channels: int, sampleRate: int, pitch: int
 	)
 
 
+def _callOnDone(onDone: Callable[..., Any] | None) -> None:
+	if onDone is None:
+		return
+	try:
+		onDone()
+	except Exception:
+		log.debugWarning("globalSonicPitch: WavePlayer onDone callback failed", exc_info=True)
+
+
 def _patchedFeed(self, data, size=None, onDone=None):
 	originalFeed = getattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR)
 	if callable(size) and onDone is None:
@@ -394,10 +424,11 @@ def _patchedFeed(self, data, size=None, onDone=None):
 	raw = _getRawBytes(data, size)
 	try:
 		if raw is not None and len(raw) == 0:
-			tail = _finishPlayerProcessor(self) if onDone is None else _drainPlayerProcessor(self)
+			tail = _finishPlayerProcessor(self)
 			if tail:
-				originalFeed(self, tail, len(tail), None)
-			return originalFeed(self, data, size, onDone)
+				return originalFeed(self, tail, len(tail), onDone)
+			_callOnDone(onDone)
+			return None
 		if raw is not None and _shouldProcess(self, len(raw)):
 			waveFormat = _getWaveFormat(self)
 			if waveFormat is not None:
@@ -417,7 +448,7 @@ def _patchedFeed(self, data, size=None, onDone=None):
 						if processed:
 							return originalFeed(self, processed, len(processed), onDone)
 						if onDone is not None:
-							return originalFeed(self, None, 0, onDone)
+							_callOnDone(onDone)
 						return None
 				elif _isDebugLoggingEnabled():
 					log.debug(f"globalSonicPitch: bypassing non-16-bit audio: {bitsPerSample}")
@@ -717,12 +748,24 @@ def _patchCurrentSynthPitch() -> None:
 		_restoreAllSonicPitchClassProperties()
 
 
-def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
-	result = originalSetSynth(*args, **kwargs)
+def _safePatchCurrentSynthPitch() -> None:
 	try:
 		_patchCurrentSynthPitch()
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed after synth switch", exc_info=True)
+
+
+def _schedulePatchCurrentSynthPitch() -> None:
+	try:
+		wx.CallAfter(_safePatchCurrentSynthPitch)
+	except Exception:
+		_safePatchCurrentSynthPitch()
+
+
+def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
+	result = originalSetSynth(*args, **kwargs)
+	if not _deferSynthPitchPatchDepth:
+		_safePatchCurrentSynthPitch()
 	return result
 
 
@@ -732,8 +775,15 @@ def _patchedSetSynth(*args, **kwargs):
 
 
 def _patchedSettingsSetSynth(*args, **kwargs):
+	global _deferSynthPitchPatchDepth
 	originalSetSynth = getattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR)
-	return _callSetSynthAndPatch(originalSetSynth, *args, **kwargs)
+	_deferSynthPitchPatchDepth += 1
+	try:
+		return originalSetSynth(*args, **kwargs)
+	finally:
+		_deferSynthPitchPatchDepth = max(0, _deferSynthPitchPatchDepth - 1)
+		if not _deferSynthPitchPatchDepth:
+			_schedulePatchCurrentSynthPitch()
 
 
 def installSynthPitchHook() -> None:
@@ -803,13 +853,20 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 			wx.CheckBox(self, label=_("Enable debug logging")),
 		)
 		self.debugCheckbox.SetValue(bool(conf["debugLogging"]))
+		self.supportButton = helper.addItem(
+			wx.Button(self, label=_("Support the author")),
+		)
 		self.enableCheckbox.Bind(wx.EVT_CHECKBOX, self._updateControlState)
+		self.supportButton.Bind(wx.EVT_BUTTON, self._onSupport)
 		self._updateControlState()
 
 	def _updateControlState(self, event=None):
 		enabled = self.enableCheckbox.IsChecked()
 		self.pitchSlider.Enable(enabled)
 		self.debugCheckbox.Enable(enabled)
+
+	def _onSupport(self, event):
+		_openSupportPage()
 
 	def onSave(self):
 		_setConfigValue("pitch", self.pitchSlider.GetValue())
@@ -863,6 +920,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			message = f"{message}. Sonic unavailable: {_sonicUnavailableReason}"
 		if ui is not None:
 			ui.message(message)
+
+	@script(
+		description=_("Open support page"),
+		category=scriptCategory,
+	)
+	def script_openSupportPage(self, gesture):
+		_openSupportPage()
 
 	@script(
 		description=_("Increase global Sonic pitch"),

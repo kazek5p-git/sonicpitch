@@ -23,22 +23,28 @@
 18. Pitch 25, 50, and 75 through the Global Sonic Pitch panel.
 19. Pitch 25, 50, and 75 through the `Sonic pitch` setting in the Voice dialog
     or synth settings ring when it is exposed.
-20. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
+20. While SAPI5 is speaking, quickly decrease `Sonic pitch` several steps and
+    confirm NVDA does not crash or report repeated empty processed blocks.
+21. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
     Voice dialog or synth settings ring.
-21. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
+22. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
     dialog or synth settings ring for supported synths.
-22. Input Gesture scripts for increasing, decreasing, and resetting Sonic pitch
-    appear in the `Global Sonic Pitch` category.
-23. Rate, volume, voice switching, and cancellation still behave normally.
-24. Say-all / continuous reading does not obviously regress.
-25. NVDA sound effects are not processed as speech audio.
-26. Error log check after each scenario.
+23. Input Gesture scripts for opening the support page, increasing,
+    decreasing, and resetting Sonic pitch appear in the `Global Sonic Pitch`
+    category.
+24. During installation or update, the optional support prompt appears outside
+    minimal mode. `No` continues installation. `Yes` opens
+    `https://buycoffee.to/kazimierz-parzych` in the default browser.
+25. Rate, volume, voice switching, and cancellation still behave normally.
+26. Say-all / continuous reading does not obviously regress.
+27. NVDA sound effects are not processed as speech audio.
+28. Error log check after each scenario.
 
 ## Expected Results
 
 - NVDA loads with no startup errors.
-- The package contains `globalPlugins` and documentation only; it does not
-  contain `synthDrivers`.
+- The package contains `globalPlugins`, `installTasks.py`, and documentation; it
+  does not contain `synthDrivers`.
 - `SAPI5 32-bit Sonic Pitch` and `SAPI5 64-bit Sonic Pitch` do not appear in the
   synthesizer dialog after the old `sapi5SonicPitch` add-on is removed.
 - Global Sonic processing is disabled by default.
@@ -65,8 +71,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.2:
+Expected package name for version 0.4.3:
 
 ```text
-globalSonicPitch-0.4.2.nvda-addon
+globalSonicPitch-0.4.3.nvda-addon
 ```

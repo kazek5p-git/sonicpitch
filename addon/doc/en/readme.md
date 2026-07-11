@@ -15,6 +15,8 @@ NVDA's main process.
 - NVDA's normal `Pitch` setting continues to control the synth's native pitch.
 - `Sonic pitch` is a separate Sonic control.
 - Processes speech audio through Sonic.
+- Includes an optional external support link.
+- May ask during installation whether to open the support page.
 
 ## Quick Start
 
@@ -36,6 +38,7 @@ and values above `50` raise speech through Sonic.
 - `Enable global Sonic pitch` - enables global Sonic pitch processing.
 - `Sonic pitch` - sets the pitch used by Sonic.
 - `Enable debug logging` - writes detailed entries to the NVDA log.
+- `Support the author` - opens the external BuyCoffee support page.
 
 NVDA's normal `Pitch` setting remains the synth's native pitch. `Sonic pitch`
 is a separate add-on setting.
@@ -47,8 +50,24 @@ pitch is disabled. If `Synth ring settings selector` is installed, `sonicPitch`
 is added to its settings list.
 
 In Input Gestures, the `Global Sonic Pitch` category lets you assign gestures
-for toggling, reporting status, increasing, decreasing, and resetting Sonic
-pitch.
+for toggling, reporting status, opening the support page, increasing,
+decreasing, and resetting Sonic pitch.
+
+## Support
+
+The `Support the author` button and the `Open support page` Input Gesture
+command open:
+
+```text
+https://buycoffee.to/kazimierz-parzych
+```
+
+This is voluntary external support. The add-on does not process payments, store
+payment data, or unlock features based on support.
+
+During installation or update, Sonic Pitch may show a small optional support
+message. `Yes` opens the same page in the default browser. `No` continues
+installation without changing add-on behavior.
 
 ## Compatibility
 

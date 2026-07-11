@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.3
+
+- Adds a `Support the author` button to the add-on settings panel.
+- Adds an assignable `Open support page` Input Gesture command.
+- Adds an optional install-time support prompt that can open the same BuyCoffee
+  page.
+- Keeps the active Sonic stream when only `Sonic pitch` changes, reducing empty
+  output blocks and dropouts during rapid pitch changes.
+- Defers Voice dialog setting injection after synth changes made from NVDA
+  settings, reducing refresh races with some SAPI5 voices.
+- Documents the external BuyCoffee support link and clarifies that the add-on
+  does not process payments, store payment data, or unlock features based on
+  support.
+
 ## 0.4.2
 
 - Shows the dynamic `Sonic pitch` setting in NVDA Voice settings and the synth

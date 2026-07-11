@@ -21,6 +21,16 @@ and add-on `sonicPitch` are independent controls.
 Version 0.4.2 makes the dynamic `sonicPitch` Voice dialog/ring setting visible
 only while global Sonic pitch is enabled.
 
+Version 0.4.3 adds a voluntary support link. The URL is kept in `SUPPORT_URL`
+in both the global plugin and `installTasks.py`. The settings button, Input
+Gesture script, and optional install-time prompt open it through Python's
+`webbrowser` module. The add-on does not handle payments or store payment data.
+The same version also keeps the active `SonicStream` when only `sonicPitch`
+changes, updating `stream.pitch` in place instead of flushing and recreating the
+stream. Synth changes initiated from `gui.settingsDialogs.setSynth` defer the
+dynamic setting patch through `wx.CallAfter` to avoid racing NVDA's own Voice
+dialog refresh.
+
 ## Config
 
 Current config section:

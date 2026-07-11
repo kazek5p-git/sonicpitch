@@ -16,6 +16,8 @@ przechodzi przez główny proces NVDA.
   syntezatora.
 - `Sonic pitch` jest osobną regulacją Sonic.
 - Przetwarza audio mowy przez Sonic.
+- Zawiera opcjonalny zewnętrzny link wsparcia autora.
+- Może zapytać podczas instalacji, czy otworzyć stronę wsparcia.
 
 ## Szybki Start
 
@@ -37,6 +39,7 @@ Sonic, a wartości powyżej `50` podwyższają głos przez Sonic.
 - `Enable global Sonic pitch` - włącza globalne przetwarzanie Sonic pitch.
 - `Sonic pitch` - ustawia wysokość używaną przez Sonic.
 - `Enable debug logging` - zapisuje szczegółowe wpisy do logu NVDA.
+- `Support the author` - otwiera zewnętrzną stronę wsparcia BuyCoffee.
 
 Zwykła `Wysokość` w pierścieniu ustawień głosu NVDA pozostaje natywną
 wysokością syntezatora. `Sonic pitch` jest osobnym ustawieniem dodatku.
@@ -48,8 +51,24 @@ ustawienie znika z tych kontrolek głosu. Jeśli używasz dodatku `Synth ring
 settings selector`, `sonicPitch` jest dopisywane do jego listy ustawień.
 
 W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` można przypisać gesty
-do włączania, odczytu stanu, zwiększania, zmniejszania i resetowania Sonic
-pitch.
+do włączania, odczytu stanu, otwierania strony wsparcia, zwiększania,
+zmniejszania i resetowania Sonic pitch.
+
+## Wsparcie Autora
+
+Przycisk `Support the author` i komenda `Open support page` w `Zdarzeniach
+wejścia` otwierają:
+
+```text
+https://buycoffee.to/kazimierz-parzych
+```
+
+To dobrowolne zewnętrzne wsparcie. Dodatek nie obsługuje płatności, nie zapisuje
+danych płatniczych i nie odblokowuje funkcji po wsparciu.
+
+Podczas instalacji albo aktualizacji Sonic Pitch może pokazać mały opcjonalny
+komunikat wsparcia. `Yes` otwiera tę samą stronę w domyślnej przeglądarce.
+`No` kontynuuje instalację i nie zmienia działania dodatku.
 
 ## Zgodność
 
