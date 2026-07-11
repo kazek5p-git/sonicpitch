@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import locale
 import threading
 import webbrowser
 from typing import Any, Callable
@@ -79,7 +80,9 @@ _SETTINGS_SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSettingsSetSynthPatched"
 _ORIGINAL_SUPPORTED_SETTINGS_ATTR = "_globalSonicPitchOriginalSupportedSettings"
 _SONIC_PITCH_SETTING_PATCHED_ATTR = "_globalSonicPitchVoiceSettingPatched"
 _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR = "_globalSonicPitchOriginalGetVoiceTokens"
+_ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR = "_globalSonicPitchOriginalGetAvailableVoices"
 _SAPI5_VOICE_ENUM_PATCHED_ATTR = "_globalSonicPitchVoiceEnumPatched"
+_SAPI5_32_VOICE_ENUM_PATCHED_ATTR = "_globalSonicPitch32VoiceEnumPatched"
 _ESPEAK_NG_SAPI_TOKEN_ENUM_PART = "\\Speech\\Voices\\TokenEnums\\eSpeak-NG\\"
 
 _sonicModule = None
@@ -630,41 +633,153 @@ def _patchedSapi5GetVoiceTokens(self):
 	return tokens
 
 
+def _getSapiTokenLanguage(token: Any) -> str | None:
+	try:
+		languageId = int(token.getattribute("language").split(";")[0], 16)
+		return locale.windows_locale.get(languageId)
+	except Exception:
+		return None
+
+
+def _getEspeakNgSapiVoiceInfos() -> dict[str, Any]:
+	try:
+		import comtypes.client
+	except Exception:
+		return {}
+	try:
+		voice = comtypes.client.CreateObject("SAPI.SpVoice")
+		tokens = voice.GetVoices("", "")
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to enumerate SAPI voices for eSpeak-NG compatibility", exc_info=True)
+		return {}
+	voiceInfos: dict[str, Any] = {}
+	try:
+		tokenCount = len(tokens)
+	except Exception:
+		tokenCount = 0
+	for index in range(tokenCount):
+		try:
+			token = tokens[index]
+			tokenId = _tokenId(token)
+			if not tokenId or not _isEspeakNgSapiTokenId(tokenId):
+				continue
+			voiceInfos[tokenId] = synthDriverHandler.VoiceInfo(
+				tokenId,
+				token.GetDescription(),
+				_getSapiTokenLanguage(token),
+			)
+		except Exception:
+			continue
+	return voiceInfos
+
+
+def _addEspeakNgSapiVoiceInfos(voices: Any, source: str) -> int:
+	if voices is None:
+		return 0
+	added = 0
+	try:
+		for voiceId, voiceInfo in _getEspeakNgSapiVoiceInfos().items():
+			if voiceId in voices:
+				continue
+			voices[voiceId] = voiceInfo
+			added += 1
+	except Exception:
+		log.debugWarning(f"globalSonicPitch: failed to add eSpeak-NG SAPI voices to {source}", exc_info=True)
+		return added
+	if added:
+		key = f"{source}:{added}"
+		if key not in _sapi5VoiceEnumLogKeys:
+			_sapi5VoiceEnumLogKeys.add(key)
+			log.info(f"globalSonicPitch: added {added} eSpeak-NG SAPI dynamic voices to NVDA {source} voice list")
+	return added
+
+
+def _patchedSapi532GetAvailableVoices(self):
+	originalGetAvailableVoices = getattr(self.__class__, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR)
+	voices = originalGetAvailableVoices(self)
+	_addEspeakNgSapiVoiceInfos(voices, "sapi5_32")
+	return voices
+
+
+def _patchCurrentSapi532AvailableVoices() -> None:
+	synth = _getCurrentSynth()
+	if _getSynthName(synth) != "sapi5_32":
+		return
+	try:
+		voices = getattr(synth, "availableVoices", None)
+		if _addEspeakNgSapiVoiceInfos(voices, "sapi5_32 current"):
+			try:
+				synth._availableVoices = voices
+			except Exception:
+				pass
+			_updateSynthSettingsRing(synth)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to patch current sapi5_32 voices", exc_info=True)
+
+
 def installSapi5VoiceEnumerationHook() -> None:
 	try:
 		import synthDrivers.sapi5 as sapi5
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed to import sapi5 for voice enumeration hook", exc_info=True)
-		return
-	synthClass = getattr(sapi5, "SynthDriver", None)
-	if synthClass is None or getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
-		return
-	originalGetVoiceTokens = getattr(synthClass, "_getVoiceTokens", None)
-	if not callable(originalGetVoiceTokens):
-		return
-	setattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, originalGetVoiceTokens)
-	synthClass._getVoiceTokens = _patchedSapi5GetVoiceTokens
-	setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, True)
-	log.info("globalSonicPitch: installed eSpeak-NG SAPI voice enumeration hook")
+	else:
+		synthClass = getattr(sapi5, "SynthDriver", None)
+		if synthClass is not None and not getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
+			originalGetVoiceTokens = getattr(synthClass, "_getVoiceTokens", None)
+			if callable(originalGetVoiceTokens):
+				setattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, originalGetVoiceTokens)
+				synthClass._getVoiceTokens = _patchedSapi5GetVoiceTokens
+				setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, True)
+				log.info("globalSonicPitch: installed eSpeak-NG SAPI sapi5 voice enumeration hook")
+	try:
+		import synthDrivers.sapi5_32 as sapi5_32
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to import sapi5_32 for voice enumeration hook", exc_info=True)
+	else:
+		synthClass = getattr(sapi5_32, "SynthDriver", None)
+		if synthClass is not None and not getattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, False):
+			originalGetAvailableVoices = getattr(synthClass, "_getAvailableVoices", None)
+			if callable(originalGetAvailableVoices):
+				setattr(synthClass, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR, originalGetAvailableVoices)
+				synthClass._getAvailableVoices = _patchedSapi532GetAvailableVoices
+				setattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, True)
+				log.info("globalSonicPitch: installed eSpeak-NG SAPI sapi5_32 voice enumeration hook")
+	_patchCurrentSapi532AvailableVoices()
 
 
 def uninstallSapi5VoiceEnumerationHook() -> None:
 	try:
 		import synthDrivers.sapi5 as sapi5
 	except Exception:
-		return
-	synthClass = getattr(sapi5, "SynthDriver", None)
-	if synthClass is None or not getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
-		return
-	originalGetVoiceTokens = getattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, None)
-	if originalGetVoiceTokens is not None and getattr(synthClass, "_getVoiceTokens", None) is _patchedSapi5GetVoiceTokens:
-		synthClass._getVoiceTokens = originalGetVoiceTokens
+		pass
+	else:
+		synthClass = getattr(sapi5, "SynthDriver", None)
+		if synthClass is not None and getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
+			originalGetVoiceTokens = getattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, None)
+			if originalGetVoiceTokens is not None and getattr(synthClass, "_getVoiceTokens", None) is _patchedSapi5GetVoiceTokens:
+				synthClass._getVoiceTokens = originalGetVoiceTokens
+			try:
+				delattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR)
+			except Exception:
+				pass
+			setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False)
+			log.info("globalSonicPitch: removed eSpeak-NG SAPI sapi5 voice enumeration hook")
 	try:
-		delattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR)
+		import synthDrivers.sapi5_32 as sapi5_32
+	except Exception:
+		return
+	synthClass = getattr(sapi5_32, "SynthDriver", None)
+	if synthClass is None or not getattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, False):
+		return
+	originalGetAvailableVoices = getattr(synthClass, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR, None)
+	if originalGetAvailableVoices is not None and getattr(synthClass, "_getAvailableVoices", None) is _patchedSapi532GetAvailableVoices:
+		synthClass._getAvailableVoices = originalGetAvailableVoices
+	try:
+		delattr(synthClass, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR)
 	except Exception:
 		pass
-	setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False)
-	log.info("globalSonicPitch: removed eSpeak-NG SAPI voice enumeration hook")
+	setattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, False)
+	log.info("globalSonicPitch: removed eSpeak-NG SAPI sapi5_32 voice enumeration hook")
 
 
 def _settingId(setting: Any) -> str:
@@ -837,6 +952,7 @@ def _patchCurrentSynthPitch() -> None:
 
 def _safePatchCurrentSynthPitch() -> None:
 	try:
+		_patchCurrentSapi532AvailableVoices()
 		_patchCurrentSynthPitch()
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed after synth switch", exc_info=True)

@@ -150,7 +150,7 @@ połączenie obu efektów.
 | --- | --- |
 | RHVoice | Obsługiwany, jeśli audio trafia do głównego `WavePlayer`. |
 | eSpeak NG | Obsługiwany w głównym procesie NVDA. |
-| eSpeak-NG SAPI przez SAPI5 | Obsługiwany jako głos SAPI5 po skonfigurowaniu go w konfiguratorze eSpeak-NG SAPI. Wersja 0.4.6 i nowsze pomagają też NVDA pokazać te dynamiczne głosy na standardowej liście głosów SAPI5. |
+| eSpeak-NG SAPI przez SAPI5 | Obsługiwany jako głos SAPI5 po skonfigurowaniu go w konfiguratorze eSpeak-NG SAPI. Wersja 0.4.6 i nowsze pomagają NVDA pokazać te dynamiczne głosy w standardowym `sapi5`; wersja 0.4.7 i nowsze uzupełniają też standardową listę głosów `sapi5_32`. |
 | OneCore | Obsługiwany w głównym procesie NVDA. |
 | SAPI5 64-bit | Obsługiwany, gdy używa ścieżki audio NVDA. |
 | SAPI5 32-bit na 64-bitowym NVDA | Ładuje się normalnie, ale globalny Sonic go nie przetwarza. |
@@ -162,6 +162,11 @@ Standardowy `sapi5_32` działa na 64-bitowym NVDA przez osobny 32-bitowy host
 syntezatorów. Globalny plugin dodatku jest ładowany w głównym procesie NVDA, a
 nie w tym hoście. Z tego powodu dodatek nie przejmuje wysokości dla `sapi5_32` i
 nie filtruje jego audio przez Sonic.
+
+Wersja 0.4.7 i nowsze mogą mimo to dodać skonfigurowane dynamiczne głosy
+eSpeak-NG SAPI do standardowej listy głosów `sapi5_32` w czasie działania.
+Dotyczy to tylko widoczności i wyboru głosu; nie oznacza globalnego
+przetwarzania Sonic dla `sapi5_32`.
 
 To zachowanie jest celowe. Dzięki temu standardowy `sapi5_32` nadal ładuje się
 normalnie i nie jest neutralizowany bez faktycznego przetwarzania Sonic.
@@ -250,8 +255,9 @@ NVDA 2026.2 czyta standardowe głosy SAPI5 bezpośrednio z rejestru z gałęzi
 używanej przez zwykłe głosy. eSpeak-NG SAPI wystawia skonfigurowane głosy przez
 dynamiczny enumerator tokenów SAPI. Od wersji 0.4.6 dodatek dopisuje tylko te
 dynamiczne tokeny eSpeak-NG SAPI do standardowej listy głosów `sapi5` w NVDA w
-czasie działania. Nie modyfikuje plików NVDA i nie zapisuje tokenów głosów w
-rejestrze.
+czasie działania. Od wersji 0.4.7 uzupełnia też standardową listę głosów
+`sapi5_32` tymi skonfigurowanymi dynamicznymi tokenami eSpeak-NG SAPI. Nie
+modyfikuje plików NVDA i nie zapisuje tokenów głosów w rejestrze.
 
 ### Standardowy SAPI5 32-bit nie ma globalnego Sonic pitch
 
@@ -290,7 +296,7 @@ Mechanizmy używane przez dodatek:
 - dynamiczne dodanie ustawienia `sonicPitch` do `supportedSettings` aktywnego
   syntezatora;
 - runtime dopisanie skonfigurowanych dynamicznych tokenów eSpeak-NG SAPI do
-  standardowej listy głosów `sapi5` w NVDA;
+  standardowej listy głosów `sapi5` i `sapi5_32` w NVDA;
 - wewnętrzny `synthDrivers._sonic.SonicStream`.
 
 Sonic działa na ciągłym strumieniu audio per `WavePlayer`. Taki model jest
@@ -311,7 +317,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.6.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.7.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

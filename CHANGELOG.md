@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.7
+
+- Extends the eSpeak-NG SAPI dynamic voice compatibility hook to NVDA's
+  standard `sapi5_32` proxy voice list.
+- Keeps `sapi5_32` as a native NVDA synth path: the add-on only supplements the
+  visible voice list and still does not process the separate 32-bit synth host
+  audio through Sonic.
+- Verified locally that `sapi5_32` lists `Polish (sandro)` and `Polish klatt6`
+  from `Speech\Voices\TokenEnums\eSpeak-NG`.
+- Verified locally that `sapi5_32` accepts the `Polish (sandro)` eSpeak-NG SAPI
+  token without a voice-load error.
+
 ## 0.4.6
 
 - Adds a runtime compatibility hook for eSpeak-NG SAPI dynamic voice tokens.

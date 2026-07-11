@@ -77,12 +77,15 @@ audio reaches NVDA's main `WavePlayer`.
 
 Third-party eSpeak-NG SAPI voices must be configured in the eSpeak-NG SAPI
 configuration tool before they appear in SAPI. Since version 0.4.6, this add-on
-also helps NVDA list configured eSpeak-NG SAPI dynamic voices in the normal
-SAPI5 voice list at runtime, without modifying NVDA files or writing registry
-voice tokens.
+helps NVDA list configured eSpeak-NG SAPI dynamic voices in the normal 64-bit
+SAPI5 voice list. Since version 0.4.7, it also supplements the standard
+`sapi5_32` voice list. This is done at runtime, without modifying NVDA files or
+writing registry voice tokens.
 
 Standard `sapi5_32` on 64-bit NVDA is deliberately skipped. It runs in a
 separate 32-bit synth host, so this global plugin cannot process that audio.
+The add-on may make configured eSpeak-NG SAPI voices visible in `sapi5_32`, but
+that synth path still has no global Sonic processing.
 
 ## Migration From The Old Add-on
 
@@ -107,6 +110,12 @@ For standard `sapi5_32`, the expected entry is:
 
 ```text
 Loaded synthDriver sapi5_32
+```
+
+With configured eSpeak-NG SAPI voices, version 0.4.7 and newer may also log:
+
+```text
+globalSonicPitch: added 2 eSpeak-NG SAPI dynamic voices to NVDA sapi5_32 voice list
 ```
 
 ## Troubleshooting

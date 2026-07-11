@@ -55,6 +55,16 @@ dynamic token IDs containing `\Speech\Voices\TokenEnums\eSpeak-NG\` from
 `ISpeechVoice.GetVoices`. It restores the original method on termination. It
 does not patch NVDA files on disk and does not write registry voice tokens.
 
+Version 0.4.7 extends that compatibility layer to `sapi5_32`. NVDA's
+`sapi5_32` driver is a proxy in the main process while speech is produced in the
+separate 32-bit synth host. The add-on patches the proxy
+`synthDrivers.sapi5_32.SynthDriver._getAvailableVoices` at runtime and adds
+configured eSpeak-NG SAPI dynamic token IDs as `synthDriverHandler.VoiceInfo`
+entries. It also updates the current `sapi5_32` instance's cached
+`availableVoices` map if `sapi5_32` is already active. This only supplements
+voice visibility and selection; the 32-bit host audio is still not processed by
+Global Sonic Pitch.
+
 ## Config
 
 Current config section:
@@ -100,7 +110,9 @@ the dynamic `sonicPitch` setting after synth changes.
 The built-in `sapi5_32` synth is excluded from Sonic processing because its
 speech is produced in the separate 32-bit host on 64-bit NVDA. The main-process
 global plugin cannot process that host's audio, so `sapi5_32` is left as a
-normal native synth path.
+normal native synth path. The eSpeak-NG SAPI voice-list compatibility hook may
+add dynamic eSpeak-NG SAPI voices to this native synth's visible voice list, but
+it does not change the audio routing limitation.
 
 ## Dynamic Voice Setting
 

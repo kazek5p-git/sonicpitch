@@ -143,7 +143,7 @@ combined result.
 | --- | --- |
 | RHVoice | Supported when audio reaches the main `WavePlayer`. |
 | eSpeak NG | Supported in NVDA's main process. |
-| eSpeak-NG SAPI through SAPI5 | Supported as a SAPI5 voice after it is configured in the eSpeak-NG SAPI configurator. Version 0.4.6 and newer also help NVDA list these dynamic voices in the standard SAPI5 voice list. |
+| eSpeak-NG SAPI through SAPI5 | Supported as a SAPI5 voice after it is configured in the eSpeak-NG SAPI configurator. Version 0.4.6 and newer help NVDA list these dynamic voices in standard `sapi5`; version 0.4.7 and newer also supplement the standard `sapi5_32` voice list. |
 | OneCore | Supported in NVDA's main process. |
 | 64-bit SAPI5 | Supported when it uses NVDA's audio path. |
 | 32-bit SAPI5 on 64-bit NVDA | Loads normally, but global Sonic does not process it. |
@@ -155,6 +155,10 @@ Standard `sapi5_32` on 64-bit NVDA speaks through a separate 32-bit synth host.
 This add-on's global plugin is loaded in the main NVDA process, not in that
 host. Therefore, the add-on does not process `sapi5_32` audio through Sonic and
 does not add the separate `Sonic pitch` setting to that synth.
+
+Version 0.4.7 and newer can still add configured eSpeak-NG SAPI dynamic voices
+to NVDA's standard `sapi5_32` voice list at runtime. This only affects voice
+visibility and selection; it does not make `sapi5_32` globally Sonic-processed.
 
 This is intentional. It keeps standard `sapi5_32` loading normally and avoids
 altering native pitch when Sonic cannot process that audio path.
@@ -242,7 +246,9 @@ NVDA 2026.2 reads standard SAPI5 voice tokens directly from the registry path
 used by ordinary voices. eSpeak-NG SAPI exposes configured voices through a
 dynamic SAPI token enumerator instead. Since version 0.4.6, this add-on appends
 only those eSpeak-NG SAPI dynamic tokens to NVDA's standard `sapi5` voice list
-at runtime. It does not modify NVDA files or write registry voice tokens.
+at runtime. Since version 0.4.7, it also supplements NVDA's standard `sapi5_32`
+voice list with those configured eSpeak-NG SAPI dynamic tokens. It does not
+modify NVDA files or write registry voice tokens.
 
 ### Standard 32-bit SAPI5 Has No Global Sonic Pitch
 
@@ -281,7 +287,7 @@ It uses:
 - dynamic insertion of a `sonicPitch` setting into the active synth's
   `supportedSettings`;
 - runtime addition of configured eSpeak-NG SAPI dynamic tokens to NVDA's
-  standard `sapi5` voice list;
+  standard `sapi5` and `sapi5_32` voice lists;
 - NVDA's internal `synthDrivers._sonic.SonicStream`.
 
 Sonic is kept as a continuous stream per `WavePlayer`. This is important for
@@ -302,7 +308,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.6.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.7.nvda-addon -Force
 ```
 
 Syntax check:
