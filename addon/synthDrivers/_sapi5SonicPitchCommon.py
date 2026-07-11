@@ -1,4 +1,4 @@
-# A prototype NVDA add-on for SAPI5 Sonic pitch post-processing.
+# Shared helpers for SAPI5 Sonic pitch post-processing.
 # This file is intentionally pure Python and uses NVDA's existing Sonic stream.
 
 from __future__ import annotations

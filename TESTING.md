@@ -18,6 +18,9 @@ Test matrix:
 14. Add-on disable/re-enable.
 15. NVDA restart after selecting each custom synth.
 16. Error log check after each scenario.
+17. Standard SAPI5 32-bit still loads after enabling the add-on.
+18. Standard SAPI5 64-bit still loads after enabling the add-on.
+19. Add-on help opens in English and Polish locales.
 
 Expected results:
 
@@ -36,8 +39,9 @@ Expected results:
 - Speech cancellation remains responsive.
 - Say-all does not obviously regress.
 - Missing base modules or missing Sonic internals are handled gracefully.
+- Standard NVDA `sapi5` and `sapi5_32` drivers are not modified by the add-on.
+- The installed add-on package contains no `globalPlugins` directory.
 
 Packaging:
 
 Zip the contents of the `addon` directory, not the outer project directory, and use the `.nvda-addon` extension.
-

@@ -19,7 +19,7 @@ Inspection was performed on this machine from `C:\Program Files\NVDA`.
 - Sonic wrapper exposes `SonicStream.pitch` as a property with a setter.
 - Base SAPI5 class exposes `sonicStream`.
 - Base SAPI5 class exposes `_initWasapiAudio`.
-- Built-in rate boost uses `sonicStream.speed`; this prototype only sets `sonicStream.pitch`.
+- Built-in rate boost uses `sonicStream.speed`; this add-on only sets `sonicStream.pitch`.
 
 Detected separation:
 
