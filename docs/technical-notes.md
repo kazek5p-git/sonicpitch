@@ -25,11 +25,17 @@ Version 0.4.3 adds a voluntary support link. The URL is kept in `SUPPORT_URL`
 in both the global plugin and `installTasks.py`. The settings button, Input
 Gesture script, and optional install-time prompt open it through Python's
 `webbrowser` module. The add-on does not handle payments or store payment data.
-The same version also keeps the active `SonicStream` when only `sonicPitch`
-changes, updating `stream.pitch` in place instead of flushing and recreating the
-stream. Synth changes initiated from `gui.settingsDialogs.setSynth` defer the
-dynamic setting patch through `wx.CallAfter` to avoid racing NVDA's own Voice
-dialog refresh.
+The same version also defers dynamic setting patching after synth changes
+initiated from `gui.settingsDialogs.setSynth` through `wx.CallAfter` to avoid
+racing NVDA's own Voice dialog refresh.
+
+Version 0.4.4 fixes freezes seen with some SAPI5 voices, including eSpeak-NG
+SAPI, while lowering `sonicPitch` during active speech. Version 0.4.3 tried to
+keep the active `SonicStream` and update `stream.pitch` in place. That was good
+for continuity but unsafe with some SAPI callback timing. The current behavior
+recreates the per-player Sonic processor when pitch or audio format changes,
+discards the old processor without flushing its tail on mid-utterance pitch
+changes, and protects the processor map with an `RLock`.
 
 ## Config
 
@@ -117,8 +123,11 @@ The hook is intentionally narrow:
   `nvwave.AudioPurpose.SPEECH`;
 - it only processes 16-bit PCM blocks;
 - it keeps one Sonic stream per speech `WavePlayer` while speech is active;
+- it recreates that stream when the audio format or `Sonic pitch` value changes;
 - it buffers the first chunk until about 50 ms of processed audio is available;
 - it avoids `SonicStream.flush()` in the middle of ordinary audio blocks;
+- it discards the old stream rather than flushing a tail when Sonic pitch changes
+  during active speech;
 - it flushes the remaining Sonic stream tail before `WavePlayer.idle()`;
 - it bypasses non-speech sounds;
 - it bypasses unsupported host paths such as `sapi5_32`;

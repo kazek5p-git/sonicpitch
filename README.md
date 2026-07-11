@@ -31,6 +31,7 @@ Tested locally with:
 
 - RHVoice;
 - eSpeak NG;
+- eSpeak-NG SAPI through SAPI5;
 - OneCore;
 - 64-bit SAPI5;
 - standard 32-bit SAPI5 as a loadable but intentionally unprocessed path.
@@ -142,6 +143,7 @@ combined result.
 | --- | --- |
 | RHVoice | Supported when audio reaches the main `WavePlayer`. |
 | eSpeak NG | Supported in NVDA's main process. |
+| eSpeak-NG SAPI through SAPI5 | Supported as a SAPI5 voice after it is configured in the eSpeak-NG SAPI configurator. |
 | OneCore | Supported in NVDA's main process. |
 | 64-bit SAPI5 | Supported when it uses NVDA's audio path. |
 | 32-bit SAPI5 on 64-bit NVDA | Loads normally, but global Sonic does not process it. |
@@ -220,6 +222,19 @@ Since version 0.3.1, the add-on keeps a continuous Sonic stream for the active
 load, extreme `Sonic pitch` values, and whether the issue happens with more than
 one synth.
 
+Version 0.4.4 also avoids changing the active Sonic stream's pitch in place.
+When `Sonic pitch` changes during speech, the old processor is discarded and a
+fresh processor starts on the next audio block. This is slightly more
+conservative, but it avoids freezes seen with some SAPI5 voices during rapid
+downward pitch changes.
+
+### eSpeak-NG SAPI Does Not Appear In SAPI5
+
+The third-party eSpeak-NG SAPI voice must be configured with its own
+configuration tool before it appears in SAPI5. After creating or enabling a
+voice profile there, restart NVDA and choose the voice from the normal SAPI5
+voice list.
+
 ### Standard 32-bit SAPI5 Has No Global Sonic Pitch
 
 This is a known limitation. `sapi5_32` runs in a separate host and is not
@@ -276,7 +291,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.3.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.4.nvda-addon -Force
 ```
 
 Syntax check:

@@ -72,9 +72,12 @@ komunikat wsparcia. `Yes` otwiera tę samą stronę w domyślnej przeglądarce.
 
 ## Zgodność
 
-Dodatek powinien działać z RHVoice, eSpeak, OneCore, SAPI5 64-bit i podobnymi
-syntezatorami, jeśli ich 16-bitowe PCM mowy trafia do głównego `WavePlayer`
-NVDA.
+Dodatek powinien działać z RHVoice, eSpeak, OneCore, SAPI5 64-bit, eSpeak-NG
+SAPI przez SAPI5 i podobnymi syntezatorami, jeśli ich 16-bitowe PCM mowy trafia
+do głównego `WavePlayer` NVDA.
+
+Zewnętrzne głosy eSpeak-NG SAPI trzeba najpierw skonfigurować w konfiguratorze
+eSpeak-NG SAPI. Dopiero wtedy pojawią się na normalnej liście głosów SAPI5.
 
 Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany. Działa w osobnym
 32-bitowym hoście syntezatorów, więc ten globalny plugin nie może przetwarzać
@@ -120,8 +123,11 @@ Jeśli słychać natywną zmianę wysokości syntezatora, to jest oczekiwane.
 przetwarzaniem Sonic.
 
 Jeśli słychać drobne przerwy, sprawdź obciążenie CPU, mniej skrajne wartości
-`Sonic pitch` i porównaj kilka syntezatorów. Od wersji 0.3.1 dodatek używa ciągłego
-strumienia Sonic, żeby ograniczyć mikroprzerwy między blokami audio.
+`Sonic pitch` i porównaj kilka syntezatorów. Od wersji 0.3.1 dodatek używa
+ciągłego strumienia Sonic, żeby ograniczyć mikroprzerwy między blokami audio. Od
+wersji 0.4.4 zmiana wysokości podczas aktywnej mowy resetuje procesor Sonic
+zamiast zmieniać aktywny strumień w locie, co omija zawieszenia widziane z
+niektórymi głosami SAPI5 przy szybkim obniżaniu wysokości.
 
 ## Logi
 

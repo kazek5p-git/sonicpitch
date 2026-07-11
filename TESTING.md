@@ -18,27 +18,32 @@
 14. Standard SAPI5 64-bit loads with global Sonic enabled.
 15. Standard SAPI5 32-bit loads with global Sonic disabled.
 16. Standard SAPI5 32-bit loads with global Sonic enabled.
-17. Pitch 25, 50, and 75 through the normal NVDA pitch setting, confirming it
+17. eSpeak-NG SAPI is configured in its own configurator and appears as a
+    normal SAPI5 voice.
+18. eSpeak-NG SAPI through SAPI5 speaks with global Sonic enabled.
+19. While eSpeak-NG SAPI is speaking, quickly lower `Sonic pitch` through 45,
+    40, 35, 30, 25, 20, 15, 10, 5, and 0, confirming NVDA does not freeze.
+20. Pitch 25, 50, and 75 through the normal NVDA pitch setting, confirming it
     remains the synth's native pitch control.
-18. Pitch 25, 50, and 75 through the Global Sonic Pitch panel.
-19. Pitch 25, 50, and 75 through the `Sonic pitch` setting in the Voice dialog
+21. Pitch 25, 50, and 75 through the Global Sonic Pitch panel.
+22. Pitch 25, 50, and 75 through the `Sonic pitch` setting in the Voice dialog
     or synth settings ring when it is exposed.
-20. While SAPI5 is speaking, quickly decrease `Sonic pitch` several steps and
+23. While SAPI5 is speaking, quickly decrease `Sonic pitch` several steps and
     confirm NVDA does not crash or report repeated empty processed blocks.
-21. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
+24. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
     Voice dialog or synth settings ring.
-22. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
+25. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
     dialog or synth settings ring for supported synths.
-23. Input Gesture scripts for opening the support page, increasing,
+26. Input Gesture scripts for opening the support page, increasing,
     decreasing, and resetting Sonic pitch appear in the `Global Sonic Pitch`
     category.
-24. During installation or update, the optional support prompt appears outside
+27. During installation or update, the optional support prompt appears outside
     minimal mode. `No` continues installation. `Yes` opens
     `https://buycoffee.to/kazimierz-parzych` in the default browser.
-25. Rate, volume, voice switching, and cancellation still behave normally.
-26. Say-all / continuous reading does not obviously regress.
-27. NVDA sound effects are not processed as speech audio.
-28. Error log check after each scenario.
+28. Rate, volume, voice switching, and cancellation still behave normally.
+29. Say-all / continuous reading does not obviously regress.
+30. NVDA sound effects are not processed as speech audio.
+31. Error log check after each scenario.
 
 ## Expected Results
 
@@ -63,6 +68,10 @@
   Sonic pitch value.
 - Standard `sapi5_32` still loads. On 64-bit NVDA it is not globally processed
   because it runs in the separate 32-bit synth host.
+- eSpeak-NG SAPI can be tested only after its own configurator enables at least
+  one SAPI voice profile.
+- Rapid downward Sonic pitch changes while eSpeak-NG SAPI is speaking complete
+  without NVDA freezing or logging access violations.
 - Missing Sonic internals or unsupported audio formats are handled by bypassing
   the original audio block rather than breaking speech.
 
@@ -71,8 +80,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.3:
+Expected package name for version 0.4.4:
 
 ```text
-globalSonicPitch-0.4.3.nvda-addon
+globalSonicPitch-0.4.4.nvda-addon
 ```

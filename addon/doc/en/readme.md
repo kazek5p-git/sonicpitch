@@ -71,9 +71,12 @@ installation without changing add-on behavior.
 
 ## Compatibility
 
-The add-on is expected to work with RHVoice, eSpeak, OneCore, 64-bit SAPI5, and
-similar synths when their 16-bit PCM speech audio reaches NVDA's main
-`WavePlayer`.
+The add-on is expected to work with RHVoice, eSpeak, OneCore, 64-bit SAPI5,
+eSpeak-NG SAPI through SAPI5, and similar synths when their 16-bit PCM speech
+audio reaches NVDA's main `WavePlayer`.
+
+Third-party eSpeak-NG SAPI voices must be configured in the eSpeak-NG SAPI
+configuration tool before they appear in the normal SAPI5 voice list.
 
 Standard `sapi5_32` on 64-bit NVDA is deliberately skipped. It runs in a
 separate 32-bit synth host, so this global plugin cannot process that audio.
@@ -118,8 +121,11 @@ If you hear the synth's native pitch change, that is expected. NVDA's normal
 processing.
 
 If small audio gaps remain, check CPU load, less extreme `Sonic pitch` values,
-and more than one synth. Since version 0.3.1, the add-on uses a continuous Sonic stream
-to reduce micro-gaps between audio blocks.
+and more than one synth. Since version 0.3.1, the add-on uses a continuous
+Sonic stream to reduce micro-gaps between audio blocks. Since version 0.4.4,
+pitch changes during active speech reset the Sonic processor instead of
+changing the active stream in place, avoiding freezes seen with some SAPI5
+voices during rapid downward pitch changes.
 
 ## Logs
 

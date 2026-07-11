@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import threading
 import webbrowser
 from typing import Any, Callable
 
@@ -88,6 +89,7 @@ _sonicPitchClassPatches: dict[type, Any] = {}
 _configMigrated = False
 _deferSynthPitchPatchDepth = 0
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
+_playerProcessorsLock = threading.RLock()
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
 
 
@@ -130,12 +132,16 @@ def _setConfigValue(key: str, value: Any) -> None:
 
 def _setGlobalEnabled(enabled: bool) -> None:
 	_setConfigValue("enabled", bool(enabled))
+	_resetAllPlayerProcessors()
 	_patchCurrentSynthPitch()
 
 
 def _setGlobalPitch(pitch: int | float) -> int:
 	pitch = _clampPitch(pitch)
+	oldPitch = _clampPitch(_getConfigValue("pitch", NEUTRAL_PITCH))
 	_setConfigValue("pitch", pitch)
+	if pitch != oldPitch:
+		_resetAllPlayerProcessors()
 	return pitch
 
 
@@ -284,19 +290,16 @@ class _SonicStreamProcessor:
 		self.channels = channels
 		self.sampleRate = sampleRate
 		self.stream = sonicModule.SonicStream(sampleRate, channels)
-		self.pitchPercent = NEUTRAL_PITCH
-		self.setPitch(pitchPercent)
+		self.pitchPercent = _clampPitch(pitchPercent)
+		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
 		self.isFirstAudioChunk = True
 
-	def matchesFormat(self, channels: int, sampleRate: int) -> bool:
-		return self.channels == channels and self.sampleRate == sampleRate
-
-	def setPitch(self, pitchPercent: int) -> None:
-		pitchPercent = _clampPitch(pitchPercent)
-		if self.pitchPercent == pitchPercent:
-			return
-		self.pitchPercent = pitchPercent
-		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
+	def matches(self, channels: int, sampleRate: int, pitchPercent: int) -> bool:
+		return (
+			self.channels == channels
+			and self.sampleRate == sampleRate
+			and self.pitchPercent == _clampPitch(pitchPercent)
+		)
 
 	def _readAvailable(self) -> bytes:
 		if self.stream.samplesAvailable <= 0:
@@ -333,25 +336,33 @@ def _getPlayerProcessorKey(player: nvwave.WavePlayer) -> int:
 
 
 def _popPlayerProcessor(player: nvwave.WavePlayer) -> _SonicStreamProcessor | None:
-	return _playerProcessors.pop(_getPlayerProcessorKey(player), None)
+	with _playerProcessorsLock:
+		return _playerProcessors.pop(_getPlayerProcessorKey(player), None)
 
 
 def _drainPlayerProcessor(player: nvwave.WavePlayer) -> bytes:
-	processor = _playerProcessors.get(_getPlayerProcessorKey(player))
-	if processor is None:
-		return b""
-	return processor.drain()
+	with _playerProcessorsLock:
+		processor = _playerProcessors.get(_getPlayerProcessorKey(player))
+		if processor is None:
+			return b""
+		return processor.drain()
 
 
 def _finishPlayerProcessor(player: nvwave.WavePlayer) -> bytes:
-	processor = _popPlayerProcessor(player)
-	if processor is None:
-		return b""
-	return processor.finish()
+	with _playerProcessorsLock:
+		processor = _playerProcessors.pop(_getPlayerProcessorKey(player), None)
+		if processor is None:
+			return b""
+		return processor.finish()
 
 
 def _resetPlayerProcessor(player: nvwave.WavePlayer) -> None:
 	_popPlayerProcessor(player)
+
+
+def _resetAllPlayerProcessors() -> None:
+	with _playerProcessorsLock:
+		_playerProcessors.clear()
 
 
 def _getOrCreatePlayerProcessor(
@@ -360,22 +371,20 @@ def _getOrCreatePlayerProcessor(
 	sampleRate: int,
 	pitchPercent: int,
 ) -> tuple[_SonicStreamProcessor | None, bytes]:
-	processorKey = _getPlayerProcessorKey(player)
-	processor = _playerProcessors.get(processorKey)
-	tail = b""
-	if processor is not None and not processor.matchesFormat(channels, sampleRate):
-		tail = processor.finish()
-		_playerProcessors.pop(processorKey, None)
-		processor = None
-	if processor is not None:
-		processor.setPitch(pitchPercent)
-		return processor, tail
-	sonic = _getSonicModule()
-	if sonic is None:
-		return None, tail
-	processor = _SonicStreamProcessor(sonic, channels, sampleRate, pitchPercent)
-	_playerProcessors[processorKey] = processor
-	return processor, tail
+	with _playerProcessorsLock:
+		processorKey = _getPlayerProcessorKey(player)
+		processor = _playerProcessors.get(processorKey)
+		if processor is not None and not processor.matches(channels, sampleRate, pitchPercent):
+			_playerProcessors.pop(processorKey, None)
+			processor = None
+		if processor is not None:
+			return processor, b""
+		sonic = _getSonicModule()
+		if sonic is None:
+			return None, b""
+		processor = _SonicStreamProcessor(sonic, channels, sampleRate, pitchPercent)
+		_playerProcessors[processorKey] = processor
+		return processor, b""
 
 
 def _processPcm16Block(
@@ -388,11 +397,12 @@ def _processPcm16Block(
 	frameSize = channels * 2
 	if len(raw) < frameSize or len(raw) % frameSize:
 		return None
-	processor, tail = _getOrCreatePlayerProcessor(player, channels, sampleRate, pitchPercent)
-	if processor is None:
-		return tail or None
-	processed = processor.process(raw)
-	return (tail + processed) or b""
+	with _playerProcessorsLock:
+		processor, tail = _getOrCreatePlayerProcessor(player, channels, sampleRate, pitchPercent)
+		if processor is None:
+			return tail or None
+		processed = processor.process(raw)
+		return (tail + processed) or b""
 
 
 def _logProcessedOnce(synthName: str, channels: int, sampleRate: int, pitch: int, inSize: int, outSize: int) -> None:
@@ -407,15 +417,6 @@ def _logProcessedOnce(synthName: str, channels: int, sampleRate: int, pitch: int
 	)
 
 
-def _callOnDone(onDone: Callable[..., Any] | None) -> None:
-	if onDone is None:
-		return
-	try:
-		onDone()
-	except Exception:
-		log.debugWarning("globalSonicPitch: WavePlayer onDone callback failed", exc_info=True)
-
-
 def _patchedFeed(self, data, size=None, onDone=None):
 	originalFeed = getattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR)
 	if callable(size) and onDone is None:
@@ -424,11 +425,10 @@ def _patchedFeed(self, data, size=None, onDone=None):
 	raw = _getRawBytes(data, size)
 	try:
 		if raw is not None and len(raw) == 0:
-			tail = _finishPlayerProcessor(self)
+			tail = _finishPlayerProcessor(self) if onDone is None else _drainPlayerProcessor(self)
 			if tail:
-				return originalFeed(self, tail, len(tail), onDone)
-			_callOnDone(onDone)
-			return None
+				originalFeed(self, tail, len(tail), None)
+			return originalFeed(self, data, size, onDone)
 		if raw is not None and _shouldProcess(self, len(raw)):
 			waveFormat = _getWaveFormat(self)
 			if waveFormat is not None:
@@ -448,7 +448,7 @@ def _patchedFeed(self, data, size=None, onDone=None):
 						if processed:
 							return originalFeed(self, processed, len(processed), onDone)
 						if onDone is not None:
-							_callOnDone(onDone)
+							return originalFeed(self, None, 0, onDone)
 						return None
 				elif _isDebugLoggingEnabled():
 					log.debug(f"globalSonicPitch: bypassing non-16-bit audio: {bitsPerSample}")
@@ -531,7 +531,7 @@ def uninstallWavePlayerHook() -> None:
 			delattr(nvwave.WavePlayer, attr)
 		except Exception:
 			pass
-	_playerProcessors.clear()
+	_resetAllPlayerProcessors()
 	setattr(nvwave.WavePlayer, _FEED_PATCHED_ATTR, False)
 	log.info("globalSonicPitch: removed WavePlayer speech feed hook")
 

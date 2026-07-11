@@ -34,6 +34,7 @@ Dodatek był testowany lokalnie z:
 
 - RHVoice;
 - eSpeak NG;
+- eSpeak-NG SAPI przez SAPI5;
 - OneCore;
 - SAPI5 64-bit;
 - standardowym SAPI5 32-bit jako ścieżką ładowaną, ale nieprzetwarzaną globalnie.
@@ -149,6 +150,7 @@ połączenie obu efektów.
 | --- | --- |
 | RHVoice | Obsługiwany, jeśli audio trafia do głównego `WavePlayer`. |
 | eSpeak NG | Obsługiwany w głównym procesie NVDA. |
+| eSpeak-NG SAPI przez SAPI5 | Obsługiwany jako głos SAPI5 po skonfigurowaniu go w konfiguratorze eSpeak-NG SAPI. |
 | OneCore | Obsługiwany w głównym procesie NVDA. |
 | SAPI5 64-bit | Obsługiwany, gdy używa ścieżki audio NVDA. |
 | SAPI5 32-bit na 64-bitowym NVDA | Ładuje się normalnie, ale globalny Sonic go nie przetwarza. |
@@ -229,6 +231,18 @@ słychać przerwy, sprawdź czy nie masz bardzo dużego obciążenia CPU, bardzo
 agresywnego `Sonic pitch` oraz czy problem występuje na więcej niż jednym
 syntezatorze.
 
+Wersja 0.4.4 dodatkowo unika zmieniania wysokości aktywnego strumienia Sonic w
+locie. Gdy `Sonic pitch` zmienia się podczas mowy, stary procesor jest odrzucany,
+a świeży procesor startuje od następnego bloku audio. To bardziej konserwatywne,
+ale omija zawieszenia widziane z niektórymi głosami SAPI5 przy szybkim obniżaniu
+wysokości.
+
+### eSpeak-NG SAPI nie pojawia się w SAPI5
+
+Zewnętrzny głos eSpeak-NG SAPI trzeba najpierw skonfigurować jego własnym
+konfiguratorem. Po utworzeniu albo włączeniu profilu głosu zrestartuj NVDA i
+wybierz ten głos z normalnej listy głosów SAPI5.
+
 ### Standardowy SAPI5 32-bit nie ma globalnego Sonic pitch
 
 To jest znane ograniczenie. `sapi5_32` działa w osobnym hoście i nie jest
@@ -285,7 +299,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.3.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.4.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

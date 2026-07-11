@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.4
+
+- Fixes freezes with some SAPI5 voices, including eSpeak-NG SAPI, when Sonic
+  pitch is lowered rapidly during active speech.
+- Reverts the 0.4.3 in-place `SonicStream.pitch` update path. Pitch changes now
+  reset the active Sonic processor and start a fresh stream on the next audio
+  block instead of mutating the stream currently being fed by SAPI callbacks.
+- Avoids flushing and feeding the old Sonic stream tail when pitch changes
+  mid-utterance, reducing the chance of re-entrant SAPI/WavePlayer callbacks.
+- Adds locking around the per-player Sonic processor map and resets processors
+  when global mode or the Sonic pitch value changes.
+- Confirms standard SAPI5 still loads normally after testing with a configured
+  eSpeak-NG SAPI profile and the built-in SAPI5 voice.
+
 ## 0.4.3
 
 - Adds a `Support the author` button to the add-on settings panel.
