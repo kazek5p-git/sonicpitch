@@ -10,9 +10,11 @@ Dokumentacja angielska: [README.md](README.md)
 ## Najważniejsze Informacje
 
 - Dodatek nie dodaje nowych syntezatorów do okna wyboru syntezatora.
-- Po włączeniu trybu globalnego zwykły suwak `Wysokość` NVDA steruje Sonic.
-- Natywna wysokość aktywnego syntezatora jest utrzymywana neutralnie na `50`,
-  jeśli dany sterownik pozwala ją przejąć.
+- Zwykły suwak `Wysokość` NVDA nadal steruje natywną wysokością syntezatora.
+- Dodatek dodaje własne ustawienie `Sonic pitch` do ustawień głosu i
+  pierścienia ustawień syntezatora dla obsługiwanych syntezatorów.
+- `Sonic pitch` jest osobną regulacją Sonic i nie zastępuje natywnej
+  `Wysokości`.
 - Audio mowy jest filtrowane przez Sonic w głównym `WavePlayer` NVDA.
 - Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany, bo działa w
   osobnym 32-bitowym hoście.
@@ -57,20 +59,41 @@ Ostatnio testowana lokalnie konfiguracja: NVDA 2026.2 beta, 64-bit.
 1. Wybierz normalny syntezator NVDA, na przykład RHVoice, eSpeak, OneCore albo
    SAPI5 64-bit.
 2. W ustawieniach NVDA włącz `Global Sonic Pitch`.
-3. Zmieniaj wysokość normalnym ustawieniem głosu NVDA.
-4. Ustawienie `50` traktuj jako neutralne.
-5. Jeśli coś brzmi źle, wróć do `50` albo wyłącz globalny tryb w panelu dodatku.
+3. Zmieniaj przetwarzanie Sonic ustawieniem głosu `Sonic pitch` albo panelem
+   dodatku.
+4. Zmieniaj natywną wysokość syntezatora normalnym ustawieniem `Wysokość`, jeśli
+   chcesz używać obu regulacji równocześnie.
+5. Ustawienie `50` traktuj jako neutralne.
+6. Jeśli coś brzmi źle, wróć do `50` albo wyłącz globalny tryb w panelu dodatku.
 
 ## Ustawienia
 
 Panel `Global Sonic Pitch` zawiera:
 
-- `Enable global Sonic pitch` - włącza lub wyłącza globalne przejęcie wysokości.
+- `Enable global Sonic pitch` - włącza lub wyłącza globalne przetwarzanie Sonic
+  pitch.
 - `Sonic pitch` - ustawia wartość wysokości używaną przez Sonic.
 - `Enable debug logging` - dodaje szczegółowe wpisy do logu NVDA.
 
-Po włączeniu dodatku normalne ustawienie `Wysokość` w pierścieniu ustawień
-syntezatora zmienia tę samą wartość co suwak `Sonic pitch`.
+Normalne ustawienie `Wysokość` w pierścieniu ustawień syntezatora pozostaje
+natywnym ustawieniem aktywnego syntezatora. `Sonic pitch` jest osobnym
+ustawieniem dodatku.
+
+Dodatek próbuje też dodać osobne ustawienie `Sonic pitch` do standardowego
+dialogu `Głos` i do pierścienia ustawień syntezatora. To ustawienie jest
+dokładane dynamicznie do aktywnego syntezatora, bez modyfikowania rdzenia NVDA.
+Jeśli używasz dodatku `Synth ring settings selector`, `sonicPitch` jest
+dopisywane do jego listy dostępnych ustawień.
+
+W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` dostępne są komendy:
+
+- `Toggle global Sonic pitch`;
+- `Report global Sonic pitch status`;
+- `Increase global Sonic pitch`;
+- `Decrease global Sonic pitch`;
+- `Reset global Sonic pitch`.
+
+Komendy nie mają domyślnych gestów, więc możesz przypisać własne skróty.
 
 ## Jak Działa Wysokość
 
@@ -83,10 +106,10 @@ NVDA używa skali od `0` do `100`.
 - Współczynnik Sonic jest ograniczony do `0.70..1.45`, żeby uniknąć skrajnych
   zniekształceń.
 
-Gdy globalny tryb jest włączony, dodatek przechwytuje zmianę wysokości, zapisuje
-ją w swojej konfiguracji, a natywną wysokość syntezatora ustawia na `50`. Dzięki
-temu nie dochodzi do podwójnej zmiany wysokości: raz przez syntezator i drugi
-raz przez Sonic.
+Gdy globalny tryb jest włączony, dodatek przetwarza audio mowy przez Sonic według
+wartości `Sonic pitch`. Zwykła `Wysokość` NVDA nadal działa jako natywna
+wysokość syntezatora. Jeśli oba suwaki są ustawione poza `50`, usłyszysz
+połączenie obu efektów.
 
 ## Zgodność Syntezatorów
 
@@ -135,15 +158,15 @@ W logu powinny pojawić się wpisy podobne do:
 
 ```text
 globalSonicPitch: installed WavePlayer speech feed hook
-globalSonicPitch: installed synth pitch takeover hook
-globalSonicPitch: pitch takeover active; synth=RHVoice; sonicPitch=75; nativePitch=50
+globalSonicPitch: installed synth Sonic pitch setting hook
+globalSonicPitch: added Sonic pitch voice setting; synth=RHVoice
 globalSonicPitch: processed speech audio; synth=RHVoice; pitch=75
 ```
 
 Jeśli wybrany jest `sapi5_32`, oczekiwany wpis to:
 
 ```text
-globalSonicPitch: pitch takeover not available for synth=sapi5_32
+Loaded synthDriver sapi5_32
 ```
 
 ## Rozwiązywanie Problemów
@@ -157,10 +180,8 @@ ma, audio danego syntezatora prawdopodobnie nie przechodzi przez główny
 
 ### Syntezator zmienia swoją natywną wysokość
 
-Włącz debug logging i poszukaj `pitch takeover active`. Jeśli wpisu nie ma,
-dodatek nie mógł przejąć ustawienia pitch tego sterownika. W takim przypadku
-Sonic może nadal przetwarzać audio, ale natywna wysokość syntezatora nie musi
-być zablokowana.
+To jest teraz oczekiwane zachowanie. Zwykła `Wysokość` NVDA steruje natywną
+wysokością syntezatora, a `Sonic pitch` steruje tylko przetwarzaniem Sonic.
 
 ### Słychać drobne przerwy albo artefakty
 
@@ -188,10 +209,9 @@ Usuń stary dodatek `sapi5SonicPitch` z menedżera dodatków NVDA albo z katalog
 Najważniejsze frazy:
 
 - `globalSonicPitch`
-- `pitch takeover active`
-- `captured NVDA pitch`
+- `added Sonic pitch voice setting`
+- `captured Sonic pitch setting`
 - `processed speech audio`
-- `pitch takeover not available`
 - `Sonic is unavailable`
 
 ## Szczegóły Techniczne
@@ -204,7 +224,8 @@ Mechanizmy używane przez dodatek:
 - globalny plugin NVDA;
 - hook `nvwave.WavePlayer.feed`;
 - hook `WavePlayer.idle`, `stop` i `close` do obsługi końca strumienia;
-- przejęcie metod `_set_pitch` i `_get_pitch` aktywnego syntezatora;
+- dynamiczne dodanie ustawienia `sonicPitch` do `supportedSettings` aktywnego
+  syntezatora;
 - wewnętrzny `synthDrivers._sonic.SonicStream`.
 
 Sonic działa na ciągłym strumieniu audio per `WavePlayer`. Taki model jest
@@ -225,7 +246,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.3.2.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.1.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

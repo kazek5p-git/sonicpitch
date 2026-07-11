@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ctypes
-import types
 from typing import Any, Callable
 
 import addonHandler
@@ -13,10 +12,19 @@ import gui
 import nvwave
 import wx
 import gui.settingsDialogs as settingsDialogs
+try:
+	import globalVars
+except Exception:
+	globalVars = None
 from gui import guiHelper
 from gui.settingsDialogs import NVDASettingsDialog, SettingsPanel
 from logHandler import log
 from scriptHandler import script
+
+try:
+	from autoSettingsUtils.driverSetting import NumericDriverSetting
+except Exception:
+	NumericDriverSetting = None
 
 try:
 	import synthDriverHandler
@@ -48,6 +56,7 @@ NEUTRAL_PITCH = 50
 MAX_SEMITONES = 6.0
 MIN_SONIC_PITCH_RATIO = 0.70
 MAX_SONIC_PITCH_RATIO = 1.45
+SONIC_PITCH_SETTING_ID = "sonicPitch"
 
 UNSUPPORTED_GLOBAL_SYNTHS = {
 	# On 64-bit NVDA, sapi5_32 speaks in the separate 32-bit synth host.
@@ -64,16 +73,16 @@ _ORIGINAL_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSetSynth"
 _SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSetSynthPatched"
 _ORIGINAL_SETTINGS_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSettingsSetSynth"
 _SETTINGS_SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSettingsSetSynthPatched"
-_ORIGINAL_SET_PITCH_ATTR = "_globalSonicPitchOriginalSetPitch"
-_ORIGINAL_GET_PITCH_ATTR = "_globalSonicPitchOriginalGetPitch"
-_PITCH_PATCHED_ATTR = "_globalSonicPitchPitchPatched"
-_NEUTRALIZING_ATTR = "_globalSonicPitchNeutralizing"
+_ORIGINAL_SUPPORTED_SETTINGS_ATTR = "_globalSonicPitchOriginalSupportedSettings"
+_SONIC_PITCH_SETTING_PATCHED_ATTR = "_globalSonicPitchVoiceSettingPatched"
 
 _sonicModule = None
 _processingLogKeys: set[tuple[Any, ...]] = set()
-_pitchTakeoverLogKeys: set[tuple[Any, ...]] = set()
-_unsupportedSynthLogKeys: set[str] = set()
+_voiceSettingLogKeys: set[str] = set()
 _sonicUnavailableReason: str | None = None
+_sonicPitchDriverSetting: Any | None = None
+_missingClassAttr = object()
+_sonicPitchClassPatches: dict[type, Any] = {}
 _configMigrated = False
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
@@ -117,13 +126,19 @@ def _setConfigValue(key: str, value: Any) -> None:
 
 
 def _setGlobalEnabled(enabled: bool) -> None:
-	wasEnabled = bool(_getConfigValue("enabled", False))
 	_setConfigValue("enabled", bool(enabled))
 	if enabled:
 		_patchCurrentSynthPitch()
-		_activatePitchTakeoverForCurrentSynth()
-	elif wasEnabled:
-		_restoreCurrentSynthNativePitch()
+
+
+def _setGlobalPitch(pitch: int | float) -> int:
+	pitch = _clampPitch(pitch)
+	_setConfigValue("pitch", pitch)
+	return pitch
+
+
+def _changeGlobalPitch(delta: int) -> int:
+	return _setGlobalPitch(int(_getConfigValue("pitch", NEUTRAL_PITCH)) + delta)
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
@@ -491,178 +506,209 @@ def uninstallWavePlayerHook() -> None:
 	log.info("globalSonicPitch: removed WavePlayer speech feed hook")
 
 
-def _getOriginalSetPitch(synth: Any) -> Callable[[int], None] | None:
-	return getattr(synth, _ORIGINAL_SET_PITCH_ATTR, None)
+def _getSonicPitchDriverSetting() -> Any | None:
+	global _sonicPitchDriverSetting
+	if NumericDriverSetting is None:
+		return None
+	if _sonicPitchDriverSetting is not None:
+		return _sonicPitchDriverSetting
+	try:
+		_sonicPitchDriverSetting = NumericDriverSetting(
+			SONIC_PITCH_SETTING_ID,
+			_("Sonic pitch"),
+			availableInSettingsRing=True,
+			defaultVal=NEUTRAL_PITCH,
+			minVal=0,
+			maxVal=100,
+			minStep=1,
+			normalStep=5,
+			largeStep=10,
+			displayName=_("Sonic pitch"),
+			useConfig=False,
+		)
+	except TypeError:
+		try:
+			_sonicPitchDriverSetting = NumericDriverSetting(
+				SONIC_PITCH_SETTING_ID,
+				_("Sonic pitch"),
+				True,
+				NEUTRAL_PITCH,
+				0,
+				100,
+				1,
+				5,
+				10,
+				_("Sonic pitch"),
+				False,
+			)
+		except Exception:
+			log.debugWarning("globalSonicPitch: failed to create Sonic pitch voice setting", exc_info=True)
+			return None
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to create Sonic pitch voice setting", exc_info=True)
+		return None
+	return _sonicPitchDriverSetting
 
 
-def _getOriginalGetPitch(synth: Any) -> Callable[[], int] | None:
-	return getattr(synth, _ORIGINAL_GET_PITCH_ATTR, None)
+def _settingId(setting: Any) -> str:
+	return str(getattr(setting, "id", "") or "")
 
 
-def _isPitchTakeoverSupported(synth: Any | None) -> bool:
-	if synth is None:
+def _hasSonicPitchSetting(settings: Any) -> bool:
+	try:
+		return any(_settingId(setting) == SONIC_PITCH_SETTING_ID for setting in settings)
+	except Exception:
 		return False
-	synthName = _getSynthName(synth)
-	if not _isGlobalAudioSupportedSynth(synthName):
-		return False
-	return callable(getattr(synth, "_set_pitch", None)) and callable(getattr(synth, "_get_pitch", None))
 
 
-def _logUnsupportedPitchTakeover(synthName: str) -> None:
-	if synthName in _unsupportedSynthLogKeys and not _isDebugLoggingEnabled():
-		return
-	_unsupportedSynthLogKeys.add(synthName)
-	log.info(f"globalSonicPitch: pitch takeover not available for synth={synthName or 'unknown'}")
+def _patchedGetSonicPitchSetting(self):
+	return _clampPitch(_getConfigValue("pitch", NEUTRAL_PITCH))
 
 
-def _logPitchTakeoverOnce(synthName: str, sonicPitch: int, nativePitch: int | None = None) -> None:
-	key = (synthName, sonicPitch, nativePitch)
-	if key in _pitchTakeoverLogKeys and not _isDebugLoggingEnabled():
-		return
-	_pitchTakeoverLogKeys.add(key)
+def _patchedSetSonicPitchSetting(self, value):
+	pitch = _setGlobalPitch(value)
 	log.info(
-		"globalSonicPitch: pitch takeover active; "
-		f"synth={synthName or 'unknown'}; sonicPitch={sonicPitch}; "
-		f"nativePitch={NEUTRAL_PITCH}"
-		+ (f"; previousNativePitch={nativePitch}" if nativePitch is not None else ""),
+		"globalSonicPitch: captured Sonic pitch setting; "
+		f"synth={_getSynthName(self)}; sonicPitch={pitch}",
+	)
+	return None
+
+
+def _patchSonicPitchClassProperty(synth: Any) -> None:
+	synthClass = synth.__class__
+	if synthClass not in _sonicPitchClassPatches:
+		_sonicPitchClassPatches[synthClass] = getattr(synthClass, SONIC_PITCH_SETTING_ID, _missingClassAttr)
+	setattr(
+		synthClass,
+		SONIC_PITCH_SETTING_ID,
+		property(_patchedGetSonicPitchSetting, _patchedSetSonicPitchSetting),
 	)
 
 
-def _nativeGetPitch(synth: Any) -> int | None:
-	originalGetPitch = _getOriginalGetPitch(synth) or getattr(synth, "_get_pitch", None)
-	if not callable(originalGetPitch):
-		return None
+def _restoreSonicPitchClassProperty(synthClass: type) -> None:
+	if synthClass not in _sonicPitchClassPatches:
+		return
+	originalValue = _sonicPitchClassPatches.pop(synthClass)
 	try:
-		return _clampPitch(originalGetPitch())
+		if originalValue is _missingClassAttr:
+			delattr(synthClass, SONIC_PITCH_SETTING_ID)
+		else:
+			setattr(synthClass, SONIC_PITCH_SETTING_ID, originalValue)
 	except Exception:
-		return None
+		log.debugWarning("globalSonicPitch: failed to restore synth Sonic pitch class property", exc_info=True)
 
 
-def _nativeSetPitch(synth: Any, pitch: int) -> bool:
-	originalSetPitch = _getOriginalSetPitch(synth) or getattr(synth, "_set_pitch", None)
-	if not callable(originalSetPitch):
-		return False
+def _restoreAllSonicPitchClassProperties() -> None:
+	for synthClass in list(_sonicPitchClassPatches):
+		_restoreSonicPitchClassProperty(synthClass)
+
+
+def _ensureSynthRingSettingsSelectorIncludesSonicPitch() -> None:
 	try:
-		setattr(synth, _NEUTRALIZING_ATTR, True)
-		originalSetPitch(_clampPitch(pitch))
-		return True
+		if "synthRingSettingsSelector" not in config.conf.spec:
+			config.conf.spec["synthRingSettingsSelector"] = {
+				"availableSettings": (
+					"string_list(default=list('language', 'voice', 'variant', 'rate', "
+					"'rateBoost', 'volume', 'pitch', 'inflection', 'sonicPitch'))"
+				),
+			}
+		selectorConfig = config.conf["synthRingSettingsSelector"]
+		availableSettings = list(selectorConfig.get("availableSettings", []))
+		if SONIC_PITCH_SETTING_ID in availableSettings:
+			return
+		availableSettings.append(SONIC_PITCH_SETTING_ID)
+		selectorConfig["availableSettings"] = availableSettings
+		log.info("globalSonicPitch: added Sonic pitch to synthRingSettingsSelector settings list")
 	except Exception:
-		log.debugWarning("globalSonicPitch: failed to set native synth pitch", exc_info=True)
-		return False
-	finally:
-		try:
-			setattr(synth, _NEUTRALIZING_ATTR, False)
-		except Exception:
-			pass
+		log.debugWarning("globalSonicPitch: failed to update synthRingSettingsSelector integration", exc_info=True)
 
 
-def _activatePitchTakeoverForSynth(synth: Any | None) -> None:
-	if not bool(_getConfigValue("enabled", False)):
+def _updateSynthSettingsRing(synth: Any | None) -> None:
+	if synth is None or globalVars is None:
 		return
-	if not _isPitchTakeoverSupported(synth):
-		_logUnsupportedPitchTakeover(_getSynthName(synth))
+	settingsRing = getattr(globalVars, "settingsRing", None)
+	if settingsRing is None:
 		return
-	nativePitch = _nativeGetPitch(synth)
-	sonicPitch = _clampPitch(_getConfigValue("pitch", NEUTRAL_PITCH))
-	if sonicPitch == NEUTRAL_PITCH and nativePitch not in (None, NEUTRAL_PITCH):
-		sonicPitch = nativePitch
-		_setConfigValue("pitch", sonicPitch)
-	if _nativeSetPitch(synth, NEUTRAL_PITCH):
-		_logPitchTakeoverOnce(_getSynthName(synth), sonicPitch, nativePitch)
+	try:
+		settingsRing.updateSupportedSettings(synth)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to update synth settings ring", exc_info=True)
 
 
-def _activatePitchTakeoverForCurrentSynth() -> None:
-	_activatePitchTakeoverForSynth(_getCurrentSynth())
-
-
-def _restoreCurrentSynthNativePitch() -> None:
-	synth = _getCurrentSynth()
-	if not _isPitchTakeoverSupported(synth):
-		return
-	pitch = _clampPitch(_getConfigValue("pitch", NEUTRAL_PITCH))
-	if _nativeSetPitch(synth, pitch):
-		log.info(f"globalSonicPitch: restored native pitch; synth={_getSynthName(synth)}; pitch={pitch}")
-
-
-def _patchedSetPitch(self, value):
-	originalSetPitch = _getOriginalSetPitch(self)
-	if not callable(originalSetPitch):
+def _getReadableSonicPitchSettingValue(synth: Any) -> int | None:
+	try:
+		return _clampPitch(getattr(synth, SONIC_PITCH_SETTING_ID))
+	except Exception:
+		log.debugWarning("globalSonicPitch: Sonic pitch voice setting is not readable", exc_info=True)
 		return None
-	if getattr(self, _NEUTRALIZING_ATTR, False):
-		return originalSetPitch(value)
-	if bool(_getConfigValue("enabled", False)):
-		sonicPitch = _clampPitch(value)
-		_setConfigValue("pitch", sonicPitch)
-		_nativeSetPitch(self, NEUTRAL_PITCH)
-		log.info(
-			"globalSonicPitch: captured NVDA pitch; "
-			f"synth={_getSynthName(self)}; sonicPitch={sonicPitch}; nativePitch={NEUTRAL_PITCH}",
-		)
-		return None
-	return originalSetPitch(value)
 
 
-def _patchedGetPitch(self):
-	if bool(_getConfigValue("enabled", False)):
-		return _clampPitch(_getConfigValue("pitch", NEUTRAL_PITCH))
-	originalGetPitch = _getOriginalGetPitch(self)
-	if callable(originalGetPitch):
-		return originalGetPitch()
-	return NEUTRAL_PITCH
+def _logVoiceSettingOnce(synthName: str, value: int | None = None) -> None:
+	if synthName in _voiceSettingLogKeys and not _isDebugLoggingEnabled():
+		return
+	_voiceSettingLogKeys.add(synthName)
+	log.info(
+		"globalSonicPitch: added Sonic pitch voice setting; "
+		f"synth={synthName or 'unknown'}"
+		+ (f"; value={value}" if value is not None else ""),
+	)
 
 
-def _patchSynthPitch(synth: Any | None) -> None:
+def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 	if synth is None:
 		return
-	if getattr(synth, _PITCH_PATCHED_ATTR, False):
-		if bool(_getConfigValue("enabled", False)):
-			_activatePitchTakeoverForSynth(synth)
+	synthName = _getSynthName(synth)
+	if not _isGlobalAudioSupportedSynth(synthName):
 		return
-	if not _isPitchTakeoverSupported(synth):
-		if bool(_getConfigValue("enabled", False)):
-			_logUnsupportedPitchTakeover(_getSynthName(synth))
+	setting = _getSonicPitchDriverSetting()
+	if setting is None:
 		return
 	try:
-		setattr(synth, _ORIGINAL_SET_PITCH_ATTR, getattr(synth, "_set_pitch"))
-		setattr(synth, _ORIGINAL_GET_PITCH_ATTR, getattr(synth, "_get_pitch"))
-		synth._set_pitch = types.MethodType(_patchedSetPitch, synth)
-		synth._get_pitch = types.MethodType(_patchedGetPitch, synth)
-		setattr(synth, _PITCH_PATCHED_ATTR, True)
-		log.info(f"globalSonicPitch: patched pitch setting; synth={_getSynthName(synth)}")
+		_patchSonicPitchClassProperty(synth)
+		supportedSettings = tuple(getattr(synth, "supportedSettings", ()))
+		if not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
+			setattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, supportedSettings)
+			if not _hasSonicPitchSetting(supportedSettings):
+				synth.supportedSettings = supportedSettings + (setting,)
+			setattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, True)
+		elif not _hasSonicPitchSetting(supportedSettings):
+			synth.supportedSettings = supportedSettings + (setting,)
+		settingValue = _getReadableSonicPitchSettingValue(synth)
+		if settingValue is None:
+			_unpatchSynthSonicPitchSetting(synth)
+			return
+		_ensureSynthRingSettingsSelectorIncludesSonicPitch()
+		_updateSynthSettingsRing(synth)
+		_logVoiceSettingOnce(synthName, settingValue)
 	except Exception:
-		log.debugWarning("globalSonicPitch: failed to patch synth pitch setting", exc_info=True)
-		return
-	if bool(_getConfigValue("enabled", False)):
-		_activatePitchTakeoverForSynth(synth)
+		log.debugWarning("globalSonicPitch: failed to add Sonic pitch voice setting", exc_info=True)
 
 
-def _unpatchSynthPitch(synth: Any | None) -> None:
-	if synth is None or not getattr(synth, _PITCH_PATCHED_ATTR, False):
+def _unpatchSynthSonicPitchSetting(synth: Any | None) -> None:
+	if synth is None or not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
 		return
-	originalSetPitch = _getOriginalSetPitch(synth)
-	originalGetPitch = _getOriginalGetPitch(synth)
 	try:
-		if callable(originalSetPitch):
-			synth._set_pitch = originalSetPitch
-		if callable(originalGetPitch):
-			synth._get_pitch = originalGetPitch
+		originalSupportedSettings = getattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, None)
+		if originalSupportedSettings is not None:
+			synth.supportedSettings = originalSupportedSettings
 		for attr in (
-			_ORIGINAL_SET_PITCH_ATTR,
-			_ORIGINAL_GET_PITCH_ATTR,
-			_PITCH_PATCHED_ATTR,
-			_NEUTRALIZING_ATTR,
+			_ORIGINAL_SUPPORTED_SETTINGS_ATTR,
+			_SONIC_PITCH_SETTING_PATCHED_ATTR,
 		):
 			try:
 				delattr(synth, attr)
 			except Exception:
 				pass
-		log.info(f"globalSonicPitch: restored pitch setting hook; synth={_getSynthName(synth)}")
+		_restoreSonicPitchClassProperty(synth.__class__)
+		_updateSynthSettingsRing(synth)
+		log.info(f"globalSonicPitch: removed Sonic pitch voice setting; synth={_getSynthName(synth)}")
 	except Exception:
-		log.debugWarning("globalSonicPitch: failed to restore synth pitch setting", exc_info=True)
+		log.debugWarning("globalSonicPitch: failed to remove Sonic pitch voice setting", exc_info=True)
 
 
 def _patchCurrentSynthPitch() -> None:
-	_patchSynthPitch(_getCurrentSynth())
+	synth = _getCurrentSynth()
+	_patchSynthSonicPitchSetting(synth)
 
 
 def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
@@ -699,13 +745,14 @@ def installSynthPitchHook() -> None:
 		settingsDialogs.setSynth = _patchedSettingsSetSynth
 		setattr(settingsDialogs, _SETTINGS_SET_SYNTH_PATCHED_ATTR, True)
 	_patchCurrentSynthPitch()
-	log.info("globalSonicPitch: installed synth pitch takeover hook")
+	log.info("globalSonicPitch: installed synth Sonic pitch setting hook")
 
 
 def uninstallSynthPitchHook() -> None:
 	if synthDriverHandler is None:
 		return
-	_unpatchSynthPitch(_getCurrentSynth())
+	_unpatchSynthSonicPitchSetting(_getCurrentSynth())
+	_restoreAllSonicPitchClassProperties()
 	if getattr(settingsDialogs, _SETTINGS_SET_SYNTH_PATCHED_ATTR, False):
 		originalSettingsSetSynth = getattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR, None)
 		if originalSettingsSetSynth is not None and settingsDialogs.setSynth is _patchedSettingsSetSynth:
@@ -725,7 +772,7 @@ def uninstallSynthPitchHook() -> None:
 	except Exception:
 		pass
 	setattr(synthDriverHandler, _SET_SYNTH_PATCHED_ATTR, False)
-	log.info("globalSonicPitch: removed synth pitch takeover hook")
+	log.info("globalSonicPitch: removed synth Sonic pitch setting hook")
 
 
 class GlobalSonicPitchSettingsPanel(SettingsPanel):
@@ -810,3 +857,33 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			message = f"{message}. Sonic unavailable: {_sonicUnavailableReason}"
 		if ui is not None:
 			ui.message(message)
+
+	@script(
+		description=_("Increase global Sonic pitch"),
+		category=scriptCategory,
+	)
+	def script_increaseGlobalSonicPitch(self, gesture):
+		pitch = _changeGlobalPitch(5)
+		config.conf.save()
+		if ui is not None:
+			ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
+
+	@script(
+		description=_("Decrease global Sonic pitch"),
+		category=scriptCategory,
+	)
+	def script_decreaseGlobalSonicPitch(self, gesture):
+		pitch = _changeGlobalPitch(-5)
+		config.conf.save()
+		if ui is not None:
+			ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
+
+	@script(
+		description=_("Reset global Sonic pitch"),
+		category=scriptCategory,
+	)
+	def script_resetGlobalSonicPitch(self, gesture):
+		pitch = _setGlobalPitch(NEUTRAL_PITCH)
+		config.conf.save()
+		if ui is not None:
+			ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))

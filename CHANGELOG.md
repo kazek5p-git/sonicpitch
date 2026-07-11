@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.1
+
+- Changes global mode so NVDA's normal `Pitch` setting remains the synth's
+  native pitch control even when Sonic pitch processing is enabled.
+- Keeps `Sonic pitch` as the separate add-on-controlled Sonic processing value
+  exposed in the add-on panel, Voice settings, synth settings ring, and
+  assignable Input Gestures.
+- Updates Polish and English documentation to describe the two independent pitch
+  controls.
+
+## 0.4.0
+
+- Adds a dynamic `Sonic pitch` numeric setting to supported synths, so NVDA's
+  standard Voice dialog and synth settings ring can expose the global Sonic
+  pitch value without modifying NVDA itself.
+- Integrates with `Synth ring settings selector` by adding `sonicPitch` to its
+  available settings list when that add-on is present or loaded later.
+- Adds assignable Input Gestures for increasing, decreasing, and resetting
+  global Sonic pitch.
+- Updates Polish and English documentation for the new Voice dialog/ring
+  control path.
+
 ## 0.3.2
 
 - Expands Polish and English user documentation with quick start, settings,

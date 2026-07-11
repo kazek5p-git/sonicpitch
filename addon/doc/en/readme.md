@@ -8,8 +8,10 @@ NVDA's main process.
 
 - Adds a `Global Sonic Pitch` settings panel.
 - Does not add synthesizers to NVDA's synthesizer dialog.
-- Captures NVDA's normal `Pitch` setting when enabled.
-- Keeps the active synth's native pitch at neutral `50` where supported.
+- Adds a `Sonic pitch` setting to standard Voice settings and the synth
+  settings ring when the active synth is supported.
+- NVDA's normal `Pitch` setting continues to control the synth's native pitch.
+- `Sonic pitch` is a separate Sonic control.
 - Processes speech audio through Sonic.
 
 ## Quick Start
@@ -19,19 +21,30 @@ NVDA's main process.
 2. Open NVDA Settings.
 3. Choose `Global Sonic Pitch`.
 4. Enable `Enable global Sonic pitch`.
-5. Change pitch from NVDA's normal voice setting or the `Sonic pitch` slider.
+5. Change Sonic processing from the `Sonic pitch` voice setting or the add-on
+   panel's `Sonic pitch` slider.
+6. Change native pitch from NVDA's normal `Pitch` setting if you want to use
+   both controls together.
 
 Pitch `50` is neutral. Values below `50` lower speech, and values above `50`
 raise speech.
 
 ## Settings
 
-- `Enable global Sonic pitch` - enables global pitch takeover.
+- `Enable global Sonic pitch` - enables global Sonic pitch processing.
 - `Sonic pitch` - sets the pitch used by Sonic.
 - `Enable debug logging` - writes detailed entries to the NVDA log.
 
-When global mode is enabled, NVDA's normal voice settings ring changes the same
-value as the `Sonic pitch` slider.
+NVDA's normal `Pitch` setting remains the synth's native pitch. `Sonic pitch`
+is a separate add-on setting.
+
+The add-on tries to add a separate `Sonic pitch` slider to NVDA's Voice dialog
+and synth settings ring without modifying NVDA itself. If `Synth ring settings
+selector` is installed, `sonicPitch` is added to its settings list.
+
+In Input Gestures, the `Global Sonic Pitch` category lets you assign gestures
+for toggling, reporting status, increasing, decreasing, and resetting Sonic
+pitch.
 
 ## Compatibility
 
@@ -56,15 +69,15 @@ Enable `Enable debug logging`, restart NVDA, and check `%TEMP%\nvda.log`.
 Useful entries:
 
 - `globalSonicPitch: installed WavePlayer speech feed hook`
-- `globalSonicPitch: installed synth pitch takeover hook`
-- `globalSonicPitch: pitch takeover active`
-- `globalSonicPitch: captured NVDA pitch`
+- `globalSonicPitch: installed synth Sonic pitch setting hook`
+- `globalSonicPitch: added Sonic pitch voice setting`
+- `globalSonicPitch: captured Sonic pitch setting`
 - `globalSonicPitch: processed speech audio`
 
 For standard `sapi5_32`, the expected entry is:
 
 ```text
-globalSonicPitch: pitch takeover not available for synth=sapi5_32
+Loaded synthDriver sapi5_32
 ```
 
 ## Troubleshooting
@@ -72,9 +85,9 @@ globalSonicPitch: pitch takeover not available for synth=sapi5_32
 If pitch does not change, make sure global mode is enabled and pitch is not
 `50`. Also check whether `processed speech audio` appears in the log.
 
-If you still hear the synth's native pitch change, check for `pitch takeover
-active`. If it is missing, the add-on could not take over that driver's pitch
-setting.
+If you hear the synth's native pitch change, that is expected. NVDA's normal
+`Pitch` setting controls native pitch, while `Sonic pitch` controls only Sonic
+processing.
 
 If small audio gaps remain, check CPU load, less extreme pitch values, and more
 than one synth. Since version 0.3.1, the add-on uses a continuous Sonic stream

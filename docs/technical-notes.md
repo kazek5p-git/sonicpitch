@@ -11,8 +11,12 @@ Version 0.3.0 changed the add-on identity from `sapi5SonicPitch` to
 `globalSonicPitch` and removes the previous custom SAPI5 synth drivers from the
 package. The current package contains only a global plugin and documentation.
 
-Version 0.3.2 is documentation-only. It does not change runtime behavior from
-0.3.1.
+Version 0.4.0 adds a dynamic `sonicPitch` driver setting so NVDA's standard
+Voice dialog and synth settings ring can expose the add-on pitch without
+changing NVDA's installed files.
+
+Version 0.4.1 stops taking over NVDA's normal `pitch` setting. Native `pitch`
+and add-on `sonicPitch` are independent controls.
 
 ## Config
 
@@ -42,27 +46,44 @@ ratio = 2 ** (semitones / 12)
 
 The final Sonic pitch ratio is clamped to `0.70..1.45`.
 
-## Pitch Takeover
+## Native Pitch And Sonic Pitch
 
-Filtering audio alone is not enough. If the selected synth receives NVDA's
-native pitch change, the user hears the synth's own pitch plus any Sonic shift.
+The add-on intentionally does not patch the active synth instance's `_set_pitch`
+or `_get_pitch` methods in version 0.4.1 and newer.
 
-When global Sonic pitch is enabled, the plugin patches the active synth
-instance's `_set_pitch` and `_get_pitch` methods at runtime:
+NVDA's normal `pitch` setting remains native synth pitch. The add-on's
+`sonicPitch` setting is a separate value stored in `[globalSonicPitch] pitch`.
+If both are away from neutral `50`, the user hears the combined native synth
+pitch and Sonic processing.
 
-- `_set_pitch(value)` stores `value` in `[globalSonicPitch] pitch`;
-- the synth's original `_set_pitch` is called with neutral `50`;
-- `_get_pitch()` returns the add-on pitch while the global mode is enabled;
-- when the mode is disabled, the add-on restores the stored pitch to the native
-  synth.
+The add-on still wraps `synthDriverHandler.setSynth` so it can inject the
+dynamic `sonicPitch` setting after synth changes.
 
-The patch is applied to the current synth on startup and after
-`synthDriverHandler.setSynth` completes. It is removed when the global plugin is
-terminated.
-
-The built-in `sapi5_32` synth is excluded because its speech is produced in the
+The built-in `sapi5_32` synth is excluded from Sonic processing because its speech is produced in the
 separate 32-bit host on 64-bit NVDA. Taking over its pitch in the main process
 would neutralize native pitch without Sonic being able to process the audio.
+
+## Dynamic Voice Setting
+
+For supported main-process synths, the plugin adds a `NumericDriverSetting`
+with id `sonicPitch` to the active synth instance's `supportedSettings`.
+
+The setting is not stored in the synth's own config. At runtime, the plugin adds
+a class-level Python `property` named `sonicPitch` to the active synth class.
+That property reads and writes `[globalSonicPitch] pitch`.
+
+An earlier prototype tried to attach `_get_sonicPitch` and `_set_sonicPitch` to
+the synth instance. That does not work reliably because NVDA's
+`AutoPropertyType` creates descriptor properties from `_get_*` methods when the
+class is created, not when methods are later added to an instance.
+
+The plugin updates `globalVars.settingsRing` after inserting the setting. If the
+`Synth ring settings selector` add-on is present or loaded later, the plugin
+adds `sonicPitch` to that add-on's `availableSettings` list so the selector does
+not hide it from the ring.
+
+On plugin termination, the original `supportedSettings` tuple is restored for
+the current synth.
 
 ## Global WavePlayer Path
 
@@ -97,10 +118,9 @@ The most useful logs while debugging are:
 Look for:
 
 - `globalSonicPitch: installed WavePlayer speech feed hook`
-- `globalSonicPitch: installed synth pitch takeover hook`
-- `globalSonicPitch: patched pitch setting`
-- `globalSonicPitch: pitch takeover active`
-- `globalSonicPitch: captured NVDA pitch`
+- `globalSonicPitch: installed synth Sonic pitch setting hook`
+- `globalSonicPitch: added Sonic pitch voice setting`
+- `globalSonicPitch: captured Sonic pitch setting`
 - `globalSonicPitch: processed speech audio`
 - `globalSonicPitch: Sonic is unavailable`
 
@@ -109,7 +129,9 @@ Look for:
 This add-on relies on private NVDA internals:
 
 - `synthDriverHandler.setSynth`
-- synth driver `_set_pitch` and `_get_pitch`
+- `autoSettingsUtils.driverSetting.NumericDriverSetting`
+- `globalVars.settingsRing.updateSupportedSettings`
+- synth driver `supportedSettings`
 - `synthDrivers._sonic.SonicStream.pitch`
 - `nvwave.WavePlayer.feed`
 - `nvwave.WavePlayer.idle`

@@ -8,9 +8,11 @@ przechodzi przez główny proces NVDA.
 
 - Dodaje panel ustawień `Global Sonic Pitch`.
 - Nie dodaje nowych syntezatorów do okna wyboru syntezatora.
-- Po włączeniu przechwytuje normalne ustawienie `Wysokość` NVDA.
-- Utrzymuje natywną wysokość aktywnego syntezatora neutralnie na `50`, jeśli
-  dany sterownik na to pozwala.
+- Dodaje ustawienie `Sonic pitch` do standardowych ustawień głosu i pierścienia
+  ustawień syntezatora, jeśli aktywny syntezator jest obsługiwany.
+- Zwykłe ustawienie `Wysokość` NVDA nadal steruje natywną wysokością
+  syntezatora.
+- `Sonic pitch` jest osobną regulacją Sonic.
 - Przetwarza audio mowy przez Sonic.
 
 ## Szybki Start
@@ -20,20 +22,31 @@ przechodzi przez główny proces NVDA.
 2. Otwórz ustawienia NVDA.
 3. Wybierz kategorię `Global Sonic Pitch`.
 4. Włącz `Enable global Sonic pitch`.
-5. Zmieniaj wysokość zwykłym ustawieniem głosu NVDA albo suwakiem
-   `Sonic pitch`.
+5. Zmieniaj przetwarzanie Sonic ustawieniem głosu `Sonic pitch` albo suwakiem
+   `Sonic pitch` w panelu dodatku.
+6. Zmieniaj natywną wysokość normalnym ustawieniem `Wysokość`, jeśli chcesz
+   używać obu regulacji równocześnie.
 
 Wysokość `50` jest neutralna. Wartości poniżej `50` obniżają głos, a wartości
 powyżej `50` podwyższają głos.
 
 ## Ustawienia
 
-- `Enable global Sonic pitch` - włącza globalne przejęcie wysokości.
+- `Enable global Sonic pitch` - włącza globalne przetwarzanie Sonic pitch.
 - `Sonic pitch` - ustawia wysokość używaną przez Sonic.
 - `Enable debug logging` - zapisuje szczegółowe wpisy do logu NVDA.
 
-Gdy tryb globalny jest włączony, zwykły pierścień ustawień głosu NVDA zmienia
-tę samą wartość co suwak `Sonic pitch`.
+Zwykła `Wysokość` w pierścieniu ustawień głosu NVDA pozostaje natywną
+wysokością syntezatora. `Sonic pitch` jest osobnym ustawieniem dodatku.
+
+Dodatek próbuje dodać osobny suwak `Sonic pitch` do dialogu `Głos` i do
+pierścienia ustawień syntezatora bez modyfikowania rdzenia NVDA. Jeśli używasz
+dodatku `Synth ring settings selector`, `sonicPitch` jest dopisywane do jego
+listy ustawień.
+
+W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` można przypisać gesty
+do włączania, odczytu stanu, zwiększania, zmniejszania i resetowania Sonic
+pitch.
 
 ## Zgodność
 
@@ -59,15 +72,15 @@ Włącz `Enable debug logging`, zrestartuj NVDA i sprawdź `%TEMP%\nvda.log`.
 Przydatne wpisy:
 
 - `globalSonicPitch: installed WavePlayer speech feed hook`
-- `globalSonicPitch: installed synth pitch takeover hook`
-- `globalSonicPitch: pitch takeover active`
-- `globalSonicPitch: captured NVDA pitch`
+- `globalSonicPitch: installed synth Sonic pitch setting hook`
+- `globalSonicPitch: added Sonic pitch voice setting`
+- `globalSonicPitch: captured Sonic pitch setting`
 - `globalSonicPitch: processed speech audio`
 
 Dla standardowego `sapi5_32` oczekiwany jest wpis:
 
 ```text
-globalSonicPitch: pitch takeover not available for synth=sapi5_32
+Loaded synthDriver sapi5_32
 ```
 
 ## Rozwiązywanie Problemów
@@ -76,9 +89,9 @@ Jeśli wysokość się nie zmienia, upewnij się, że globalny tryb jest włącz
 wartość pitch nie wynosi `50`. Sprawdź też, czy w logu pojawia się
 `processed speech audio`.
 
-Jeśli słychać natywną zmianę wysokości syntezatora, sprawdź w logu wpis
-`pitch takeover active`. Brak tego wpisu oznacza, że dodatek nie mógł przejąć
-ustawienia pitch danego sterownika.
+Jeśli słychać natywną zmianę wysokości syntezatora, to jest oczekiwane.
+`Wysokość` NVDA steruje natywną wysokością, a `Sonic pitch` steruje tylko
+przetwarzaniem Sonic.
 
 Jeśli słychać drobne przerwy, sprawdź obciążenie CPU, mniej skrajne wartości
 pitch i porównaj kilka syntezatorów. Od wersji 0.3.1 dodatek używa ciągłego
