@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2
+
+- Expands Polish and English user documentation with quick start, settings,
+  compatibility, migration, verification, troubleshooting, logs, and build
+  sections.
+- Rewrites the packaged NVDA help files in Polish and English so the installed
+  add-on includes practical usage and diagnostic guidance.
+- No runtime behavior changes from 0.3.1.
+
 ## 0.3.1
 
 - Changes project links to the renamed GitHub repository `sonicpitch`.

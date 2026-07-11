@@ -11,6 +11,9 @@ Version 0.3.0 changed the add-on identity from `sapi5SonicPitch` to
 `globalSonicPitch` and removes the previous custom SAPI5 synth drivers from the
 package. The current package contains only a global plugin and documentation.
 
+Version 0.3.2 is documentation-only. It does not change runtime behavior from
+0.3.1.
+
 ## Config
 
 Current config section:
