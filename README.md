@@ -143,7 +143,7 @@ combined result.
 | --- | --- |
 | RHVoice | Supported when audio reaches the main `WavePlayer`. |
 | eSpeak NG | Supported in NVDA's main process. |
-| eSpeak-NG SAPI through SAPI5 | Supported as a SAPI5 voice after it is configured in the eSpeak-NG SAPI configurator. |
+| eSpeak-NG SAPI through SAPI5 | Supported as a SAPI5 voice after it is configured in the eSpeak-NG SAPI configurator. Version 0.4.6 and newer also help NVDA list these dynamic voices in the standard SAPI5 voice list. |
 | OneCore | Supported in NVDA's main process. |
 | 64-bit SAPI5 | Supported when it uses NVDA's audio path. |
 | 32-bit SAPI5 on 64-bit NVDA | Loads normally, but global Sonic does not process it. |
@@ -238,6 +238,12 @@ configuration tool before it appears in SAPI5. After creating or enabling a
 voice profile there, restart NVDA and choose the voice from the normal SAPI5
 voice list.
 
+NVDA 2026.2 reads standard SAPI5 voice tokens directly from the registry path
+used by ordinary voices. eSpeak-NG SAPI exposes configured voices through a
+dynamic SAPI token enumerator instead. Since version 0.4.6, this add-on appends
+only those eSpeak-NG SAPI dynamic tokens to NVDA's standard `sapi5` voice list
+at runtime. It does not modify NVDA files or write registry voice tokens.
+
 ### Standard 32-bit SAPI5 Has No Global Sonic Pitch
 
 This is a known limitation. `sapi5_32` runs in a separate host and is not
@@ -274,6 +280,8 @@ It uses:
   stream state;
 - dynamic insertion of a `sonicPitch` setting into the active synth's
   `supportedSettings`;
+- runtime addition of configured eSpeak-NG SAPI dynamic tokens to NVDA's
+  standard `sapi5` voice list;
 - NVDA's internal `synthDrivers._sonic.SonicStream`.
 
 Sonic is kept as a continuous stream per `WavePlayer`. This is important for
@@ -294,7 +302,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.5.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.6.nvda-addon -Force
 ```
 
 Syntax check:

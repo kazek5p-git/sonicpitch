@@ -77,7 +77,10 @@ SAPI przez SAPI5 i podobnymi syntezatorami, jeśli ich 16-bitowe PCM mowy trafia
 do głównego `WavePlayer` NVDA.
 
 Zewnętrzne głosy eSpeak-NG SAPI trzeba najpierw skonfigurować w konfiguratorze
-eSpeak-NG SAPI. Dopiero wtedy pojawią się na normalnej liście głosów SAPI5.
+eSpeak-NG SAPI. Od wersji 0.4.6 dodatek pomaga też NVDA pokazać skonfigurowane
+dynamiczne głosy eSpeak-NG SAPI na normalnej liście głosów SAPI5 w czasie
+działania, bez modyfikowania plików NVDA i bez zapisywania tokenów głosów w
+rejestrze.
 
 Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany. Działa w osobnym
 32-bitowym hoście syntezatorów, więc ten globalny plugin nie może przetwarzać

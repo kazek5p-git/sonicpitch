@@ -76,7 +76,10 @@ eSpeak-NG SAPI through SAPI5, and similar synths when their 16-bit PCM speech
 audio reaches NVDA's main `WavePlayer`.
 
 Third-party eSpeak-NG SAPI voices must be configured in the eSpeak-NG SAPI
-configuration tool before they appear in the normal SAPI5 voice list.
+configuration tool before they appear in SAPI. Since version 0.4.6, this add-on
+also helps NVDA list configured eSpeak-NG SAPI dynamic voices in the normal
+SAPI5 voice list at runtime, without modifying NVDA files or writing registry
+voice tokens.
 
 Standard `sapi5_32` on 64-bit NVDA is deliberately skipped. It runs in a
 separate 32-bit synth host, so this global plugin cannot process that audio.

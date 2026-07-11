@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.6
+
+- Adds a runtime compatibility hook for eSpeak-NG SAPI dynamic voice tokens.
+- NVDA 2026.2 reads SAPI5 voices directly from the standard
+  `Speech\Voices\Tokens` registry path, while eSpeak-NG SAPI exposes configured
+  voices through `Speech\Voices\TokenEnums\eSpeak-NG`.
+- The add-on now appends only eSpeak-NG SAPI dynamic tokens returned by the
+  Windows SAPI enumerator to NVDA's standard `sapi5` voice list.
+- Does not modify NVDA files or write registry voice tokens.
+- Verified locally that NVDA's `sapi5` voice list includes configured
+  `Polish (sandro)` and `Polish klatt6` eSpeak-NG SAPI voices.
+
 ## 0.4.5
 
 - Reduces lock contention during Sonic processing for fast SAPI5 voices.

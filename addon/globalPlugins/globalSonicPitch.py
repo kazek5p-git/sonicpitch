@@ -78,10 +78,14 @@ _ORIGINAL_SETTINGS_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSettingsSetSynth"
 _SETTINGS_SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSettingsSetSynthPatched"
 _ORIGINAL_SUPPORTED_SETTINGS_ATTR = "_globalSonicPitchOriginalSupportedSettings"
 _SONIC_PITCH_SETTING_PATCHED_ATTR = "_globalSonicPitchVoiceSettingPatched"
+_ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR = "_globalSonicPitchOriginalGetVoiceTokens"
+_SAPI5_VOICE_ENUM_PATCHED_ATTR = "_globalSonicPitchVoiceEnumPatched"
+_ESPEAK_NG_SAPI_TOKEN_ENUM_PART = "\\Speech\\Voices\\TokenEnums\\eSpeak-NG\\"
 
 _sonicModule = None
 _processingLogKeys: set[tuple[Any, ...]] = set()
 _voiceSettingLogKeys: set[str] = set()
+_sapi5VoiceEnumLogKeys: set[str] = set()
 _sonicUnavailableReason: str | None = None
 _sonicPitchDriverSetting: Any | None = None
 _missingClassAttr = object()
@@ -582,6 +586,87 @@ def _getSonicPitchDriverSetting() -> Any | None:
 	return _sonicPitchDriverSetting
 
 
+def _isEspeakNgSapiTokenId(tokenId: str) -> bool:
+	return _ESPEAK_NG_SAPI_TOKEN_ENUM_PART.lower() in str(tokenId).lower()
+
+
+def _tokenId(token: Any) -> str | None:
+	try:
+		return str(token.Id)
+	except Exception:
+		return None
+
+
+def _patchedSapi5GetVoiceTokens(self):
+	originalGetVoiceTokens = getattr(self.__class__, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR)
+	tokens = list(originalGetVoiceTokens(self))
+	seen = {tokenId for tokenId in (_tokenId(token) for token in tokens) if tokenId}
+	try:
+		dynamicTokens = self.tts.GetVoices("", "")
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to enumerate SAPI5 dynamic voices", exc_info=True)
+		return tokens
+	added = 0
+	try:
+		tokenCount = len(dynamicTokens)
+	except Exception:
+		tokenCount = 0
+	for index in range(tokenCount):
+		try:
+			token = dynamicTokens[index]
+		except Exception:
+			continue
+		tokenId = _tokenId(token)
+		if not tokenId or tokenId in seen or not _isEspeakNgSapiTokenId(tokenId):
+			continue
+		tokens.append(token)
+		seen.add(tokenId)
+		added += 1
+	if added:
+		key = f"added:{added}"
+		if key not in _sapi5VoiceEnumLogKeys:
+			_sapi5VoiceEnumLogKeys.add(key)
+			log.info(f"globalSonicPitch: added {added} eSpeak-NG SAPI dynamic voices to NVDA sapi5 voice list")
+	return tokens
+
+
+def installSapi5VoiceEnumerationHook() -> None:
+	try:
+		import synthDrivers.sapi5 as sapi5
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to import sapi5 for voice enumeration hook", exc_info=True)
+		return
+	synthClass = getattr(sapi5, "SynthDriver", None)
+	if synthClass is None or getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
+		return
+	originalGetVoiceTokens = getattr(synthClass, "_getVoiceTokens", None)
+	if not callable(originalGetVoiceTokens):
+		return
+	setattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, originalGetVoiceTokens)
+	synthClass._getVoiceTokens = _patchedSapi5GetVoiceTokens
+	setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, True)
+	log.info("globalSonicPitch: installed eSpeak-NG SAPI voice enumeration hook")
+
+
+def uninstallSapi5VoiceEnumerationHook() -> None:
+	try:
+		import synthDrivers.sapi5 as sapi5
+	except Exception:
+		return
+	synthClass = getattr(sapi5, "SynthDriver", None)
+	if synthClass is None or not getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
+		return
+	originalGetVoiceTokens = getattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, None)
+	if originalGetVoiceTokens is not None and getattr(synthClass, "_getVoiceTokens", None) is _patchedSapi5GetVoiceTokens:
+		synthClass._getVoiceTokens = originalGetVoiceTokens
+	try:
+		delattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR)
+	except Exception:
+		pass
+	setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False)
+	log.info("globalSonicPitch: removed eSpeak-NG SAPI voice enumeration hook")
+
+
 def _settingId(setting: Any) -> str:
 	return str(getattr(setting, "id", "") or "")
 
@@ -883,6 +968,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		_ensureConfigSpec()
+		installSapi5VoiceEnumerationHook()
 		installWavePlayerHook()
 		installSynthPitchHook()
 		if GlobalSonicPitchSettingsPanel not in NVDASettingsDialog.categoryClasses:
@@ -895,6 +981,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		finally:
 			uninstallSynthPitchHook()
 			uninstallWavePlayerHook()
+			uninstallSapi5VoiceEnumerationHook()
 			super().terminate()
 
 	@script(

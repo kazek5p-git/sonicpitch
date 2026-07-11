@@ -44,6 +44,17 @@ now protects only lookup, insertion, removal, and reset. Each
 global lock around expensive Sonic processing, which matters for fast SAPI5
 voices such as eSpeak-NG SAPI at rate 100.
 
+Version 0.4.6 adds a narrow SAPI5 voice-list compatibility hook for eSpeak-NG
+SAPI. NVDA 2026.2 reads voice IDs from the standard
+`HKLM\SOFTWARE\Microsoft\Speech\Voices\Tokens` registry path. eSpeak-NG SAPI
+exposes configured voices through the dynamic SAPI token enumerator path
+`HKLM\SOFTWARE\Microsoft\Speech\Voices\TokenEnums\eSpeak-NG`, so Windows SAPI
+can see them while NVDA's direct registry scan can miss them. The add-on patches
+`synthDrivers.sapi5.SynthDriver._getVoiceTokens` at runtime and appends only
+dynamic token IDs containing `\Speech\Voices\TokenEnums\eSpeak-NG\` from
+`ISpeechVoice.GetVoices`. It restores the original method on termination. It
+does not patch NVDA files on disk and does not write registry voice tokens.
+
 ## Config
 
 Current config section:
@@ -168,6 +179,7 @@ Look for:
 This add-on relies on private NVDA internals:
 
 - `synthDriverHandler.setSynth`
+- `synthDrivers.sapi5.SynthDriver._getVoiceTokens`
 - `autoSettingsUtils.driverSetting.NumericDriverSetting`
 - `globalVars.settingsRing.updateSupportedSettings`
 - synth driver `supportedSettings`
