@@ -6,14 +6,16 @@ while maintaining SAPI5 Sonic Pitch.
 ## Design Goal
 
 The add-on must provide Sonic-based pitch adjustment without changing NVDA's
-built-in `sapi5` or `sapi5_32` synthesizers.
+installed files or built-in synth driver modules.
 
-Current releases expose only separate synth drivers:
+The add-on exposes separate synth drivers:
 
 - `sapi5SonicPitch64`
 - `sapi5SonicPitch32`
 
-There is no `globalPlugins` package in the add-on. That is intentional.
+Version 0.2.0 also installs `globalPlugins/sapi5SonicPitchGlobal.py`, which is a
+runtime-only global WavePlayer hook. It must remain optional and disabled by
+default.
 
 ## Pitch Mapping
 
@@ -33,6 +35,10 @@ SAPI XML pitch is neutralized by returning `0` from `_percentToPitch`. This
 prevents double pitch processing: SAPI should not shift pitch while Sonic is
 also shifting pitch.
 
+The global processor uses the same mapping, but it uses its own add-on setting
+instead of modifying the selected synth's native pitch. For clean testing, the
+selected synth's own pitch should be set to neutral.
+
 ## 64-bit Path
 
 `sapi5SonicPitch64.py` imports NVDA's normal `synthDrivers.sapi5` module and
@@ -49,6 +55,33 @@ The host-side module appends NVDA's built-in `_synthDrivers32` path to
 `synthDrivers.__path__`, then imports the 32-bit `synthDrivers.sapi5` module.
 Pitch is applied inside the 32-bit host process, where the 32-bit SAPI5 voice
 actually runs.
+
+## Global WavePlayer Path
+
+`globalPlugins/sapi5SonicPitchGlobal.py` hooks `nvwave.WavePlayer.feed` at
+runtime. It does not patch files on disk.
+
+The hook is intentionally narrow:
+
+- it only processes `WavePlayer` instances whose `_purpose` is
+  `nvwave.AudioPurpose.SPEECH`;
+- it only processes 16-bit PCM blocks;
+- it processes one incoming block into one outgoing block, preserving the same
+  `onDone` callback;
+- it bypasses non-speech sounds;
+- it bypasses this add-on's own `sapi5SonicPitch32` and `sapi5SonicPitch64`
+  synths by default;
+- it falls back to the original `WavePlayer.feed` call on any exception.
+
+The one-block-in, one-block-out design is less sophisticated than a long-lived
+Sonic stream, but it avoids buffering speech indexes across callback boundaries.
+That makes it safer as a global add-on hook.
+
+The built-in `sapi5_32` proxy on 64-bit NVDA is not globally filtered by this
+hook. Its audio is produced in NVDA's separate 32-bit synth host, which does not
+load this global plugin. Do not patch the standard proxy to force this behavior;
+that was the class of change that previously broke ordinary `sapi5_32` loading.
+Use `sapi5SonicPitch32` for 32-bit SAPI5 Sonic pitch.
 
 ## Sonic Stream Access
 
@@ -88,6 +121,8 @@ The most useful logs while debugging are:
 Look for:
 
 - `applied Sonic pitch`
+- `sapi5SonicPitchGlobal: installed WavePlayer speech feed hook`
+- `sapi5SonicPitchGlobal: processed speech audio`
 - `pitch setting changed`
 - `recreating WASAPI/Sonic stream`
 - `Sonic pitch unavailable`
@@ -103,6 +138,7 @@ This add-on relies on private NVDA internals:
 - `synthDrivers.sapi5.SynthDriver._initWasapiAudio`
 - `SynthDriver.sonicStream`
 - `synthDrivers._sonic.SonicStream.pitch`
+- `nvwave.WavePlayer.feed`
+- `nvwave.AudioPurpose.SPEECH`
 
 Any NVDA release that changes those APIs may require add-on changes.
-

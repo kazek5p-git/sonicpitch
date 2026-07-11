@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+- Adds an experimental global Sonic pitch processor.
+- Installs a global plugin that can hook `nvwave.WavePlayer.feed` for speech
+  audio only.
+- Adds an NVDA settings panel for enabling global processing, setting global
+  Sonic pitch, enabling debug logs, and optionally processing the add-on's own
+  SAPI5 Sonic Pitch synthesizers.
+- Keeps global Sonic processing disabled by default.
+- Keeps the existing `SAPI5 32-bit Sonic Pitch` and `SAPI5 64-bit Sonic Pitch`
+  synthesizers.
+- Leaves NVDA's built-in synthesizer drivers unmodified.
+
 ## 0.1.9
 
 - Documentation-focused release.

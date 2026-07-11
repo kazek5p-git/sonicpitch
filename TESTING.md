@@ -21,6 +21,19 @@ Test matrix:
 17. Standard SAPI5 32-bit still loads after enabling the add-on.
 18. Standard SAPI5 64-bit still loads after enabling the add-on.
 19. Add-on help opens in English and Polish locales.
+20. Global Sonic processing disabled: eSpeak, RHVoice, OneCore, SAPI5 32-bit,
+    and SAPI5 64-bit load normally.
+21. Global Sonic processing enabled: eSpeak, RHVoice, OneCore, SAPI5 32-bit,
+    and SAPI5 64-bit still load and produce speech.
+22. Global Sonic processing enabled: logs show `sapi5SonicPitchGlobal:
+    processed speech audio` for PCM synths in the main NVDA process.
+23. Global Sonic processing enabled: NVDA sound effects are not processed as
+    speech audio.
+24. Global Sonic processing enabled: `sapi5SonicPitch32` and
+    `sapi5SonicPitch64` are skipped by default to avoid double processing.
+25. Global Sonic processing enabled: standard `sapi5_32` still loads, but is not
+    expected to be globally filtered on 64-bit NVDA because it runs in the
+    separate 32-bit synth host.
 
 Expected results:
 
@@ -40,7 +53,11 @@ Expected results:
 - Say-all does not obviously regress.
 - Missing base modules or missing Sonic internals are handled gracefully.
 - Standard NVDA `sapi5` and `sapi5_32` drivers are not modified by the add-on.
-- The installed add-on package contains no `globalPlugins` directory.
+- The installed add-on package contains `globalPlugins` only for the optional
+  global WavePlayer hook and settings panel.
+- Global Sonic processing is disabled by default.
+- Standard `sapi5_32` is not patched by the global processor; use
+  `sapi5SonicPitch32` for 32-bit SAPI5 Sonic pitch.
 
 Packaging:
 

@@ -1,13 +1,14 @@
 # SAPI5 Sonic Pitch
 
-SAPI5 Sonic Pitch to dodatek do NVDA, który dodaje osobne syntezatory Microsoft
-SAPI5 z korekcją wysokości realizowaną przez wewnętrzny strumień Sonic w NVDA.
+SAPI5 Sonic Pitch to dodatek do NVDA, który dodaje zmianę wysokości przez Sonic
+dla Microsoft SAPI5 oraz eksperymentalnie dla innych syntezatorów NVDA, które
+przekazują PCM przez `WavePlayer`.
 
 Dokumentacja angielska: [README.md](README.md)
 
 ## Co Dodaje Dodatek
 
-Dodatek dodaje dwa wybory w oknie syntezatorów NVDA:
+Dodatek dodaje dwa wybory SAPI5 w oknie syntezatorów NVDA:
 
 - `SAPI5 32-bit Sonic Pitch`
 - `SAPI5 64-bit Sonic Pitch`
@@ -16,14 +17,21 @@ To są osobne syntezatory. Dodatek nie zastępuje, nie podmienia i nie łata
 wbudowanych syntezatorów NVDA `sapi5` oraz `sapi5_32`. Po wyłączeniu dodatku
 standardowe SAPI5 powinno działać tak samo jak wcześniej.
 
+Wersja 0.2.0 dodaje też eksperymentalny globalny procesor Sonic. Jest domyślnie
+wyłączony i można go włączyć w ustawieniach NVDA. Po włączeniu filtruje audio
+mowy na poziomie `nvwave.WavePlayer.feed`, więc może działać z eSpeak, RHVoice,
+OneCore, SAPI5, Vocalizerem i innymi syntezatorami, które przekazują PCM przez
+NVDA.
+
 ## Kiedy Tego Używać
 
 Dodatek jest przydatny dla głosów SAPI5, które ignorują normalne ustawienie
 wysokości w NVDA albo zmieniają wysokość słabo przez standardowy mechanizm SAPI
 XML.
 
-Dodatek dotyczy tylko głosów SAPI5. Nie wpływa na OneCore, eSpeak, RHVoice,
-Vocalizer ani inne syntezatory NVDA.
+Osobne syntezatory Sonic Pitch dotyczą tylko głosów SAPI5. Opcjonalny procesor
+globalny służy do szerszych testów z eSpeak, RHVoice, OneCore, Vocalizerem i
+podobnymi syntezatorami PCM.
 
 ## Wymagania
 
@@ -45,6 +53,10 @@ Aktualny release był testowany lokalnie na NVDA 2026.2 beta, 64-bit.
 5. Otwórz okno wyboru syntezatora i wybierz `SAPI5 32-bit Sonic Pitch` albo
    `SAPI5 64-bit Sonic Pitch`.
 
+Aby przetestować tryb globalny, otwórz ustawienia NVDA, wybierz kategorię
+`SAPI5 Sonic Pitch`, włącz globalne przetwarzanie Sonic i ustaw globalną
+wysokość.
+
 ## Używanie Wysokości
 
 Po wybraniu jednego z syntezatorów Sonic Pitch zmieniaj wysokość zwykłym
@@ -60,6 +72,31 @@ ustawieniem głosu w NVDA.
 Tempo, głośność, wybór głosu i rate boost nadal obsługuje standardowa logika
 sterownika SAPI5 w NVDA. Sonic Pitch zmienia tylko sposób stosowania globalnej
 wysokości.
+
+## Globalny Sonic Pitch
+
+Procesor globalny jest trybem eksperymentalnym. Nie edytuje plików zainstalowanej
+kopii NVDA. Dodatek instaluje globalny plugin i podpina się do
+`nvwave.WavePlayer` w czasie działania NVDA.
+
+Tryb globalny:
+
+- jest domyślnie wyłączony;
+- przetwarza tylko obiekty `WavePlayer` używane do mowy, nie dźwięki NVDA;
+- przetwarza 16-bitowe bloki PCM;
+- używa własnego globalnego ustawienia wysokości zamiast zmieniać natywne
+  ustawienie wybranego syntezatora;
+- domyślnie pomija własne syntezatory `sapi5SonicPitch32` i
+  `sapi5SonicPitch64`, żeby uniknąć podwójnego przetwarzania Sonic;
+- przepuszcza oryginalny blok audio, jeśli przetwarzanie Sonic się nie powiedzie.
+
+Do najczystszego testu ustaw natywną wysokość wybranego syntezatora na neutralną
+i steruj wysokością z panelu `SAPI5 Sonic Pitch`.
+
+Wbudowany syntezator `sapi5_32` jest przypadkiem specjalnym na 64-bitowym NVDA,
+bo jego audio powstaje w osobnym 32-bitowym hoście syntezatorów. Globalny hook
+WavePlayer celowo nie łata tego hosta. Dla 32-bitowych głosów SAPI5 użyj
+`SAPI5 32-bit Sonic Pitch`.
 
 ## SAPI5 32-bit I 64-bit
 
@@ -86,9 +123,9 @@ syntezator NVDA `Microsoft Speech API version 5 (32 bit)`. Jeżeli wbudowany
 syntezator też nie działa, problem jest poza tym dodatkiem.
 
 Jeśli zwykły `sapi5` albo `sapi5_32` przestaje działać tylko wtedy, gdy dodatek
-jest włączony, upewnij się, że używasz wersji `0.1.8` lub nowszej. Starsze
-wersje robocze przez krótki czas zawierały globalny moduł naprawczy. Aktualne
-wydania nie instalują żadnego globalnego pluginu.
+jest włączony, najpierw wyłącz globalne przetwarzanie Sonic w panelu
+`SAPI5 Sonic Pitch`. Wersja 0.2.0 instaluje globalny plugin do opcjonalnego
+filtrowania audio, ale nie powinna łatać samych wbudowanych sterowników SAPI5.
 
 Przydatne logi NVDA:
 
@@ -101,12 +138,14 @@ W logach warto szukać:
 - `sapi5SonicPitch`
 - `sapi5SonicPitch32`
 - `sapi5SonicPitch64`
+- `sapi5SonicPitchGlobal`
 - `Sonic pitch unavailable`
 
 ## Znane Ograniczenia
 
 - Dodatek używa prywatnych wewnętrznych mechanizmów NVDA związanych z WASAPI i
   Sonic.
+- Procesor globalny używa hooka w czasie działania na `nvwave.WavePlayer.feed`.
 - Jeśli NVDA zmieni `sonicStream`, `_initWasapiAudio` albo 32-bitowy host
   syntezatorów, dodatek może wymagać aktualizacji.
 - Starsze ścieżki audio bez WASAPI nie udostępniają strumienia Sonic, więc Sonic
@@ -128,7 +167,7 @@ Przykład w PowerShellu:
 
 ```powershell
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\sapi5SonicPitch.zip -Force
-Move-Item .\dist\sapi5SonicPitch.zip .\dist\sapi5SonicPitch-0.1.9.nvda-addon -Force
+Move-Item .\dist\sapi5SonicPitch.zip .\dist\sapi5SonicPitch-0.2.0.nvda-addon -Force
 ```
 
 Przed publikacją paczki warto wykonać kontrolę składni:
@@ -144,6 +183,7 @@ python -m py_compile `
 ## Struktura Repozytorium
 
 - `addon/manifest.ini` - manifest dodatku NVDA.
+- `addon/globalPlugins/` - opcjonalny globalny procesor Sonic i ustawienia.
 - `addon/synthDrivers/` - sterowniki syntezatorów Sonic Pitch.
 - `addon/doc/en/readme.md` - angielska pomoc dodatku.
 - `addon/doc/pl/readme.md` - polska pomoc dodatku.
