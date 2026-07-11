@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2
+
+- Shows the dynamic `Sonic pitch` setting in NVDA Voice settings and the synth
+  settings ring only while `Enable global Sonic pitch` is enabled.
+- Removes the `Sonic pitch` voice setting again when global Sonic pitch is
+  disabled, leaving NVDA's normal voice settings uncluttered.
+- Updates documentation to clarify that the add-on settings panel is always
+  available, while the Voice dialog/ring setting is conditional.
+
 ## 0.4.1
 
 - Changes global mode so NVDA's normal `Pitch` setting remains the synth's

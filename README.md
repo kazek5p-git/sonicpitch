@@ -1,7 +1,8 @@
 # Global Sonic Pitch
 
-Global Sonic Pitch is an NVDA add-on that captures NVDA's normal speech pitch
-setting and applies it through Sonic audio processing. It works globally for
+Global Sonic Pitch is an NVDA add-on that adds a separate `Sonic pitch` control
+and applies it through Sonic audio processing. NVDA's normal `Pitch` setting
+remains the active synth's native pitch control. The add-on works globally for
 synthesizers whose speech audio is played through NVDA's main process.
 
 Polish documentation: [README.pl.md](README.pl.md)
@@ -10,8 +11,8 @@ Polish documentation: [README.pl.md](README.pl.md)
 
 - The add-on does not add synthesizers to NVDA's synthesizer dialog.
 - NVDA's normal `Pitch` setting continues to control the synth's native pitch.
-- The add-on adds its own `Sonic pitch` setting to Voice settings and the synth
-  settings ring for supported synthesizers.
+- When global mode is enabled, the add-on adds its own `Sonic pitch` setting to
+  Voice settings and the synth settings ring for supported synthesizers.
 - `Sonic pitch` is a separate Sonic control and does not replace native `Pitch`.
 - Speech audio is filtered through Sonic in NVDA's main `WavePlayer`.
 - Standard `sapi5_32` on 64-bit NVDA is deliberately skipped because it speaks
@@ -19,9 +20,9 @@ Polish documentation: [README.pl.md](README.pl.md)
 
 ## Who This Is For
 
-Use Global Sonic Pitch when you want one Sonic-based pitch method across several
-NVDA synthesizers, especially when a voice's native pitch control sounds poor or
-behaves inconsistently.
+Use Global Sonic Pitch when you want an additional, independent Sonic-based
+pitch control across several NVDA synthesizers, especially when a voice's native
+pitch control sounds poor or behaves inconsistently.
 
 Tested locally with:
 
@@ -59,10 +60,11 @@ Latest local test target: NVDA 2026.2 beta, 64-bit.
    SAPI5.
 2. Enable `Global Sonic Pitch` in NVDA settings.
 3. Change Sonic processing with the `Sonic pitch` voice setting or the add-on
-   panel.
+   panel. If `Sonic pitch` is not in Voice settings yet, enable global mode in
+   the add-on panel and reopen Voice settings.
 4. Change native synth pitch with NVDA's normal `Pitch` setting if you want to
    use both controls together.
-5. Treat pitch `50` as neutral.
+5. Treat `Sonic pitch` value `50` as neutral.
 6. If the result sounds wrong, return to `50` or disable global mode.
 
 ## Settings
@@ -76,10 +78,17 @@ The `Global Sonic Pitch` panel contains:
 NVDA's normal `Pitch` setting remains the active synth's native pitch setting.
 `Sonic pitch` is a separate add-on setting.
 
-The add-on also tries to add a separate `Sonic pitch` setting to NVDA's standard
-Voice dialog and synth settings ring. This setting is injected dynamically into
-the active synth without modifying NVDA itself. If `Synth ring settings selector`
-is installed, `sonicPitch` is added to its available settings list.
+The add-on panel is always available in NVDA Settings so the feature can be
+enabled or disabled.
+
+While `Enable global Sonic pitch` is enabled, the add-on also tries to add a
+separate `Sonic pitch` setting to NVDA's standard Voice dialog and synth
+settings ring. This setting is injected dynamically into the active synth
+without modifying NVDA itself. When global Sonic pitch is disabled, the setting
+is removed from Voice settings and the synth settings ring.
+
+If `Synth ring settings selector` is installed, `sonicPitch` is added to its
+available settings list so it can appear in the ring while global mode is on.
 
 The `Global Sonic Pitch` category in Input Gestures contains:
 
@@ -121,11 +130,11 @@ combined result.
 
 Standard `sapi5_32` on 64-bit NVDA speaks through a separate 32-bit synth host.
 This add-on's global plugin is loaded in the main NVDA process, not in that
-host. Therefore, the add-on does not take over `sapi5_32` pitch and does not
-process its audio through Sonic.
+host. Therefore, the add-on does not process `sapi5_32` audio through Sonic and
+does not add the separate `Sonic pitch` setting to that synth.
 
 This is intentional. It keeps standard `sapi5_32` loading normally and avoids
-neutralizing native pitch when Sonic cannot process that audio path.
+altering native pitch when Sonic cannot process that audio path.
 
 ## Migration From SAPI5 Sonic Pitch
 
@@ -146,7 +155,7 @@ the synthesizer dialog, the old add-on is still installed.
 1. Enable `Enable debug logging` in the `Global Sonic Pitch` settings panel.
 2. Restart NVDA.
 3. Select RHVoice, eSpeak, OneCore, or 64-bit SAPI5.
-4. Set pitch to something other than `50`, such as `75`.
+4. Set `Sonic pitch` to something other than `50`, such as `75`.
 5. Open the current NVDA log at `%TEMP%\nvda.log`.
 
 Expected log entries:
@@ -166,11 +175,17 @@ Loaded synthDriver sapi5_32
 
 ## Troubleshooting
 
-### Pitch Does Not Change
+### Sonic Pitch Is Not In Voice Settings
 
-Check that global mode is enabled and pitch is not `50`. Then check the NVDA
-log for `processed speech audio`. If that entry is missing, the selected synth
-probably does not feed audio through NVDA's main `WavePlayer`.
+Enable `Enable global Sonic pitch` in the `Global Sonic Pitch` settings panel,
+then reopen Voice settings or switch synthesizers. The add-on hides the
+`Sonic pitch` voice setting while global Sonic pitch is disabled.
+
+### Sonic Pitch Does Not Change
+
+Check that global mode is enabled and `Sonic pitch` is not `50`. Then check the
+NVDA log for `processed speech audio`. If that entry is missing, the selected
+synth probably does not feed audio through NVDA's main `WavePlayer`.
 
 ### The Synth Still Changes Its Native Pitch
 
@@ -181,8 +196,8 @@ pitch, while `Sonic pitch` controls only Sonic processing.
 
 Since version 0.3.1, the add-on keeps a continuous Sonic stream for the active
 `WavePlayer` and avoids flushing every small block. If gaps remain, check CPU
-load, extreme pitch values, and whether the issue happens with more than one
-synth.
+load, extreme `Sonic pitch` values, and whether the issue happens with more than
+one synth.
 
 ### Standard 32-bit SAPI5 Has No Global Sonic Pitch
 
@@ -240,7 +255,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.1.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.2.nvda-addon -Force
 ```
 
 Syntax check:

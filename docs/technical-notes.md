@@ -18,6 +18,9 @@ changing NVDA's installed files.
 Version 0.4.1 stops taking over NVDA's normal `pitch` setting. Native `pitch`
 and add-on `sonicPitch` are independent controls.
 
+Version 0.4.2 makes the dynamic `sonicPitch` Voice dialog/ring setting visible
+only while global Sonic pitch is enabled.
+
 ## Config
 
 Current config section:
@@ -32,12 +35,13 @@ debugLogging = boolean(default=False)
 The plugin migrates values from the old `[sapi5SonicPitchGlobal]` section once
 at startup so users testing version 0.2.0 keep their enabled state and pitch.
 
-## Pitch Mapping
+## Sonic Pitch Mapping
 
-NVDA exposes pitch as a value from `0` to `100`.
+The add-on exposes `Sonic pitch` as a value from `0` to `100`, matching NVDA's
+usual pitch scale.
 
-The add-on treats `50` as neutral and maps the full range to approximately
-`-6..+6` semitones:
+For Sonic processing, the add-on treats `50` as neutral and maps the full range
+to approximately `-6..+6` semitones:
 
 ```text
 semitones = ((pitchPercent - 50) / 50) * 6
@@ -56,17 +60,24 @@ NVDA's normal `pitch` setting remains native synth pitch. The add-on's
 If both are away from neutral `50`, the user hears the combined native synth
 pitch and Sonic processing.
 
-The add-on still wraps `synthDriverHandler.setSynth` so it can inject the
-dynamic `sonicPitch` setting after synth changes.
+The add-on still wraps `synthDriverHandler.setSynth` so it can inject or remove
+the dynamic `sonicPitch` setting after synth changes.
 
-The built-in `sapi5_32` synth is excluded from Sonic processing because its speech is produced in the
-separate 32-bit host on 64-bit NVDA. Taking over its pitch in the main process
-would neutralize native pitch without Sonic being able to process the audio.
+The built-in `sapi5_32` synth is excluded from Sonic processing because its
+speech is produced in the separate 32-bit host on 64-bit NVDA. The main-process
+global plugin cannot process that host's audio, so `sapi5_32` is left as a
+normal native synth path.
 
 ## Dynamic Voice Setting
 
-For supported main-process synths, the plugin adds a `NumericDriverSetting`
-with id `sonicPitch` to the active synth instance's `supportedSettings`.
+For supported main-process synths, while `[globalSonicPitch] enabled` is true,
+the plugin adds a `NumericDriverSetting` with id `sonicPitch` to the active
+synth instance's `supportedSettings`.
+
+When `[globalSonicPitch] enabled` is false, the plugin removes that dynamic
+setting again. This keeps NVDA's standard Voice dialog and synth settings ring
+native-only while the add-on processing is disabled. The add-on's own settings
+panel remains available so the user can turn the feature back on.
 
 The setting is not stored in the synth's own config. At runtime, the plugin adds
 a class-level Python `property` named `sonicPitch` to the active synth class.
@@ -77,10 +88,10 @@ the synth instance. That does not work reliably because NVDA's
 `AutoPropertyType` creates descriptor properties from `_get_*` methods when the
 class is created, not when methods are later added to an instance.
 
-The plugin updates `globalVars.settingsRing` after inserting the setting. If the
-`Synth ring settings selector` add-on is present or loaded later, the plugin
-adds `sonicPitch` to that add-on's `availableSettings` list so the selector does
-not hide it from the ring.
+The plugin updates `globalVars.settingsRing` after inserting or removing the
+setting. If the `Synth ring settings selector` add-on is present or loaded
+later, the plugin adds `sonicPitch` to that add-on's `availableSettings` list so
+the selector does not hide it from the ring while global mode is enabled.
 
 On plugin termination, the original `supportedSettings` tuple is restored for
 the current synth.

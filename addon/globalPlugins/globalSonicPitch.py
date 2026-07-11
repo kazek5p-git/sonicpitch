@@ -127,8 +127,7 @@ def _setConfigValue(key: str, value: Any) -> None:
 
 def _setGlobalEnabled(enabled: bool) -> None:
 	_setConfigValue("enabled", bool(enabled))
-	if enabled:
-		_patchCurrentSynthPitch()
+	_patchCurrentSynthPitch()
 
 
 def _setGlobalPitch(pitch: int | float) -> int:
@@ -657,6 +656,9 @@ def _logVoiceSettingOnce(synthName: str, value: int | None = None) -> None:
 def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 	if synth is None:
 		return
+	if not bool(_getConfigValue("enabled", False)):
+		_unpatchSynthSonicPitchSetting(synth)
+		return
 	synthName = _getSynthName(synth)
 	if not _isGlobalAudioSupportedSynth(synthName):
 		return
@@ -708,7 +710,11 @@ def _unpatchSynthSonicPitchSetting(synth: Any | None) -> None:
 
 def _patchCurrentSynthPitch() -> None:
 	synth = _getCurrentSynth()
-	_patchSynthSonicPitchSetting(synth)
+	if bool(_getConfigValue("enabled", False)):
+		_patchSynthSonicPitchSetting(synth)
+	else:
+		_unpatchSynthSonicPitchSetting(synth)
+		_restoreAllSonicPitchClassProperties()
 
 
 def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):

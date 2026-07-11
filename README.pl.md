@@ -1,9 +1,9 @@
 # Global Sonic Pitch
 
-Global Sonic Pitch to dodatek do NVDA, który przejmuje normalne ustawienie
-wysokości mowy NVDA i stosuje je przez przetwarzanie audio Sonic. Dodatek działa
-globalnie dla syntezatorów, których audio mowy przechodzi przez główny proces
-NVDA.
+Global Sonic Pitch to dodatek do NVDA, który dodaje osobną regulację `Sonic
+pitch` i stosuje ją przez przetwarzanie audio Sonic. Zwykła `Wysokość` NVDA
+pozostaje natywnym ustawieniem aktywnego syntezatora. Dodatek działa globalnie
+dla syntezatorów, których audio mowy przechodzi przez główny proces NVDA.
 
 Dokumentacja angielska: [README.md](README.md)
 
@@ -11,8 +11,9 @@ Dokumentacja angielska: [README.md](README.md)
 
 - Dodatek nie dodaje nowych syntezatorów do okna wyboru syntezatora.
 - Zwykły suwak `Wysokość` NVDA nadal steruje natywną wysokością syntezatora.
-- Dodatek dodaje własne ustawienie `Sonic pitch` do ustawień głosu i
-  pierścienia ustawień syntezatora dla obsługiwanych syntezatorów.
+- Po włączeniu trybu globalnego dodatek dodaje własne ustawienie `Sonic pitch`
+  do ustawień głosu i pierścienia ustawień syntezatora dla obsługiwanych
+  syntezatorów.
 - `Sonic pitch` jest osobną regulacją Sonic i nie zastępuje natywnej
   `Wysokości`.
 - Audio mowy jest filtrowane przez Sonic w głównym `WavePlayer` NVDA.
@@ -21,9 +22,10 @@ Dokumentacja angielska: [README.md](README.md)
 
 ## Dla Kogo Jest Ten Dodatek
 
-Użyj Global Sonic Pitch, jeśli chcesz mieć jedną metodę zmiany wysokości mowy
-dla różnych syntezatorów NVDA, szczególnie wtedy, gdy natywna regulacja
-wysokości danego głosu brzmi gorzej albo zachowuje się niespójnie.
+Użyj Global Sonic Pitch, jeśli chcesz mieć dodatkową, niezależną regulację
+wysokości przez Sonic dla różnych syntezatorów NVDA. Przydaje się to szczególnie
+wtedy, gdy natywna regulacja wysokości danego głosu brzmi gorzej albo zachowuje
+się niespójnie.
 
 Dodatek był testowany lokalnie z:
 
@@ -60,10 +62,11 @@ Ostatnio testowana lokalnie konfiguracja: NVDA 2026.2 beta, 64-bit.
    SAPI5 64-bit.
 2. W ustawieniach NVDA włącz `Global Sonic Pitch`.
 3. Zmieniaj przetwarzanie Sonic ustawieniem głosu `Sonic pitch` albo panelem
-   dodatku.
+   dodatku. Jeśli `Sonic pitch` nie ma jeszcze w ustawieniach głosu, włącz tryb
+   globalny w panelu dodatku i otwórz ustawienia głosu ponownie.
 4. Zmieniaj natywną wysokość syntezatora normalnym ustawieniem `Wysokość`, jeśli
    chcesz używać obu regulacji równocześnie.
-5. Ustawienie `50` traktuj jako neutralne.
+5. Ustawienie `50` traktuj jako neutralne dla `Sonic pitch`.
 6. Jeśli coś brzmi źle, wróć do `50` albo wyłącz globalny tryb w panelu dodatku.
 
 ## Ustawienia
@@ -79,11 +82,18 @@ Normalne ustawienie `Wysokość` w pierścieniu ustawień syntezatora pozostaje
 natywnym ustawieniem aktywnego syntezatora. `Sonic pitch` jest osobnym
 ustawieniem dodatku.
 
-Dodatek próbuje też dodać osobne ustawienie `Sonic pitch` do standardowego
-dialogu `Głos` i do pierścienia ustawień syntezatora. To ustawienie jest
-dokładane dynamicznie do aktywnego syntezatora, bez modyfikowania rdzenia NVDA.
+Panel dodatku jest zawsze dostępny w ustawieniach NVDA, żeby można było włączyć
+albo wyłączyć funkcję.
+
+Gdy `Enable global Sonic pitch` jest włączone, dodatek próbuje też dodać osobne
+ustawienie `Sonic pitch` do standardowego dialogu `Głos` i do pierścienia
+ustawień syntezatora. To ustawienie jest dokładane dynamicznie do aktywnego
+syntezatora, bez modyfikowania rdzenia NVDA. Gdy globalny Sonic pitch jest
+wyłączony, ustawienie znika z dialogu `Głos` i pierścienia ustawień syntezatora.
+
 Jeśli używasz dodatku `Synth ring settings selector`, `sonicPitch` jest
-dopisywane do jego listy dostępnych ustawień.
+dopisywane do jego listy dostępnych ustawień, żeby mogło pojawić się w
+pierścieniu po włączeniu trybu globalnego.
 
 W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` dostępne są komendy:
 
@@ -151,7 +161,7 @@ Jeśli w wyborze syntezatora nadal widzisz `SAPI5 32-bit Sonic Pitch` albo
 1. Włącz `Enable debug logging` w panelu `Global Sonic Pitch`.
 2. Zrestartuj NVDA.
 3. Ustaw syntezator na RHVoice, eSpeak, OneCore albo SAPI5 64-bit.
-4. Ustaw wysokość inną niż `50`, na przykład `75`.
+4. Ustaw `Sonic pitch` na wartość inną niż `50`, na przykład `75`.
 5. Otwórz aktualny log NVDA: `%TEMP%\nvda.log`.
 
 W logu powinny pojawić się wpisy podobne do:
@@ -171,11 +181,17 @@ Loaded synthDriver sapi5_32
 
 ## Rozwiązywanie Problemów
 
-### Wysokość się nie zmienia
+### Sonic pitch nie ma w ustawieniach głosu
 
-Sprawdź, czy globalny tryb jest włączony i czy wartość pitch nie wynosi `50`.
-Sprawdź też log NVDA pod kątem `processed speech audio`. Jeśli tego wpisu nie
-ma, audio danego syntezatora prawdopodobnie nie przechodzi przez główny
+Włącz `Enable global Sonic pitch` w panelu `Global Sonic Pitch`, a potem otwórz
+ustawienia głosu ponownie albo przełącz syntezator. Dodatek ukrywa ustawienie
+`Sonic pitch` w dialogu `Głos`, gdy globalny Sonic pitch jest wyłączony.
+
+### Sonic pitch się nie zmienia
+
+Sprawdź, czy globalny tryb jest włączony i czy wartość `Sonic pitch` nie wynosi
+`50`. Sprawdź też log NVDA pod kątem `processed speech audio`. Jeśli tego wpisu
+nie ma, audio danego syntezatora prawdopodobnie nie przechodzi przez główny
 `WavePlayer`.
 
 ### Syntezator zmienia swoją natywną wysokość
@@ -188,7 +204,8 @@ wysokością syntezatora, a `Sonic pitch` steruje tylko przetwarzaniem Sonic.
 Od wersji 0.3.1 dodatek utrzymuje ciągły strumień Sonic dla aktywnego
 `WavePlayer` i nie wykonuje `flush()` po każdym małym bloku audio. Jeśli nadal
 słychać przerwy, sprawdź czy nie masz bardzo dużego obciążenia CPU, bardzo
-agresywnego pitch oraz czy problem występuje na więcej niż jednym syntezatorze.
+agresywnego `Sonic pitch` oraz czy problem występuje na więcej niż jednym
+syntezatorze.
 
 ### Standardowy SAPI5 32-bit nie ma globalnego Sonic pitch
 
@@ -246,7 +263,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.1.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.2.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

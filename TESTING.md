@@ -23,12 +23,16 @@
 18. Pitch 25, 50, and 75 through the Global Sonic Pitch panel.
 19. Pitch 25, 50, and 75 through the `Sonic pitch` setting in the Voice dialog
     or synth settings ring when it is exposed.
-20. Input Gesture scripts for increasing, decreasing, and resetting Sonic pitch
+20. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
+    Voice dialog or synth settings ring.
+21. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
+    dialog or synth settings ring for supported synths.
+22. Input Gesture scripts for increasing, decreasing, and resetting Sonic pitch
     appear in the `Global Sonic Pitch` category.
-21. Rate, volume, voice switching, and cancellation still behave normally.
-22. Say-all / continuous reading does not obviously regress.
-23. NVDA sound effects are not processed as speech audio.
-24. Error log check after each scenario.
+23. Rate, volume, voice switching, and cancellation still behave normally.
+24. Say-all / continuous reading does not obviously regress.
+25. NVDA sound effects are not processed as speech audio.
+26. Error log check after each scenario.
 
 ## Expected Results
 
@@ -39,9 +43,13 @@
   synthesizer dialog after the old `sapi5SonicPitch` add-on is removed.
 - Global Sonic processing is disabled by default.
 - When global Sonic is disabled, native synth pitch behaves normally.
+- When global Sonic is disabled, the dynamic `Sonic pitch` setting is not added
+  to Voice settings or the synth settings ring.
 - When global Sonic is enabled for supported main-process synths, logs show:
   - `globalSonicPitch: added Sonic pitch voice setting`
   - `globalSonicPitch: processed speech audio`
+- When global Sonic is disabled again, the dynamic `Sonic pitch` Voice setting
+  is removed.
 - While global Sonic is enabled, changing NVDA pitch does not log
   `globalSonicPitch: captured NVDA pitch`; it should remain native synth pitch.
 - Changing the dynamic `Sonic pitch` setting logs
@@ -57,8 +65,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.1:
+Expected package name for version 0.4.2:
 
 ```text
-globalSonicPitch-0.4.1.nvda-addon
+globalSonicPitch-0.4.2.nvda-addon
 ```

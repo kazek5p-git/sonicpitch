@@ -2,7 +2,8 @@
 
 Inspection was performed on this machine from `C:\Program Files\NVDA`.
 
-- Installed NVDA version data: `2026.2beta5`, build `56710`.
+- Installed NVDA version data observed during local testing: `2026.2beta6`,
+  64-bit.
 - NVDA Python runtime found in the install: Python 3.13 DLLs.
 - Current shell Python used for static tooling: Python 3.14.3, 64-bit.
 - Current installed NVDA architecture: 64-bit.
@@ -20,16 +21,28 @@ Current add-on implications:
   synth choices to NVDA's synthesizer dialog.
 - Global audio processing can only cover speech audio that reaches the main
   NVDA process.
-- The built-in `sapi5_32` host path is deliberately excluded from pitch
-  takeover in the main process.
-- Runtime pitch takeover is done by patching the active synth instance's
-  `_set_pitch` and `_get_pitch` methods, then restoring those methods when the
-  plugin terminates.
+- The built-in `sapi5_32` host path is deliberately excluded from global Sonic
+  audio processing in the main process.
+- The add-on does not patch the active synth's native `pitch` setting in
+  version 0.4.1 and newer.
+- Runtime integration with the Voice dialog and synth settings ring is done by
+  injecting a separate `sonicPitch` setting into the active synth's
+  `supportedSettings` while global Sonic pitch is enabled.
+- When global Sonic pitch is disabled, `sonicPitch` is removed from the active
+  synth's Voice settings and synth settings ring.
+- The `sonicPitch` setting is backed by a runtime class-level Python property
+  on the active synth class and stores its value in `[globalSonicPitch] pitch`.
+- NVDA's normal `pitch` setting remains native synth pitch.
 
 Private internals used:
 
 - `synthDriverHandler.setSynth`
-- synth driver `_set_pitch` and `_get_pitch`
+- `autoSettingsUtils.driverSetting.NumericDriverSetting`
+- `globalVars.settingsRing.updateSupportedSettings`
+- synth driver `supportedSettings`
 - `synthDrivers._sonic.SonicStream.pitch`
 - `nvwave.WavePlayer.feed`
+- `nvwave.WavePlayer.idle`
+- `nvwave.WavePlayer.stop`
+- `nvwave.WavePlayer.close`
 - `nvwave.AudioPurpose.SPEECH`
