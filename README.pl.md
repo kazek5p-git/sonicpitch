@@ -32,7 +32,7 @@ Aktualna wersja była testowana lokalnie na NVDA 2026.2 beta, 64-bit.
 ## Instalacja
 
 1. Pobierz najnowszy plik `.nvda-addon` z
-   [Releases](https://github.com/kazek5p-git/sapi5-sonic-pitch/releases/latest).
+   [Releases](https://github.com/kazek5p-git/sonicpitch/releases/latest).
 2. Jeśli masz zainstalowany stary dodatek `SAPI5 Sonic Pitch` /
    `sapi5SonicPitch`, usuń go najpierw i zrestartuj NVDA.
 3. Otwórz pobrany plik `globalSonicPitch-<wersja>.nvda-addon` w NVDA.
@@ -114,7 +114,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.3.0.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.3.1.nvda-addon -Force
 ```
 
 Sprawdzenie składni przed publikacją:

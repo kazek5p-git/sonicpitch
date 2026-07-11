@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.1
+
+- Changes project links to the renamed GitHub repository `sonicpitch`.
+- Reworks global Sonic audio processing to keep a continuous `SonicStream` per
+  speech `WavePlayer` instead of creating and flushing a new stream for every
+  audio block.
+- Adds a small first-chunk buffer, matching NVDA's SAPI5 Sonic strategy, to
+  reduce underruns and micro-gaps while speech starts.
+- Flushes the remaining Sonic stream tail at `WavePlayer.idle()` and resets it
+  on stop/close.
+
 ## 0.3.0
 
 - Renames the add-on identity to `globalSonicPitch` with the display name

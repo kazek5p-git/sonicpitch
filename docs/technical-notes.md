@@ -7,7 +7,7 @@ This document records the implementation details for Global Sonic Pitch.
 The add-on must provide Sonic-based pitch adjustment without changing NVDA's
 installed files or adding replacement synthesizer drivers.
 
-Version 0.3.0 changes the add-on identity from `sapi5SonicPitch` to
+Version 0.3.0 changed the add-on identity from `sapi5SonicPitch` to
 `globalSonicPitch` and removes the previous custom SAPI5 synth drivers from the
 package. The current package contains only a global plugin and documentation.
 
@@ -71,15 +71,17 @@ The hook is intentionally narrow:
 - it only processes `WavePlayer` instances whose `_purpose` is
   `nvwave.AudioPurpose.SPEECH`;
 - it only processes 16-bit PCM blocks;
-- it processes one incoming block into one outgoing block, preserving the same
-  `onDone` callback;
+- it keeps one Sonic stream per speech `WavePlayer` while speech is active;
+- it buffers the first chunk until about 50 ms of processed audio is available;
+- it avoids `SonicStream.flush()` in the middle of ordinary audio blocks;
+- it flushes the remaining Sonic stream tail before `WavePlayer.idle()`;
 - it bypasses non-speech sounds;
 - it bypasses unsupported host paths such as `sapi5_32`;
 - it falls back to the original `WavePlayer.feed` call on any exception.
 
-The one-block-in, one-block-out design is less sophisticated than a long-lived
-Sonic stream, but it avoids buffering speech indexes across callback
-boundaries. That makes it safer as a global add-on hook.
+The continuous stream is important for audio quality. Flushing Sonic after every
+small block can create tiny gaps and artifacts because Sonic loses its internal
+analysis window at block boundaries.
 
 ## Logs
 
@@ -107,6 +109,9 @@ This add-on relies on private NVDA internals:
 - synth driver `_set_pitch` and `_get_pitch`
 - `synthDrivers._sonic.SonicStream.pitch`
 - `nvwave.WavePlayer.feed`
+- `nvwave.WavePlayer.idle`
+- `nvwave.WavePlayer.stop`
+- `nvwave.WavePlayer.close`
 - `nvwave.AudioPurpose.SPEECH`
 
 Any NVDA release that changes those APIs may require add-on changes.
