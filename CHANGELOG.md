@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+- Renames the add-on identity to `globalSonicPitch` with the display name
+  `Global Sonic Pitch`.
+- Removes the previous custom SAPI5 synth drivers from the package, so the
+  add-on no longer adds synthesizer choices.
+- Adds runtime pitch takeover for supported synth drivers: NVDA pitch is stored
+  as the Sonic pitch, while the native synth pitch is held at neutral `50`.
+- Migrates enabled state, pitch, and debug logging from the old
+  `[sapi5SonicPitchGlobal]` config section.
+- Keeps built-in `sapi5_32` excluded from global takeover on 64-bit NVDA because
+  its audio is produced in the separate 32-bit synth host.
+- Updates English and Polish documentation for the global-only add-on design.
+
 ## 0.2.0
 
 - Adds an experimental global Sonic pitch processor.
