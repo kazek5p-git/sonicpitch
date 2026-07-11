@@ -228,6 +228,9 @@ fresh processor starts on the next audio block. This is slightly more
 conservative, but it avoids freezes seen with some SAPI5 voices during rapid
 downward pitch changes.
 
+Version 0.4.5 further reduces lock contention while Sonic processes fast SAPI5
+voices, including eSpeak-NG SAPI at rate 100.
+
 ### eSpeak-NG SAPI Does Not Appear In SAPI5
 
 The third-party eSpeak-NG SAPI voice must be configured with its own
@@ -291,7 +294,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.4.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.5.nvda-addon -Force
 ```
 
 Syntax check:

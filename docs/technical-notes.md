@@ -37,6 +37,13 @@ recreates the per-player Sonic processor when pitch or audio format changes,
 discards the old processor without flushing its tail on mid-utterance pitch
 changes, and protects the processor map with an `RLock`.
 
+Version 0.4.5 shortens the scope of the global processor-map lock. The map lock
+now protects only lookup, insertion, removal, and reset. Each
+`_SonicStreamProcessor` has its own lock for `SonicStream.writeShort`,
+`readShort`, and `flush`. This keeps one stream serialized while avoiding a
+global lock around expensive Sonic processing, which matters for fast SAPI5
+voices such as eSpeak-NG SAPI at rate 100.
+
 ## Config
 
 Current config section:
@@ -129,6 +136,8 @@ The hook is intentionally narrow:
 - it discards the old stream rather than flushing a tail when Sonic pitch changes
   during active speech;
 - it flushes the remaining Sonic stream tail before `WavePlayer.idle()`;
+- it uses a global lock only for the processor map and a per-stream lock around
+  Sonic calls;
 - it bypasses non-speech sounds;
 - it bypasses unsupported host paths such as `sapi5_32`;
 - it falls back to the original `WavePlayer.feed` call on any exception.

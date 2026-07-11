@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.5
+
+- Reduces lock contention during Sonic processing for fast SAPI5 voices.
+- Moves expensive Sonic `writeShort`, `readShort`, and `flush` calls out of the
+  global player-processor map lock.
+- Adds a per-stream lock so one Sonic stream is still protected from concurrent
+  feed, drain, and finish calls.
+- Hardens the eSpeak-NG SAPI case where rate is set to 100 and pitch is lowered
+  rapidly during active speech.
+- Validated locally with eSpeak-NG SAPI through SAPI5 at rate 100 using an
+  aggressive 20-run pitch-change stress test.
+
 ## 0.4.4
 
 - Fixes freezes with some SAPI5 voices, including eSpeak-NG SAPI, when Sonic

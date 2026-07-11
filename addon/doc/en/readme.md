@@ -125,7 +125,9 @@ and more than one synth. Since version 0.3.1, the add-on uses a continuous
 Sonic stream to reduce micro-gaps between audio blocks. Since version 0.4.4,
 pitch changes during active speech reset the Sonic processor instead of
 changing the active stream in place, avoiding freezes seen with some SAPI5
-voices during rapid downward pitch changes.
+voices during rapid downward pitch changes. Since version 0.4.5, the add-on
+also reduces lock contention while processing fast SAPI5 voices such as
+eSpeak-NG SAPI at rate 100.
 
 ## Logs
 

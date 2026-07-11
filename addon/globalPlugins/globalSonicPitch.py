@@ -293,6 +293,7 @@ class _SonicStreamProcessor:
 		self.pitchPercent = _clampPitch(pitchPercent)
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
 		self.isFirstAudioChunk = True
+		self._lock = threading.RLock()
 
 	def matches(self, channels: int, sampleRate: int, pitchPercent: int) -> bool:
 		return (
@@ -307,25 +308,27 @@ class _SonicStreamProcessor:
 		return _ctypesArrayToBytes(self.stream.readShort())
 
 	def process(self, raw: bytes, flush: bool = False) -> bytes:
-		frameSize = self.channels * 2
-		if raw:
-			frameCount = len(raw) // frameSize
-			sampleCount = frameCount * self.channels
-			inputSamples = (ctypes.c_short * sampleCount).from_buffer_copy(raw)
-			self.stream.writeShort(inputSamples, frameCount)
-		if flush:
-			self.stream.flush()
+		with self._lock:
+			frameSize = self.channels * 2
+			if raw:
+				frameCount = len(raw) // frameSize
+				sampleCount = frameCount * self.channels
+				inputSamples = (ctypes.c_short * sampleCount).from_buffer_copy(raw)
+				self.stream.writeShort(inputSamples, frameCount)
+			if flush:
+				self.stream.flush()
+				self.isFirstAudioChunk = False
+			elif (
+				self.isFirstAudioChunk
+				and self.stream.samplesAvailable < self.sampleRate * _FIRST_AUDIO_CHUNK_MIN_DURATION_MS // 1000
+			):
+				return b""
 			self.isFirstAudioChunk = False
-		elif (
-			self.isFirstAudioChunk
-			and self.stream.samplesAvailable < self.sampleRate * _FIRST_AUDIO_CHUNK_MIN_DURATION_MS // 1000
-		):
-			return b""
-		self.isFirstAudioChunk = False
-		return self._readAvailable()
+			return self._readAvailable()
 
 	def drain(self) -> bytes:
-		return self._readAvailable()
+		with self._lock:
+			return self._readAvailable()
 
 	def finish(self) -> bytes:
 		return self.process(b"", flush=True)
@@ -343,17 +346,17 @@ def _popPlayerProcessor(player: nvwave.WavePlayer) -> _SonicStreamProcessor | No
 def _drainPlayerProcessor(player: nvwave.WavePlayer) -> bytes:
 	with _playerProcessorsLock:
 		processor = _playerProcessors.get(_getPlayerProcessorKey(player))
-		if processor is None:
-			return b""
-		return processor.drain()
+	if processor is None:
+		return b""
+	return processor.drain()
 
 
 def _finishPlayerProcessor(player: nvwave.WavePlayer) -> bytes:
 	with _playerProcessorsLock:
 		processor = _playerProcessors.pop(_getPlayerProcessorKey(player), None)
-		if processor is None:
-			return b""
-		return processor.finish()
+	if processor is None:
+		return b""
+	return processor.finish()
 
 
 def _resetPlayerProcessor(player: nvwave.WavePlayer) -> None:
@@ -397,12 +400,11 @@ def _processPcm16Block(
 	frameSize = channels * 2
 	if len(raw) < frameSize or len(raw) % frameSize:
 		return None
-	with _playerProcessorsLock:
-		processor, tail = _getOrCreatePlayerProcessor(player, channels, sampleRate, pitchPercent)
-		if processor is None:
-			return tail or None
-		processed = processor.process(raw)
-		return (tail + processed) or b""
+	processor, tail = _getOrCreatePlayerProcessor(player, channels, sampleRate, pitchPercent)
+	if processor is None:
+		return tail or None
+	processed = processor.process(raw)
+	return (tail + processed) or b""
 
 
 def _logProcessedOnce(synthName: str, channels: int, sampleRate: int, pitch: int, inSize: int, outSize: int) -> None:

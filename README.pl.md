@@ -237,6 +237,9 @@ a świeży procesor startuje od następnego bloku audio. To bardziej konserwatyw
 ale omija zawieszenia widziane z niektórymi głosami SAPI5 przy szybkim obniżaniu
 wysokości.
 
+Wersja 0.4.5 dodatkowo zmniejsza blokowanie między wątkami podczas
+przetwarzania szybkich głosów SAPI5, w tym eSpeak-NG SAPI przy prędkości 100.
+
 ### eSpeak-NG SAPI nie pojawia się w SAPI5
 
 Zewnętrzny głos eSpeak-NG SAPI trzeba najpierw skonfigurować jego własnym
@@ -299,7 +302,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.4.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.5.nvda-addon -Force
 ```
 
 Sprawdzenie składni:
