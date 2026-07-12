@@ -177,6 +177,11 @@ Since version 0.4.14, rapid `Sonic pitch` changes for standard `sapi5_32` on
 serializes Sonic stream operations, preventing the remote SAPI speech path from
 going silent during fast slider changes.
 
+Since version 0.4.15, the `sapi5_32` host also matches NVDA Voice dialog stress
+behavior more closely. It locks the full SAPI audio callback, replaces the host
+Sonic stream when pitch changes, and recovers from damaged host Sonic blocks so
+speech does not stay silent until the synth is reloaded.
+
 ## License
 
 Global Sonic Pitch source code is licensed under the GNU GPL version 2 or

@@ -182,6 +182,11 @@ Od wersji 0.4.14 szybkie zmiany `Sonic pitch` dla standardowego `sapi5_32` na
 Host serializuje też operacje strumienia Sonic, co zapobiega wyciszaniu zdalnej
 ścieżki SAPI przy szybkim ruszaniu suwakiem.
 
+Od wersji 0.4.15 host `sapi5_32` lepiej odwzorowuje stresowe zachowanie dialogu
+`Głos` w NVDA. Blokuje cały callback audio SAPI, wymienia strumień Sonic przy
+zmianie pitch i odzyskuje działanie po uszkodzonych blokach Sonic, aby mowa nie
+pozostawała wyciszona do czasu przeładowania syntezatora.
+
 ## Licencja
 
 Kod źródłowy Global Sonic Pitch jest licencjonowany na GNU GPL w wersji 2 lub

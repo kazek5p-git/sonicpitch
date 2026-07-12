@@ -65,24 +65,28 @@
     rapidly about every 40 ms and confirm speech continues. The 32-bit host log
     should show deferred updates during active speech and a final applied value
     at a speech boundary.
-39. On 64-bit NVDA, set different values for standard `sapi5`/SAPI64 and
+39. On 64-bit NVDA, repeat a Voice dialog style stress pattern on standard
+    `sapi5_32`: cancel current speech, change `sonicPitch`, and speak the new
+    value every 150 to 200 ms. Confirm the test finishes and the 32-bit host log
+    contains no `access violation`, `RemoteWrite` failure, or `error speaking`.
+40. On 64-bit NVDA, set different values for standard `sapi5`/SAPI64 and
     `sapi5_32`/SAPI32, then confirm the config stores separate `sapi5_64` and
     `sapi5_32` entries.
-40. On 32-bit NVDA, test standard `sapi5` and confirm its value maps to the
+41. On 32-bit NVDA, test standard `sapi5` and confirm its value maps to the
     `sapi5_32` key.
-41. Input Gesture scripts for opening the support page, increasing,
+42. Input Gesture scripts for opening the support page, increasing,
     decreasing, and resetting Sonic pitch for the current synth appear in the
     `Global Sonic Pitch` category.
-42. During installation or update, the optional support prompt appears outside
+43. During installation or update, the optional support prompt appears outside
     minimal mode. `No` continues installation. `Yes` opens
     `https://buycoffee.to/kazimierz-parzych` in the default browser.
-43. Rate, volume, voice switching, and cancellation still behave normally.
-44. Say-all / continuous reading does not obviously regress.
-45. NVDA sound effects are not processed as speech audio.
-46. The repository contains root license documentation and third-party notices.
-47. `docs/addon-store-submission.md` has the current package version, download
+44. Rate, volume, voice switching, and cancellation still behave normally.
+45. Say-all / continuous reading does not obviously regress.
+46. NVDA sound effects are not processed as speech audio.
+47. The repository contains root license documentation and third-party notices.
+48. `docs/addon-store-submission.md` has the current package version, download
     URL, and SHA256 before submitting to the NVDA Add-on Store.
-48. Error log check after each scenario.
+49. Error log check after each scenario.
 
 ## Expected Results
 
@@ -124,6 +128,9 @@
   `globalSonicPitch sapi5_32 host: deferred Sonic pitch until safe boundary`;
   the final selected value should then be applied at a speech boundary and
   speech should continue.
+- During Voice dialog style `sapi5_32` stress on 64-bit NVDA, the host log
+  should show `globalSonicPitch sapi5_32 host: replaced Sonic stream` for
+  applied pitch changes and should not log `access violation`.
 - eSpeak-NG SAPI can be tested only after its own configurator enables at least
   one SAPI voice profile.
 - The add-on does not add eSpeak-NG SAPI dynamic voices to NVDA's SAPI voice
@@ -142,8 +149,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.14:
+Expected package name for version 0.4.15:
 
 ```text
-globalSonicPitch-0.4.14.nvda-addon
+globalSonicPitch-0.4.15.nvda-addon
 ```

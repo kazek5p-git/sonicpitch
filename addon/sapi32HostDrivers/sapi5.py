@@ -176,9 +176,21 @@ _SONIC_PITCH_SETTING = _createSonicPitchSetting()
 
 
 class _LockedSonicStream:
-	def __init__(self, stream, lock):
+	def __init__(self, stream, lock, sampleRate: int | None = None, channels: int | None = None):
 		self._stream = stream
 		self._lock = lock
+		self._sampleRate = sampleRate
+		self._channels = channels
+		if self._sampleRate is None:
+			try:
+				self._sampleRate = int(stream.sampleRate)
+			except Exception:
+				self._sampleRate = None
+		if self._channels is None:
+			try:
+				self._channels = int(stream.channels)
+			except Exception:
+				self._channels = None
 
 	def __getattr__(self, name: str):
 		return getattr(self._stream, name)
@@ -203,12 +215,22 @@ class _LockedSonicStream:
 	@property
 	def sampleRate(self) -> int:
 		with self._lock:
-			return self._stream.sampleRate
+			try:
+				self._sampleRate = int(self._stream.sampleRate)
+			except Exception:
+				if self._sampleRate is None:
+					raise
+			return self._sampleRate
 
 	@property
 	def channels(self) -> int:
 		with self._lock:
-			return self._stream.channels
+			try:
+				self._channels = int(self._stream.channels)
+			except Exception:
+				if self._channels is None:
+					raise
+			return self._channels
 
 	@property
 	def speed(self) -> float:
@@ -231,6 +253,32 @@ class _LockedSonicStream:
 			self._stream.pitch = value
 
 
+_ORIGINAL_REMOTE_WRITE = _sapi5.SynthDriverAudioStream.ISequentialStream_RemoteWrite
+
+
+def _globalSonicPitchRemoteWrite(self, this, pv, cb, pcbWritten):
+	synth = self.synthRef()
+	lock = getattr(synth, "_sonicPitchLock", None)
+	if lock is None:
+		return _ORIGINAL_REMOTE_WRITE(self, this, pv, cb, pcbWritten)
+	with lock:
+		try:
+			return _ORIGINAL_REMOTE_WRITE(self, this, pv, cb, pcbWritten)
+		except Exception:
+			if pcbWritten:
+				pcbWritten[0] = cb
+			handler = getattr(synth, "_handleSonicStreamFailure", None)
+			if handler is not None:
+				handler("RemoteWrite")
+			_logWarning("globalSonicPitch sapi5_32 host: recovered after Sonic RemoteWrite failure")
+			return _sapi5.hresult.S_OK
+
+
+if getattr(_sapi5.SynthDriverAudioStream, "_globalSonicPitchRemoteWritePatched", False) is False:
+	_sapi5.SynthDriverAudioStream.ISequentialStream_RemoteWrite = _globalSonicPitchRemoteWrite
+	_sapi5.SynthDriverAudioStream._globalSonicPitchRemoteWritePatched = True
+
+
 class SynthDriver(_BaseSynthDriver):
 	if _SONIC_PITCH_SETTING is None:
 		supportedSettings = _BaseSynthDriver.supportedSettings
@@ -243,6 +291,9 @@ class SynthDriver(_BaseSynthDriver):
 		self._sonicPitchLock = threading.RLock()
 		self._sonicPitch = NEUTRAL_PITCH
 		self._lastAppliedSonicPitch: int | None = None
+		self._sonicSampleRate: int | None = None
+		self._sonicChannels: int | None = None
+		self._retiredSonicStreams = []
 		super().__init__(*args, **kwargs)
 		_logInfo(
 			"globalSonicPitch sapi5_32 host: initialized Sonic pitch wrapper; "
@@ -283,6 +334,8 @@ class SynthDriver(_BaseSynthDriver):
 			return True
 		ratio = _pitchPercentToSonicRatio(sonicPitch)
 		with self._sonicPitchLock:
+			if self._lastAppliedSonicPitch is not None:
+				return self._replaceSonicStream(sonicPitch, "pitch change")
 			stream.pitch = ratio
 			self._lastAppliedSonicPitch = sonicPitch
 			_logInfo(
@@ -291,10 +344,71 @@ class SynthDriver(_BaseSynthDriver):
 			)
 		return True
 
+	def _wrapSonicStream(self, stream):
+		if isinstance(stream, _LockedSonicStream):
+			self._sonicSampleRate = stream.sampleRate
+			self._sonicChannels = stream.channels
+			return stream
+		lockedStream = _LockedSonicStream(stream, self._sonicPitchLock)
+		self._sonicSampleRate = lockedStream.sampleRate
+		self._sonicChannels = lockedStream.channels
+		return lockedStream
+
+	def _retireSonicStream(self, stream) -> None:
+		if stream is not None:
+			self._retiredSonicStreams.append(stream)
+
+	def _replaceSonicStream(self, sonicPitch: int | None = None, reason: str = "") -> bool:
+		sampleRate = self._sonicSampleRate
+		channels = self._sonicChannels
+		if not sampleRate or not channels:
+			stream = getattr(self, "sonicStream", None)
+			try:
+				sampleRate = int(stream.sampleRate)
+				channels = int(stream.channels)
+			except Exception:
+				return False
+		sonicPitch = _clampPitch(self._sonicPitch if sonicPitch is None else sonicPitch)
+		ratio = _pitchPercentToSonicRatio(sonicPitch)
+		oldStream = getattr(self, "sonicStream", None)
+		newStream = _LockedSonicStream(_sapi5.SonicStream(sampleRate, channels), self._sonicPitchLock, sampleRate, channels)
+		if getattr(self, "_rateBoost", False):
+			newStream.speed = self._percentToParam(getattr(self, "_rate", 50), 0.5, 6.0)
+		else:
+			newStream.speed = 1
+		newStream.pitch = ratio
+		self._retireSonicStream(oldStream)
+		self.sonicStream = newStream
+		self._sonicSampleRate = sampleRate
+		self._sonicChannels = channels
+		self._lastAppliedSonicPitch = sonicPitch
+		self._isFirstAudioChunk = True
+		_logInfo(
+			"globalSonicPitch sapi5_32 host: replaced Sonic stream; "
+			f"reason={reason}; sonicPitch={sonicPitch}; ratio={ratio:.4f}",
+		)
+		return True
+
+	def _handleSonicStreamFailure(self, reason: str) -> None:
+		with self._sonicPitchLock:
+			self._lastAppliedSonicPitch = None
+			if not self._replaceSonicStream(self._sonicPitch, reason):
+				_logWarning(f"globalSonicPitch sapi5_32 host: failed to replace Sonic stream; reason={reason}")
+
+	def _flushAndReadSonicStream(self, reason: str):
+		with self._sonicPitchLock:
+			try:
+				self.sonicStream.flush()
+				return self.sonicStream.readShort()
+			except Exception:
+				self._handleSonicStreamFailure(reason)
+				_logWarning(f"globalSonicPitch sapi5_32 host: recovered after Sonic flush/read failure; reason={reason}")
+				return None
+
 	def _initWasapiAudio(self):
 		super()._initWasapiAudio()
-		if self.sonicStream is not None and not isinstance(self.sonicStream, _LockedSonicStream):
-			self.sonicStream = _LockedSonicStream(self.sonicStream, self._sonicPitchLock)
+		if self.sonicStream is not None:
+			self.sonicStream = self._wrapSonicStream(self.sonicStream)
 		self._lastAppliedSonicPitch = None
 		self._applySonicPitch(force=True)
 
@@ -323,12 +437,14 @@ class SynthDriver(_BaseSynthDriver):
 					with self._threadCond:
 						self._threadCond.wait_for(self._requestCompleted)
 					if not self._isCancelling:
-						self.sonicStream.flush()
-						audioData = self.sonicStream.readShort()
-						self.player.feed(audioData, len(audioData) * 2)
+						audioData = self._flushAndReadSonicStream("end stream")
+						if audioData is not None:
+							self.player.feed(audioData, len(audioData) * 2)
 						self._onEndStream()
 				except Exception:
-					self._bookmarkLists.pop()
+					if self._bookmarkLists:
+						self._bookmarkLists.pop()
+					self._handleSonicStreamFailure("speak exception")
 					_logWarning("globalSonicPitch sapi5_32 host: error speaking")
 				request = None
 				if not self._requestsAvailable():
@@ -340,8 +456,7 @@ class SynthDriver(_BaseSynthDriver):
 				)
 				self._bookmarkLists.clear()
 				if self.sonicStream:
-					self.sonicStream.flush()
-					self.sonicStream.readShort()
+					self._flushAndReadSonicStream("cancel")
 				self._isCancelling = False
 				self._applySonicPitch(force=True)
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.15
+
+- Further stabilizes standard `sapi5_32` on 64-bit NVDA during rapid Voice
+  dialog `Sonic pitch` changes.
+- Serializes the entire 32-bit SAPI `RemoteWrite` audio callback with
+  host-side Sonic pitch changes, instead of locking only individual Sonic calls.
+- Replaces the host Sonic stream when the applied `sonicPitch` changes, keeping
+  retired streams alive for the host process instead of retuning a previously
+  used native stream.
+- Recovers from host Sonic write or flush failures by replacing the stream and
+  dropping the damaged audio block, preventing the remote SAPI path from going
+  silent until the synth is reloaded.
+
 ## 0.4.14
 
 - Stabilizes rapid `Sonic pitch` changes for standard `sapi5_32` on 64-bit

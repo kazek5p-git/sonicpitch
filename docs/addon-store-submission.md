@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 0.4.14.
+Status: mostly ready after version 0.4.15.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version uses `major.minor.patch`: `0.4.14`.
+- Package version uses `major.minor.patch`: `0.4.15`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -24,6 +24,8 @@ Completed:
   wrapper that is loaded at runtime and does not replace NVDA files.
 - Rapid `sapi5_32` Sonic pitch changes on 64-bit NVDA are deferred to safe
   32-bit host speech boundaries.
+- Voice dialog style `sapi5_32` stress on 64-bit NVDA is handled by replacing
+  host Sonic streams on applied pitch changes.
 - Voice dialog Sonic pitch changes now follow normal settings behavior: OK or
   Apply commits, while Escape or Cancel restores the previous value.
 - Current GitHub Release contains one `.nvda-addon` asset.
@@ -47,18 +49,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "4C894EF38BDD0CC48255F30A8A79CD74E3A452C505E887A394004D3132F29F17",
-  "addonVersionName": "0.4.14",
+  "sha256": "0A6F4DDA1FF321E57043989BA8E7618BE5E39BEC4E5C13FEAA1339CE8467C902",
+  "addonVersionName": "0.4.15",
   "channel": "stable",
   "publisher": "Kazek",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.14/globalSonicPitch-0.4.14.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.15/globalSonicPitch-0.4.15.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.14"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.15"
 }
 ```
 

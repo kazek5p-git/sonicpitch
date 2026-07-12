@@ -100,6 +100,17 @@ serializes host Sonic stream operations with a reentrant lock. This fixes a
 failure mode where NVDA 2026.1.1 x64 kept running but the remote `sapi5_32`
 speech path went silent until the synth was reloaded.
 
+Version 0.4.15 extends that fix after real Voice dialog testing showed a tighter
+race: NVDA can issue `cancel -> setParam(sonicPitch) -> speak` while the SAPI
+host is still delivering delayed audio callbacks. The host now wraps the entire
+`SynthDriverAudioStream.ISequentialStream_RemoteWrite` callback in the same
+reentrant lock used for pitch changes. When the applied pitch changes, the host
+creates a fresh Sonic stream and keeps the old one referenced for the process
+lifetime instead of retuning a previously used native stream. If a host Sonic
+write or flush still raises an `OSError`, the host drops that damaged audio
+block, replaces the Sonic stream, and returns success to SAPI so later speech
+requests can continue.
+
 ## Config
 
 Current config section:
@@ -222,7 +233,9 @@ temporarily points `sapi5_32.SynthDriver.synthDriver32Path` at
 - maps `0..100` to the same Sonic pitch ratio as the main plugin;
 - applies the ratio to the host's `sonicStream.pitch` at safe speech
   boundaries;
-- serializes host Sonic stream reads, writes, flushes, and pitch changes;
+- serializes the full SAPI `RemoteWrite` audio callback with pitch changes;
+- replaces the host Sonic stream when the applied pitch changes;
+- recovers from host Sonic write or flush failures by replacing the stream;
 - reapplies the value after the host recreates WASAPI/Sonic audio.
 
 The main plugin verifies remote support by checking whether the remote proxy's
@@ -289,6 +302,7 @@ Look for:
 - `globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch`
 - `globalSonicPitch sapi5_32 host: deferred Sonic pitch until safe boundary`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
+- `globalSonicPitch sapi5_32 host: replaced Sonic stream`
 - `globalSonicPitch: processed speech audio`
 - `globalSonicPitch: Sonic is unavailable`
 
