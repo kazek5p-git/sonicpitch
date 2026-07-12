@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.11
+
+- Improves `Sonic pitch` slider responsiveness for rapid PageUp/PageDown
+  changes in NVDA Voice settings and the synth settings ring.
+- Treats empty WavePlayer feed markers with callbacks as utterance boundaries,
+  so the next short feedback message uses the latest stored Sonic pitch.
+- Avoids keeping a neutral `Sonic pitch` value pinned to the player, preventing
+  later non-neutral changes from being skipped until another movement.
+- Applies a changed `Sonic pitch` by creating a fresh Sonic stream at the next
+  safe boundary instead of retuning an already-used native stream in place.
+- Keeps the 0.4.10 32-bit no-destroy Sonic stream workaround intact.
+
+## 0.4.10
+
+- Bundles local 32-bit and 64-bit Sonic native libraries with the add-on and
+  prefers them over NVDA's internal `sonic.dll`.
+- Keeps a fallback to NVDA's internal Sonic library if the bundled library is
+  missing or cannot be loaded.
+- Avoids native `sonicDestroyStream` for 32-bit NVDA processes and reuses the
+  active Sonic stream after stop/idle/reset events, preventing a reproduced
+  `0xc0000374` native heap crash on NVDA 2025.3.3 x86 with SAPI5.
+- Removes the unused eSpeak-NG SAPI voice-enumeration compatibility hook so the
+  add-on no longer modifies SAPI5 or `sapi5_32` voice lists.
+- Adds Apache 2.0 license metadata for the bundled Sonic native binaries.
+
 ## 0.4.9
 
 - Changes Sonic pitch application to be utterance-scoped for all supported

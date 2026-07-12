@@ -84,16 +84,12 @@ SAPI przez SAPI5 i podobnymi syntezatorami, jeśli ich 16-bitowe PCM mowy trafia
 do głównego `WavePlayer` NVDA.
 
 Zewnętrzne głosy eSpeak-NG SAPI trzeba najpierw skonfigurować w konfiguratorze
-eSpeak-NG SAPI. Od wersji 0.4.6 dodatek pomaga NVDA pokazać skonfigurowane
-dynamiczne głosy eSpeak-NG SAPI na normalnej liście głosów SAPI5 64-bit. Od
-wersji 0.4.7 uzupełnia też standardową listę głosów `sapi5_32`. Dzieje się to
-w czasie działania, bez modyfikowania plików NVDA i bez zapisywania tokenów
-głosów w rejestrze.
+eSpeak-NG SAPI. Aktualne wersje dodatku nie patchują enumeracji głosów SAPI,
+nie modyfikują plików NVDA i nie zapisują tokenów głosów w rejestrze.
 
 Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany. Działa w osobnym
 32-bitowym hoście syntezatorów, więc ten globalny plugin nie może przetwarzać
-jego audio. Dodatek może pokazać skonfigurowane głosy eSpeak-NG SAPI w
-`sapi5_32`, ale ta ścieżka nadal nie ma globalnego przetwarzania Sonic.
+jego audio. Ta ścieżka nadal nie ma globalnego przetwarzania Sonic.
 
 ## Migracja Ze Starej Wersji
 
@@ -112,19 +108,13 @@ Przydatne wpisy:
 - `globalSonicPitch: installed synth Sonic pitch setting hook`
 - `globalSonicPitch: added Sonic pitch voice setting`
 - `globalSonicPitch: captured Sonic pitch setting`
+- `globalSonicPitch: loaded bundled Sonic library`
 - `globalSonicPitch: processed speech audio`
 
 Dla standardowego `sapi5_32` oczekiwany jest wpis:
 
 ```text
 Loaded synthDriver sapi5_32
-```
-
-Przy skonfigurowanych głosach eSpeak-NG SAPI od wersji 0.4.7 może pojawić się
-też wpis:
-
-```text
-globalSonicPitch: added 2 eSpeak-NG SAPI dynamic voices to NVDA sapi5_32 voice list
 ```
 
 ## Rozwiązywanie Problemów
@@ -147,14 +137,21 @@ przetwarzaniem Sonic.
 
 Jeśli słychać drobne przerwy, sprawdź obciążenie CPU, mniej skrajne wartości
 `Sonic pitch` i porównaj kilka syntezatorów. Od wersji 0.3.1 dodatek używa
-ciągłego strumienia Sonic, żeby ograniczyć mikroprzerwy między blokami audio. Od
-wersji 0.4.4 zmiana wysokości podczas aktywnej mowy resetuje procesor Sonic
-zamiast zmieniać aktywny strumień w locie, co omija zawieszenia widziane z
-niektórymi głosami SAPI5 przy szybkim obniżaniu wysokości. Od wersji 0.4.5
+ponownie ciągłego strumienia Sonic, dopóki format audio i wybrany pitch pozostają
+takie same. Aktualne wersje nie przestrajają już użytego strumienia Sonic w
+locie; zmiany podczas aktywnej mowy są stosowane od następnej bezpiecznej
+granicy wypowiedzi z użyciem świeżego strumienia. To omija zawieszenia widziane
+z niektórymi głosami SAPI5 przy szybkim obniżaniu wysokości. Od wersji 0.4.5
 dodatek zmniejsza też blokowanie między wątkami podczas przetwarzania szybkich
-głosów SAPI5, takich jak eSpeak-NG SAPI przy prędkości 100. Od wersji 0.4.9
-zmiany `Sonic pitch` są stosowane od następnej wypowiedzi zamiast wymieniać
-aktywny procesor Sonic, gdy mowa jest już przetwarzana.
+głosów SAPI5, takich jak eSpeak-NG SAPI przy prędkości 100.
+
+Od wersji 0.4.10 dodatek używa dołączonych natywnych bibliotek Sonic 32-bit i
+64-bit. W 32-bitowych procesach NVDA strumienie Sonic są utrzymywane przy życiu
+zamiast przekazywania ich do natywnego `sonicDestroyStream`, co omija
+odtworzony natywny crash sterty na NVDA 2025.3.3 x86 z SAPI5.
+
+Od wersji 0.4.11 krótkie komunikaty po powtarzanych zmianach PageUp/PageDown
+pewniej używają najnowszej wartości `Sonic pitch`.
 
 ## Logi
 

@@ -44,10 +44,14 @@ Dodatek był testowany lokalnie z:
 
 - NVDA 2025.1 lub nowsze.
 - Windows.
-- Nowoczesna ścieżka audio NVDA z dostępnym Sonic.
+- Dołączona natywna biblioteka Sonic, z biblioteką Sonic z NVDA jako
+  mechanizmem awaryjnym, jeśli dołączona biblioteka nie może zostać załadowana.
 - Syntezator wysyłający 16-bitowe PCM mowy przez główny `WavePlayer` NVDA.
 
-Ostatnio testowana lokalnie konfiguracja: NVDA 2026.2 beta, 64-bit.
+Ostatnio testowane lokalnie konfiguracje:
+
+- NVDA 2025.3.3 x86 portable z SAPI5 przy prędkości 100.
+- NVDA 2026.2 beta AMD64 z SAPI5 przy prędkości 100.
 
 ## Instalacja
 
@@ -157,13 +161,24 @@ zachowuje dotychczasową wartość do końca bieżącej wypowiedzi. Następna wy
 używa już nowej wartości. Dzięki temu dodatek nie wymienia natywnych obiektów
 Sonic w środku aktywnych callbacków audio.
 
+Od wersji 0.4.10 dodatek zawiera własne natywne biblioteki Sonic 32-bit i
+64-bit. W 32-bitowych procesach NVDA dodatek dodatkowo omija natywne niszczenie
+strumienia Sonic i używa ponownie aktywnego strumienia po zdarzeniach
+stop/reset. To obejście usuwa lokalnie odtworzony natywny crash sterty
+`0xc0000374` na NVDA 2025.3.3 x86 z SAPI5.
+
+Od wersji 0.4.11 krótkie komunikaty zwrotne po szybkich zmianach `Sonic pitch`,
+na przykład PageUp/PageDown w ustawieniach głosu albo pierścieniu ustawień
+syntezatora, pewniej używają najnowszej wartości od następnej granicy
+wypowiedzi.
+
 ## Zgodność Syntezatorów
 
 | Syntezator | Oczekiwane działanie |
 | --- | --- |
 | RHVoice | Obsługiwany, jeśli audio trafia do głównego `WavePlayer`. |
 | eSpeak NG | Obsługiwany w głównym procesie NVDA. |
-| eSpeak-NG SAPI przez SAPI5 | Obsługiwany jako głos SAPI5 po skonfigurowaniu go w konfiguratorze eSpeak-NG SAPI. Wersja 0.4.6 i nowsze pomagają NVDA pokazać te dynamiczne głosy w standardowym `sapi5`; wersja 0.4.7 i nowsze uzupełniają też standardową listę głosów `sapi5_32`. |
+| eSpeak-NG SAPI przez SAPI5 | Obsługiwany jako zwykły głos SAPI5 po skonfigurowaniu i pojawieniu się na standardowej liście głosów SAPI5 w NVDA. Dodatek nie uzupełnia już list głosów SAPI. |
 | OneCore | Obsługiwany w głównym procesie NVDA. |
 | SAPI5 64-bit | Obsługiwany, gdy używa ścieżki audio NVDA. |
 | SAPI5 32-bit na 64-bitowym NVDA | Ładuje się normalnie, ale globalny Sonic go nie przetwarza. |
@@ -175,11 +190,6 @@ Standardowy `sapi5_32` działa na 64-bitowym NVDA przez osobny 32-bitowy host
 syntezatorów. Globalny plugin dodatku jest ładowany w głównym procesie NVDA, a
 nie w tym hoście. Z tego powodu dodatek nie przejmuje wysokości dla `sapi5_32` i
 nie filtruje jego audio przez Sonic.
-
-Wersja 0.4.7 i nowsze mogą mimo to dodać skonfigurowane dynamiczne głosy
-eSpeak-NG SAPI do standardowej listy głosów `sapi5_32` w czasie działania.
-Dotyczy to tylko widoczności i wyboru głosu; nie oznacza globalnego
-przetwarzania Sonic dla `sapi5_32`.
 
 To zachowanie jest celowe. Dzięki temu standardowy `sapi5_32` nadal ładuje się
 normalnie i nie jest neutralizowany bez faktycznego przetwarzania Sonic.
@@ -212,6 +222,7 @@ W logu powinny pojawić się wpisy podobne do:
 globalSonicPitch: installed WavePlayer speech feed hook
 globalSonicPitch: installed synth Sonic pitch setting hook
 globalSonicPitch: added Sonic pitch voice setting; synth=RHVoice
+globalSonicPitch: loaded bundled Sonic library
 globalSonicPitch: processed speech audio; synth=RHVoice; pitch=75
 ```
 
@@ -253,10 +264,11 @@ słychać przerwy, sprawdź czy nie masz bardzo dużego obciążenia CPU, bardzo
 agresywnego `Sonic pitch` oraz czy problem występuje na więcej niż jednym
 syntezatorze.
 
-Wersja 0.4.4 dodatkowo unika zmieniania wysokości aktywnego strumienia Sonic w
-locie. Gdy `Sonic pitch` zmienia się podczas mowy, stary procesor jest odrzucany,
-a świeży procesor startuje od następnego bloku audio. To bardziej konserwatywne,
-ale omija zawieszenia widziane z niektórymi głosami SAPI5 przy szybkim obniżaniu
+Wersja 0.4.4 wprowadziła zasadę, że dodatek nie zmienia wysokości użytego już
+strumienia Sonic w locie. Aktualne wersje odkładają zmiany podczas aktywnej mowy,
+a gdy wybrany `Sonic pitch` różni się od poprzedniego, tworzą świeży strumień
+Sonic na następnej bezpiecznej granicy. To bardziej konserwatywne, ale omija
+zawieszenia widziane z niektórymi głosami SAPI5 przy szybkim obniżaniu
 wysokości.
 
 Wersja 0.4.5 dodatkowo zmniejsza blokowanie między wątkami podczas
@@ -268,6 +280,10 @@ już mówi, słyszalna zmiana może pojawić się dopiero przy następnej wypowi
 To zachowanie jest celowe i stawia stabilność ponad natychmiastowe przestrajanie
 w środku słowa.
 
+Wersja 0.4.11 poprawia wykrywanie granic krótkich komunikatów ustawień, więc
+powtarzane zmiany PageUp/PageDown nie powinny już zostawać na oryginalnej
+wysokości aż do kilku kolejnych ruchów suwakiem.
+
 ### eSpeak-NG SAPI nie pojawia się w SAPI5
 
 Zewnętrzny głos eSpeak-NG SAPI trzeba najpierw skonfigurować jego własnym
@@ -276,11 +292,10 @@ wybierz ten głos z normalnej listy głosów SAPI5.
 
 NVDA 2026.2 czyta standardowe głosy SAPI5 bezpośrednio z rejestru z gałęzi
 używanej przez zwykłe głosy. eSpeak-NG SAPI wystawia skonfigurowane głosy przez
-dynamiczny enumerator tokenów SAPI. Od wersji 0.4.6 dodatek dopisuje tylko te
-dynamiczne tokeny eSpeak-NG SAPI do standardowej listy głosów `sapi5` w NVDA w
-czasie działania. Od wersji 0.4.7 uzupełnia też standardową listę głosów
-`sapi5_32` tymi skonfigurowanymi dynamicznymi tokenami eSpeak-NG SAPI. Nie
-modyfikuje plików NVDA i nie zapisuje tokenów głosów w rejestrze.
+dynamiczny enumerator tokenów SAPI. Aktualne wersje dodatku nie patchują
+enumeracji głosów SAPI, nie modyfikują plików NVDA i nie zapisują tokenów
+głosów w rejestrze. Jeśli głos nie jest widoczny w SAPI5, trzeba najpierw
+naprawić konfigurację eSpeak-NG SAPI.
 
 ### Standardowy SAPI5 32-bit nie ma globalnego Sonic pitch
 
@@ -303,6 +318,7 @@ Najważniejsze frazy:
 - `globalSonicPitch`
 - `added Sonic pitch voice setting`
 - `captured Sonic pitch setting`
+- `loaded bundled Sonic library`
 - `processed speech audio`
 - `Sonic is unavailable`
 
@@ -318,13 +334,21 @@ Mechanizmy używane przez dodatek:
 - hook `WavePlayer.idle`, `stop` i `close` do obsługi końca strumienia;
 - dynamiczne dodanie ustawienia `sonicPitch` do `supportedSettings` aktywnego
   syntezatora;
-- runtime dopisanie skonfigurowanych dynamicznych tokenów eSpeak-NG SAPI do
-  standardowej listy głosów `sapi5` i `sapi5_32` w NVDA;
-- wewnętrzny `synthDrivers._sonic.SonicStream`.
+- dołączone natywne DLL-e Sonic 32-bit i 64-bit ładowane przez `ctypes`;
+- wewnętrzny `synthDrivers._sonic.SonicStream` z NVDA jako mechanizm awaryjny,
+  gdy dołączona biblioteka Sonic nie jest dostępna.
 
-Sonic działa na ciągłym strumieniu audio per `WavePlayer`. Taki model jest
-ważny dla jakości, bo częste tworzenie nowego strumienia i flushowanie każdego
-małego bloku może powodować mikroprzerwy.
+Sonic jest używany ponownie jako ciągły strumień per `WavePlayer`, dopóki format
+audio i wybrany `Sonic pitch` pozostają takie same. Gdy format albo pitch się
+zmienia, dodatek tworzy świeży strumień na bezpiecznej granicy zamiast
+przestrajać już użyty strumień. Dzięki temu unika niestabilności natywnej
+biblioteki, a jednocześnie nie tworzy nowego strumienia dla każdego małego bloku
+audio.
+
+W 32-bitowych procesach NVDA strumienie Sonic są utrzymywane przy życiu zamiast
+przekazywania ich do natywnego `sonicDestroyStream`. To omija odtworzony crash
+natywnej sterty 32-bit; zwykła mowa używa ponownie bieżącego strumienia, a nowe
+strumienie są alokowane tylko wtedy, gdy wymaga tego zmiana pitch albo formatu.
 
 ## Budowanie Ze Źródeł
 
@@ -340,7 +364,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.9.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.11.nvda-addon -Force
 ```
 
 Sprawdzenie składni:
@@ -354,6 +378,8 @@ python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\installTasks.
 - `addon/manifest.ini` - manifest dodatku NVDA.
 - `addon/installTasks.py` - opcjonalny komunikat wsparcia podczas instalacji.
 - `addon/globalPlugins/globalSonicPitch.py` - główny plugin.
+- `addon/globalPlugins/sonicPitchNative/` - dołączone natywne DLL-e Sonic i
+  metadane licencji Apache 2.0.
 - `addon/doc/en/readme.md` - angielska pomoc dodatku.
 - `addon/doc/pl/readme.md` - polska pomoc dodatku.
 - `docs/technical-notes.md` - notatki techniczne dla utrzymania.

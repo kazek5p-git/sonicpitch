@@ -6,4 +6,5 @@ dist/
 .venv/
 venv/
 test-nvda-config/
+test-nvda-portable/
 test-logs/

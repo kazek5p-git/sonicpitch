@@ -41,11 +41,15 @@ Tested locally with:
 
 - NVDA 2025.1 or newer.
 - Windows.
-- A modern NVDA audio path with Sonic available.
+- The bundled Sonic native library, with NVDA's internal Sonic library used as
+  a fallback if the bundled library cannot be loaded.
 - A synthesizer that feeds 16-bit PCM speech audio through NVDA's main
   `WavePlayer`.
 
-Latest local test target: NVDA 2026.2 beta, 64-bit.
+Latest local test targets:
+
+- NVDA 2025.3.3 x86 portable with SAPI5 at rate 100.
+- NVDA 2026.2 beta AMD64 with SAPI5 at rate 100.
 
 ## Installation
 
@@ -150,13 +154,22 @@ but an already speaking Sonic stream keeps its current value until that
 utterance ends. The next utterance uses the new value. This avoids replacing
 native Sonic processing objects inside active speech callbacks.
 
+Starting with version 0.4.10, the add-on ships its own 32-bit and 64-bit Sonic
+native libraries. On 32-bit NVDA processes, the add-on also avoids native Sonic
+stream destruction and reuses the active stream after stop/reset events. This
+works around a reproduced native heap crash on NVDA 2025.3.3 x86 with SAPI5.
+
+Starting with version 0.4.11, short feedback messages from rapid `Sonic pitch`
+changes, such as PageUp/PageDown in Voice settings or the synth settings ring,
+more reliably use the latest value at the next utterance boundary.
+
 ## Synth Compatibility
 
 | Synth | Expected behavior |
 | --- | --- |
 | RHVoice | Supported when audio reaches the main `WavePlayer`. |
 | eSpeak NG | Supported in NVDA's main process. |
-| eSpeak-NG SAPI through SAPI5 | Supported as a SAPI5 voice after it is configured in the eSpeak-NG SAPI configurator. Version 0.4.6 and newer help NVDA list these dynamic voices in standard `sapi5`; version 0.4.7 and newer also supplement the standard `sapi5_32` voice list. |
+| eSpeak-NG SAPI through SAPI5 | Supported as a normal SAPI5 voice after it is configured and visible in NVDA's standard SAPI5 voice list. The add-on no longer augments SAPI voice lists. |
 | OneCore | Supported in NVDA's main process. |
 | 64-bit SAPI5 | Supported when it uses NVDA's audio path. |
 | 32-bit SAPI5 on 64-bit NVDA | Loads normally, but global Sonic does not process it. |
@@ -168,10 +181,6 @@ Standard `sapi5_32` on 64-bit NVDA speaks through a separate 32-bit synth host.
 This add-on's global plugin is loaded in the main NVDA process, not in that
 host. Therefore, the add-on does not process `sapi5_32` audio through Sonic and
 does not add the separate `Sonic pitch` setting to that synth.
-
-Version 0.4.7 and newer can still add configured eSpeak-NG SAPI dynamic voices
-to NVDA's standard `sapi5_32` voice list at runtime. This only affects voice
-visibility and selection; it does not make `sapi5_32` globally Sonic-processed.
 
 This is intentional. It keeps standard `sapi5_32` loading normally and avoids
 altering native pitch when Sonic cannot process that audio path.
@@ -204,6 +213,7 @@ Expected log entries:
 globalSonicPitch: installed WavePlayer speech feed hook
 globalSonicPitch: installed synth Sonic pitch setting hook
 globalSonicPitch: added Sonic pitch voice setting; synth=RHVoice
+globalSonicPitch: loaded bundled Sonic library
 globalSonicPitch: processed speech audio; synth=RHVoice; pitch=75
 ```
 
@@ -243,11 +253,11 @@ Since version 0.3.1, the add-on keeps a continuous Sonic stream for the active
 load, extreme `Sonic pitch` values, and whether the issue happens with more than
 one synth.
 
-Version 0.4.4 also avoids changing the active Sonic stream's pitch in place.
-When `Sonic pitch` changes during speech, the old processor is discarded and a
-fresh processor starts on the next audio block. This is slightly more
-conservative, but it avoids freezes seen with some SAPI5 voices during rapid
-downward pitch changes.
+Version 0.4.4 introduced the rule that the add-on does not change a Sonic
+stream's pitch in place. Current versions defer changes during active speech,
+then create a fresh Sonic stream at the next safe boundary when the selected
+`Sonic pitch` differs. This is slightly more conservative, but it avoids
+freezes seen with some SAPI5 voices during rapid downward pitch changes.
 
 Version 0.4.5 further reduces lock contention while Sonic processes fast SAPI5
 voices, including eSpeak-NG SAPI at rate 100.
@@ -258,6 +268,10 @@ while NVDA is already speaking, the audible change may wait until the next
 spoken phrase. This is intentional and favors stability over instant mid-word
 retuning.
 
+Version 0.4.11 improves the boundary detection for short setting feedback
+messages, so repeated PageUp/PageDown changes should no longer stay stuck at
+the original pitch until the slider is moved several more times.
+
 ### eSpeak-NG SAPI Does Not Appear In SAPI5
 
 The third-party eSpeak-NG SAPI voice must be configured with its own
@@ -267,11 +281,10 @@ voice list.
 
 NVDA 2026.2 reads standard SAPI5 voice tokens directly from the registry path
 used by ordinary voices. eSpeak-NG SAPI exposes configured voices through a
-dynamic SAPI token enumerator instead. Since version 0.4.6, this add-on appends
-only those eSpeak-NG SAPI dynamic tokens to NVDA's standard `sapi5` voice list
-at runtime. Since version 0.4.7, it also supplements NVDA's standard `sapi5_32`
-voice list with those configured eSpeak-NG SAPI dynamic tokens. It does not
-modify NVDA files or write registry voice tokens.
+dynamic SAPI token enumerator instead. Current versions of this add-on do not
+patch SAPI voice enumeration and do not modify NVDA files or registry voice
+tokens. If the voice is not visible in SAPI5, fix the eSpeak-NG SAPI
+configuration first.
 
 ### Standard 32-bit SAPI5 Has No Global Sonic Pitch
 
@@ -294,6 +307,7 @@ Useful search terms:
 - `globalSonicPitch`
 - `added Sonic pitch voice setting`
 - `captured Sonic pitch setting`
+- `loaded bundled Sonic library`
 - `processed speech audio`
 - `Sonic is unavailable`
 
@@ -309,13 +323,20 @@ It uses:
   stream state;
 - dynamic insertion of a `sonicPitch` setting into the active synth's
   `supportedSettings`;
-- runtime addition of configured eSpeak-NG SAPI dynamic tokens to NVDA's
-  standard `sapi5` and `sapi5_32` voice lists;
-- NVDA's internal `synthDrivers._sonic.SonicStream`.
+- bundled 32-bit and 64-bit Sonic native DLLs loaded with `ctypes`;
+- NVDA's internal `synthDrivers._sonic.SonicStream` as a fallback when the
+  bundled Sonic library is unavailable.
 
-Sonic is kept as a continuous stream per `WavePlayer`. This is important for
-audio quality because repeatedly creating a stream and flushing every small
-block can cause micro-gaps.
+Sonic is reused as a continuous stream per `WavePlayer` while the audio format
+and selected `Sonic pitch` stay the same. When either changes, the add-on starts
+a fresh stream at a safe boundary instead of retuning the already-used stream.
+This avoids native instability while still avoiding stream recreation for every
+small audio block.
+
+On 32-bit NVDA processes, Sonic streams are kept alive instead of being passed
+to native `sonicDestroyStream`. This avoids a reproduced 32-bit native heap
+crash; ordinary speech reuses the current stream, and new streams are allocated
+only when pitch or format changes require it.
 
 ## Build From Source
 
@@ -331,7 +352,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.9.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.11.nvda-addon -Force
 ```
 
 Syntax check:
@@ -345,6 +366,8 @@ python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\installTasks.
 - `addon/manifest.ini` - NVDA add-on manifest.
 - `addon/installTasks.py` - install-time optional support prompt.
 - `addon/globalPlugins/globalSonicPitch.py` - main plugin.
+- `addon/globalPlugins/sonicPitchNative/` - bundled Sonic native DLLs and
+  Apache 2.0 license metadata.
 - `addon/doc/en/readme.md` - English add-on help.
 - `addon/doc/pl/readme.md` - Polish add-on help.
 - `docs/technical-notes.md` - maintenance notes.

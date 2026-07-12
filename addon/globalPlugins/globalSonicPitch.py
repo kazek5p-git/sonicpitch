@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import json
-import locale
+import os
 import threading
 import webbrowser
 from typing import Any, Callable
@@ -83,27 +83,36 @@ _ORIGINAL_SETTINGS_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSettingsSetSynth"
 _SETTINGS_SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSettingsSetSynthPatched"
 _ORIGINAL_SUPPORTED_SETTINGS_ATTR = "_globalSonicPitchOriginalSupportedSettings"
 _SONIC_PITCH_SETTING_PATCHED_ATTR = "_globalSonicPitchVoiceSettingPatched"
-_ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR = "_globalSonicPitchOriginalGetVoiceTokens"
-_ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR = "_globalSonicPitchOriginalGetAvailableVoices"
-_SAPI5_VOICE_ENUM_PATCHED_ATTR = "_globalSonicPitchVoiceEnumPatched"
-_SAPI5_32_VOICE_ENUM_PATCHED_ATTR = "_globalSonicPitch32VoiceEnumPatched"
-_ESPEAK_NG_SAPI_TOKEN_ENUM_PART = "\\Speech\\Voices\\TokenEnums\\eSpeak-NG\\"
+_BUNDLED_SONIC_DIR = "sonicPitchNative"
+_BUNDLED_SONIC_32_DLL = "sonicPitchSonic32.dll"
+_BUNDLED_SONIC_64_DLL = "sonicPitchSonic64.dll"
 
 _sonicModule = None
 _processingLogKeys: set[tuple[Any, ...]] = set()
 _deferredPitchLogKeys: set[tuple[Any, ...]] = set()
 _voiceSettingLogKeys: set[str] = set()
-_sapi5VoiceEnumLogKeys: set[str] = set()
 _sonicUnavailableReason: str | None = None
 _sonicPitchDriverSetting: Any | None = None
 _missingClassAttr = object()
 _sonicPitchClassPatches: dict[type, Any] = {}
 _configMigrated = False
 _deferSynthPitchPatchDepth = 0
+_noDestroySonicStreamLogged = False
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
 _playerUtterancePitches: dict[int, int] = {}
 _playerProcessorsLock = threading.RLock()
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
+
+
+class _SonicStreamP(ctypes.c_void_p):
+	pass
+
+
+class _BundledSonicModule:
+	def __init__(self, sonicLib: ctypes.CDLL, dllPath: str):
+		self.sonicLib = sonicLib
+		self.dllPath = dllPath
+		self.isBundled = True
 
 
 def _ensureConfigSpec() -> None:
@@ -285,8 +294,9 @@ def _setSonicPitchForSynth(synthName: str | None, pitch: int | float) -> int | N
 	_saveSynthPitchMap(pitches)
 	_setConfigValue(LEGACY_PITCH_CONFIG_KEY, NEUTRAL_PITCH)
 	if pitch != oldPitch:
+		_clearIdlePlayerUtterancePitches()
 		log.info(
-			"globalSonicPitch: stored Sonic pitch for next utterance; "
+			"globalSonicPitch: stored Sonic pitch for next safe audio boundary; "
 			f"synth={key}; oldPitch={oldPitch}; pendingPitch={pitch}",
 		)
 	return pitch
@@ -315,6 +325,7 @@ def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str,
 	if utterancePitch != pitch:
 		_logDeferredPitchOnce(synthName, utterancePitch, pitch)
 	if utterancePitch == NEUTRAL_PITCH:
+		_clearPlayerUtterancePitch(player)
 		return None
 	return synthName, utterancePitch
 
@@ -357,10 +368,86 @@ def _getRawBytes(data: Any, size: int | None) -> bytes | None:
 		return None
 
 
+def _configureSonicLibrary(sonicLib: ctypes.CDLL) -> None:
+	sonicLib.sonicCreateStream.restype = _SonicStreamP
+	sonicLib.sonicCreateStream.argtypes = [ctypes.c_int, ctypes.c_int]
+	sonicLib.sonicDestroyStream.restype = None
+	sonicLib.sonicDestroyStream.argtypes = [_SonicStreamP]
+	sonicLib.sonicWriteFloatToStream.restype = ctypes.c_int
+	sonicLib.sonicWriteFloatToStream.argtypes = [_SonicStreamP, ctypes.c_void_p, ctypes.c_int]
+	sonicLib.sonicWriteShortToStream.restype = ctypes.c_int
+	sonicLib.sonicWriteShortToStream.argtypes = [_SonicStreamP, ctypes.c_void_p, ctypes.c_int]
+	sonicLib.sonicWriteUnsignedCharToStream.restype = ctypes.c_int
+	sonicLib.sonicWriteUnsignedCharToStream.argtypes = [_SonicStreamP, ctypes.c_void_p, ctypes.c_int]
+	sonicLib.sonicReadFloatFromStream.restype = ctypes.c_int
+	sonicLib.sonicReadFloatFromStream.argtypes = [_SonicStreamP, ctypes.c_void_p, ctypes.c_int]
+	sonicLib.sonicReadShortFromStream.restype = ctypes.c_int
+	sonicLib.sonicReadShortFromStream.argtypes = [_SonicStreamP, ctypes.c_void_p, ctypes.c_int]
+	sonicLib.sonicReadUnsignedCharFromStream.restype = ctypes.c_int
+	sonicLib.sonicReadUnsignedCharFromStream.argtypes = [_SonicStreamP, ctypes.c_void_p, ctypes.c_int]
+	sonicLib.sonicFlushStream.restype = ctypes.c_int
+	sonicLib.sonicFlushStream.argtypes = [_SonicStreamP]
+	sonicLib.sonicSamplesAvailable.restype = ctypes.c_int
+	sonicLib.sonicSamplesAvailable.argtypes = [_SonicStreamP]
+	sonicLib.sonicGetSpeed.restype = ctypes.c_float
+	sonicLib.sonicGetSpeed.argtypes = [_SonicStreamP]
+	sonicLib.sonicSetSpeed.restype = None
+	sonicLib.sonicSetSpeed.argtypes = [_SonicStreamP, ctypes.c_float]
+	sonicLib.sonicGetPitch.restype = ctypes.c_float
+	sonicLib.sonicGetPitch.argtypes = [_SonicStreamP]
+	sonicLib.sonicSetPitch.restype = None
+	sonicLib.sonicSetPitch.argtypes = [_SonicStreamP, ctypes.c_float]
+	sonicLib.sonicGetRate.restype = ctypes.c_float
+	sonicLib.sonicGetRate.argtypes = [_SonicStreamP]
+	sonicLib.sonicSetRate.restype = None
+	sonicLib.sonicSetRate.argtypes = [_SonicStreamP, ctypes.c_float]
+	sonicLib.sonicGetVolume.restype = ctypes.c_float
+	sonicLib.sonicGetVolume.argtypes = [_SonicStreamP]
+	sonicLib.sonicSetVolume.restype = None
+	sonicLib.sonicSetVolume.argtypes = [_SonicStreamP, ctypes.c_float]
+	sonicLib.sonicGetQuality.restype = ctypes.c_int
+	sonicLib.sonicGetQuality.argtypes = [_SonicStreamP]
+	sonicLib.sonicSetQuality.restype = None
+	sonicLib.sonicSetQuality.argtypes = [_SonicStreamP, ctypes.c_int]
+	sonicLib.sonicGetSampleRate.restype = ctypes.c_int
+	sonicLib.sonicGetSampleRate.argtypes = [_SonicStreamP]
+	sonicLib.sonicSetSampleRate.restype = None
+	sonicLib.sonicSetSampleRate.argtypes = [_SonicStreamP, ctypes.c_int]
+	sonicLib.sonicGetNumChannels.restype = ctypes.c_int
+	sonicLib.sonicGetNumChannels.argtypes = [_SonicStreamP]
+	sonicLib.sonicSetNumChannels.restype = None
+	sonicLib.sonicSetNumChannels.argtypes = [_SonicStreamP, ctypes.c_int]
+
+
+def _getBundledSonicPath() -> str:
+	dllName = _BUNDLED_SONIC_32_DLL if _is32BitProcess() else _BUNDLED_SONIC_64_DLL
+	return os.path.join(os.path.dirname(__file__), _BUNDLED_SONIC_DIR, dllName)
+
+
+def _loadBundledSonicModule() -> _BundledSonicModule | None:
+	dllPath = _getBundledSonicPath()
+	if not os.path.isfile(dllPath):
+		return None
+	sonicLib = ctypes.CDLL(dllPath)
+	_configureSonicLibrary(sonicLib)
+	log.info(f"globalSonicPitch: loaded bundled Sonic library; path={dllPath}")
+	return _BundledSonicModule(sonicLib, dllPath)
+
+
 def _getSonicModule():
 	global _sonicModule, _sonicUnavailableReason
 	if _sonicModule is not None:
 		return _sonicModule
+	bundledError = None
+	try:
+		_sonicModule = _loadBundledSonicModule()
+		if _sonicModule is not None:
+			_sonicUnavailableReason = None
+			return _sonicModule
+	except Exception as exc:
+		bundledError = f"{type(exc).__name__}: {exc}"
+		if _isDebugLoggingEnabled():
+			log.debugWarning("globalSonicPitch: bundled Sonic is unavailable", exc_info=True)
 	try:
 		from synthDrivers import _sonic
 
@@ -368,7 +455,11 @@ def _getSonicModule():
 		_sonicModule = _sonic
 		_sonicUnavailableReason = None
 	except Exception as exc:
-		_sonicUnavailableReason = f"{type(exc).__name__}: {exc}"
+		nvdaError = f"{type(exc).__name__}: {exc}"
+		if bundledError:
+			_sonicUnavailableReason = f"bundled Sonic: {bundledError}; NVDA Sonic: {nvdaError}"
+		else:
+			_sonicUnavailableReason = f"NVDA Sonic: {nvdaError}"
 		if _isDebugLoggingEnabled():
 			log.debugWarning("globalSonicPitch: Sonic is unavailable", exc_info=True)
 		return None
@@ -384,22 +475,93 @@ def _ctypesArrayToBytes(value: Any) -> bytes:
 		return bytes(value)
 
 
+def _is32BitProcess() -> bool:
+	return ctypes.sizeof(ctypes.c_void_p) == 4
+
+
+class _NoDestroySonicStream:
+	"""Sonic stream wrapper that avoids unstable native destruction in 32-bit NVDA."""
+
+	def __init__(self, sonicModule: Any, sampleRate: int, channels: int):
+		self._sonicModule = sonicModule
+		self.channels = channels
+		self.stream = sonicModule.sonicLib.sonicCreateStream(sampleRate, channels)
+		if not self.stream:
+			raise MemoryError()
+
+	def writeShort(self, data: Any, numSamples: int) -> None:
+		if not self._sonicModule.sonicLib.sonicWriteShortToStream(self.stream, data, numSamples):
+			raise MemoryError()
+
+	def readShort(self) -> Any:
+		samples = self.samplesAvailable
+		buffer = (ctypes.c_short * (samples * self.channels))()
+		self._sonicModule.sonicLib.sonicReadShortFromStream(self.stream, buffer, samples)
+		return buffer
+
+	def flush(self) -> None:
+		if not self._sonicModule.sonicLib.sonicFlushStream(self.stream):
+			raise MemoryError()
+
+	@property
+	def samplesAvailable(self) -> int:
+		return self._sonicModule.sonicLib.sonicSamplesAvailable(self.stream)
+
+	@property
+	def pitch(self) -> float:
+		return self._sonicModule.sonicLib.sonicGetPitch(self.stream)
+
+	@pitch.setter
+	def pitch(self, value: float) -> None:
+		self._sonicModule.sonicLib.sonicSetPitch(self.stream, value)
+
+
+class _DestroySonicStream(_NoDestroySonicStream):
+	def __del__(self):
+		stream = getattr(self, "stream", None)
+		if not stream:
+			return
+		try:
+			self._sonicModule.sonicLib.sonicDestroyStream(stream)
+		except Exception:
+			pass
+		self.stream = None
+
+
+def _createSonicStream(sonicModule: Any, sampleRate: int, channels: int) -> Any:
+	global _noDestroySonicStreamLogged
+	if _is32BitProcess():
+		if not _noDestroySonicStreamLogged:
+			_noDestroySonicStreamLogged = True
+			log.info("globalSonicPitch: using no-destroy Sonic stream wrapper for 32-bit NVDA stability")
+		return _NoDestroySonicStream(sonicModule, sampleRate, channels)
+	if getattr(sonicModule, "isBundled", False):
+		return _DestroySonicStream(sonicModule, sampleRate, channels)
+	return sonicModule.SonicStream(sampleRate, channels)
+
+
 class _SonicStreamProcessor:
 	def __init__(self, sonicModule: Any, channels: int, sampleRate: int, pitchPercent: int):
 		self.channels = channels
 		self.sampleRate = sampleRate
-		self.stream = sonicModule.SonicStream(sampleRate, channels)
+		self.stream = _createSonicStream(sonicModule, sampleRate, channels)
 		self.pitchPercent = _clampPitch(pitchPercent)
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
 		self.isFirstAudioChunk = True
+		self.isActive = False
 		self._lock = threading.RLock()
 
-	def matches(self, channels: int, sampleRate: int, pitchPercent: int) -> bool:
-		return (
-			self.channels == channels
-			and self.sampleRate == sampleRate
-			and self.pitchPercent == _clampPitch(pitchPercent)
-		)
+	def formatMatches(self, channels: int, sampleRate: int) -> bool:
+		return self.channels == channels and self.sampleRate == sampleRate
+
+	def isIdleForPitchChange(self) -> bool:
+		with self._lock:
+			if self.isActive:
+				return False
+			try:
+				return self.isFirstAudioChunk and self.stream.samplesAvailable <= 0
+			except Exception:
+				return False
 
 	def _readAvailable(self) -> bytes:
 		if self.stream.samplesAvailable <= 0:
@@ -410,6 +572,7 @@ class _SonicStreamProcessor:
 		with self._lock:
 			frameSize = self.channels * 2
 			if raw:
+				self.isActive = True
 				frameCount = len(raw) // frameSize
 				sampleCount = frameCount * self.channels
 				inputSamples = (ctypes.c_short * sampleCount).from_buffer_copy(raw)
@@ -425,47 +588,49 @@ class _SonicStreamProcessor:
 			self.isFirstAudioChunk = False
 			return self._readAvailable()
 
-	def drain(self) -> bytes:
-		with self._lock:
-			return self._readAvailable()
-
 	def finish(self) -> bytes:
-		return self.process(b"", flush=True)
+		try:
+			return self.process(b"", flush=True)
+		finally:
+			with self._lock:
+				self.isFirstAudioChunk = True
+				self.isActive = False
 
 
 def _getPlayerProcessorKey(player: nvwave.WavePlayer) -> int:
 	return id(player)
 
 
-def _popPlayerProcessor(player: nvwave.WavePlayer) -> _SonicStreamProcessor | None:
-	with _playerProcessorsLock:
-		return _playerProcessors.pop(_getPlayerProcessorKey(player), None)
-
-
-def _drainPlayerProcessor(player: nvwave.WavePlayer) -> bytes:
-	with _playerProcessorsLock:
-		processor = _playerProcessors.get(_getPlayerProcessorKey(player))
+def _finishProcessorSafely(processor: "_SonicStreamProcessor" | None) -> bytes:
 	if processor is None:
 		return b""
-	return processor.drain()
+	try:
+		return processor.finish()
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to finish retired Sonic stream", exc_info=True)
+		return b""
 
 
 def _finishPlayerProcessor(player: nvwave.WavePlayer) -> bytes:
 	with _playerProcessorsLock:
-		processor = _playerProcessors.pop(_getPlayerProcessorKey(player), None)
-	if processor is None:
-		return b""
-	return processor.finish()
+		processor = _playerProcessors.get(_getPlayerProcessorKey(player))
+	return _finishProcessorSafely(processor)
 
 
 def _resetPlayerProcessor(player: nvwave.WavePlayer) -> None:
-	_popPlayerProcessor(player)
+	with _playerProcessorsLock:
+		processorKey = _getPlayerProcessorKey(player)
+		_playerProcessors.pop(processorKey, None)
+		_playerUtterancePitches.pop(processorKey, None)
 
 
 def _resetAllPlayerProcessors() -> None:
 	with _playerProcessorsLock:
+		processors = list(_playerProcessors.values())
 		_playerProcessors.clear()
 		_playerUtterancePitches.clear()
+	for processor in processors:
+		_finishProcessorSafely(processor)
 
 
 def _getOrCreatePlayerUtterancePitch(player: nvwave.WavePlayer, pitch: int) -> int:
@@ -479,6 +644,14 @@ def _getOrCreatePlayerUtterancePitch(player: nvwave.WavePlayer, pitch: int) -> i
 def _clearPlayerUtterancePitch(player: nvwave.WavePlayer) -> None:
 	with _playerProcessorsLock:
 		_playerUtterancePitches.pop(_getPlayerProcessorKey(player), None)
+
+
+def _clearIdlePlayerUtterancePitches() -> None:
+	with _playerProcessorsLock:
+		for processorKey in list(_playerUtterancePitches):
+			processor = _playerProcessors.get(processorKey)
+			if processor is None or processor.isIdleForPitchChange():
+				_playerUtterancePitches.pop(processorKey, None)
 
 
 def _logDeferredPitchOnce(synthName: str, activePitch: int, pendingPitch: int) -> None:
@@ -501,17 +674,16 @@ def _getOrCreatePlayerProcessor(
 	with _playerProcessorsLock:
 		processorKey = _getPlayerProcessorKey(player)
 		processor = _playerProcessors.get(processorKey)
-		if processor is not None and not processor.matches(channels, sampleRate, pitchPercent):
-			_playerProcessors.pop(processorKey, None)
-			processor = None
 		if processor is not None:
-			return processor, b""
+			if processor.formatMatches(channels, sampleRate) and processor.pitchPercent == _clampPitch(pitchPercent):
+				return processor, b""
+			_playerProcessors.pop(processorKey, None)
 		sonic = _getSonicModule()
 		if sonic is None:
 			return None, b""
 		processor = _SonicStreamProcessor(sonic, channels, sampleRate, pitchPercent)
 		_playerProcessors[processorKey] = processor
-		return processor, b""
+	return processor, b""
 
 
 def _processPcm16Block(
@@ -551,11 +723,10 @@ def _patchedFeed(self, data, size=None, onDone=None):
 	raw = _getRawBytes(data, size)
 	try:
 		if raw is not None and len(raw) == 0:
-			tail = _finishPlayerProcessor(self) if onDone is None else _drainPlayerProcessor(self)
+			tail = _finishPlayerProcessor(self)
 			if tail:
 				originalFeed(self, tail, len(tail), None)
-			if onDone is None:
-				_clearPlayerUtterancePitch(self)
+			_clearPlayerUtterancePitch(self)
 			return originalFeed(self, data, size, onDone)
 		processingContext = _getProcessingContext(self, len(raw)) if raw is not None else None
 		if raw is not None and processingContext is not None:
@@ -711,199 +882,6 @@ def _getSonicPitchDriverSetting() -> Any | None:
 		log.debugWarning("globalSonicPitch: failed to create Sonic pitch voice setting", exc_info=True)
 		return None
 	return _sonicPitchDriverSetting
-
-
-def _isEspeakNgSapiTokenId(tokenId: str) -> bool:
-	return _ESPEAK_NG_SAPI_TOKEN_ENUM_PART.lower() in str(tokenId).lower()
-
-
-def _tokenId(token: Any) -> str | None:
-	try:
-		return str(token.Id)
-	except Exception:
-		return None
-
-
-def _patchedSapi5GetVoiceTokens(self):
-	originalGetVoiceTokens = getattr(self.__class__, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR)
-	tokens = list(originalGetVoiceTokens(self))
-	seen = {tokenId for tokenId in (_tokenId(token) for token in tokens) if tokenId}
-	try:
-		dynamicTokens = self.tts.GetVoices("", "")
-	except Exception:
-		log.debugWarning("globalSonicPitch: failed to enumerate SAPI5 dynamic voices", exc_info=True)
-		return tokens
-	added = 0
-	try:
-		tokenCount = len(dynamicTokens)
-	except Exception:
-		tokenCount = 0
-	for index in range(tokenCount):
-		try:
-			token = dynamicTokens[index]
-		except Exception:
-			continue
-		tokenId = _tokenId(token)
-		if not tokenId or tokenId in seen or not _isEspeakNgSapiTokenId(tokenId):
-			continue
-		tokens.append(token)
-		seen.add(tokenId)
-		added += 1
-	if added:
-		key = f"added:{added}"
-		if key not in _sapi5VoiceEnumLogKeys:
-			_sapi5VoiceEnumLogKeys.add(key)
-			log.info(f"globalSonicPitch: added {added} eSpeak-NG SAPI dynamic voices to NVDA sapi5 voice list")
-	return tokens
-
-
-def _getSapiTokenLanguage(token: Any) -> str | None:
-	try:
-		languageId = int(token.getattribute("language").split(";")[0], 16)
-		return locale.windows_locale.get(languageId)
-	except Exception:
-		return None
-
-
-def _getEspeakNgSapiVoiceInfos() -> dict[str, Any]:
-	try:
-		import comtypes.client
-	except Exception:
-		return {}
-	try:
-		voice = comtypes.client.CreateObject("SAPI.SpVoice")
-		tokens = voice.GetVoices("", "")
-	except Exception:
-		log.debugWarning("globalSonicPitch: failed to enumerate SAPI voices for eSpeak-NG compatibility", exc_info=True)
-		return {}
-	voiceInfos: dict[str, Any] = {}
-	try:
-		tokenCount = len(tokens)
-	except Exception:
-		tokenCount = 0
-	for index in range(tokenCount):
-		try:
-			token = tokens[index]
-			tokenId = _tokenId(token)
-			if not tokenId or not _isEspeakNgSapiTokenId(tokenId):
-				continue
-			voiceInfos[tokenId] = synthDriverHandler.VoiceInfo(
-				tokenId,
-				token.GetDescription(),
-				_getSapiTokenLanguage(token),
-			)
-		except Exception:
-			continue
-	return voiceInfos
-
-
-def _addEspeakNgSapiVoiceInfos(voices: Any, source: str) -> int:
-	if voices is None:
-		return 0
-	added = 0
-	try:
-		for voiceId, voiceInfo in _getEspeakNgSapiVoiceInfos().items():
-			if voiceId in voices:
-				continue
-			voices[voiceId] = voiceInfo
-			added += 1
-	except Exception:
-		log.debugWarning(f"globalSonicPitch: failed to add eSpeak-NG SAPI voices to {source}", exc_info=True)
-		return added
-	if added:
-		key = f"{source}:{added}"
-		if key not in _sapi5VoiceEnumLogKeys:
-			_sapi5VoiceEnumLogKeys.add(key)
-			log.info(f"globalSonicPitch: added {added} eSpeak-NG SAPI dynamic voices to NVDA {source} voice list")
-	return added
-
-
-def _patchedSapi532GetAvailableVoices(self):
-	originalGetAvailableVoices = getattr(self.__class__, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR)
-	voices = originalGetAvailableVoices(self)
-	_addEspeakNgSapiVoiceInfos(voices, "sapi5_32")
-	return voices
-
-
-def _patchCurrentSapi532AvailableVoices() -> None:
-	synth = _getCurrentSynth()
-	if _getSynthName(synth) != "sapi5_32":
-		return
-	try:
-		voices = getattr(synth, "availableVoices", None)
-		if _addEspeakNgSapiVoiceInfos(voices, "sapi5_32 current"):
-			try:
-				synth._availableVoices = voices
-			except Exception:
-				pass
-			_updateSynthSettingsRing(synth)
-	except Exception:
-		log.debugWarning("globalSonicPitch: failed to patch current sapi5_32 voices", exc_info=True)
-
-
-def installSapi5VoiceEnumerationHook() -> None:
-	try:
-		import synthDrivers.sapi5 as sapi5
-	except Exception:
-		log.debugWarning("globalSonicPitch: failed to import sapi5 for voice enumeration hook", exc_info=True)
-	else:
-		synthClass = getattr(sapi5, "SynthDriver", None)
-		if synthClass is not None and not getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
-			originalGetVoiceTokens = getattr(synthClass, "_getVoiceTokens", None)
-			if callable(originalGetVoiceTokens):
-				setattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, originalGetVoiceTokens)
-				synthClass._getVoiceTokens = _patchedSapi5GetVoiceTokens
-				setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, True)
-				log.info("globalSonicPitch: installed eSpeak-NG SAPI sapi5 voice enumeration hook")
-	try:
-		import synthDrivers.sapi5_32 as sapi5_32
-	except Exception:
-		log.debugWarning("globalSonicPitch: failed to import sapi5_32 for voice enumeration hook", exc_info=True)
-	else:
-		synthClass = getattr(sapi5_32, "SynthDriver", None)
-		if synthClass is not None and not getattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, False):
-			originalGetAvailableVoices = getattr(synthClass, "_getAvailableVoices", None)
-			if callable(originalGetAvailableVoices):
-				setattr(synthClass, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR, originalGetAvailableVoices)
-				synthClass._getAvailableVoices = _patchedSapi532GetAvailableVoices
-				setattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, True)
-				log.info("globalSonicPitch: installed eSpeak-NG SAPI sapi5_32 voice enumeration hook")
-	_patchCurrentSapi532AvailableVoices()
-
-
-def uninstallSapi5VoiceEnumerationHook() -> None:
-	try:
-		import synthDrivers.sapi5 as sapi5
-	except Exception:
-		pass
-	else:
-		synthClass = getattr(sapi5, "SynthDriver", None)
-		if synthClass is not None and getattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False):
-			originalGetVoiceTokens = getattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR, None)
-			if originalGetVoiceTokens is not None and getattr(synthClass, "_getVoiceTokens", None) is _patchedSapi5GetVoiceTokens:
-				synthClass._getVoiceTokens = originalGetVoiceTokens
-			try:
-				delattr(synthClass, _ORIGINAL_SAPI5_GET_VOICE_TOKENS_ATTR)
-			except Exception:
-				pass
-			setattr(synthClass, _SAPI5_VOICE_ENUM_PATCHED_ATTR, False)
-			log.info("globalSonicPitch: removed eSpeak-NG SAPI sapi5 voice enumeration hook")
-	try:
-		import synthDrivers.sapi5_32 as sapi5_32
-	except Exception:
-		return
-	synthClass = getattr(sapi5_32, "SynthDriver", None)
-	if synthClass is None or not getattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, False):
-		return
-	originalGetAvailableVoices = getattr(synthClass, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR, None)
-	if originalGetAvailableVoices is not None and getattr(synthClass, "_getAvailableVoices", None) is _patchedSapi532GetAvailableVoices:
-		synthClass._getAvailableVoices = originalGetAvailableVoices
-	try:
-		delattr(synthClass, _ORIGINAL_SAPI5_32_GET_AVAILABLE_VOICES_ATTR)
-	except Exception:
-		pass
-	setattr(synthClass, _SAPI5_32_VOICE_ENUM_PATCHED_ATTR, False)
-	log.info("globalSonicPitch: removed eSpeak-NG SAPI sapi5_32 voice enumeration hook")
 
 
 def _settingId(setting: Any) -> str:
@@ -1079,7 +1057,6 @@ def _patchCurrentSynthPitch() -> None:
 
 def _safePatchCurrentSynthPitch() -> None:
 	try:
-		_patchCurrentSapi532AvailableVoices()
 		_patchCurrentSynthPitch()
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed after synth switch", exc_info=True)
@@ -1202,7 +1179,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		_ensureConfigSpec()
-		installSapi5VoiceEnumerationHook()
 		installWavePlayerHook()
 		installSynthPitchHook()
 		if GlobalSonicPitchSettingsPanel not in NVDASettingsDialog.categoryClasses:
@@ -1215,7 +1191,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		finally:
 			uninstallSynthPitchHook()
 			uninstallWavePlayerHook()
-			uninstallSapi5VoiceEnumerationHook()
 			super().terminate()
 
 	@script(

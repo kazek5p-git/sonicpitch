@@ -82,16 +82,13 @@ eSpeak-NG SAPI through SAPI5, and similar synths when their 16-bit PCM speech
 audio reaches NVDA's main `WavePlayer`.
 
 Third-party eSpeak-NG SAPI voices must be configured in the eSpeak-NG SAPI
-configuration tool before they appear in SAPI. Since version 0.4.6, this add-on
-helps NVDA list configured eSpeak-NG SAPI dynamic voices in the normal 64-bit
-SAPI5 voice list. Since version 0.4.7, it also supplements the standard
-`sapi5_32` voice list. This is done at runtime, without modifying NVDA files or
-writing registry voice tokens.
+configuration tool before they appear in SAPI. Current versions of this add-on
+do not patch SAPI voice enumeration, do not modify NVDA files, and do not write
+registry voice tokens.
 
 Standard `sapi5_32` on 64-bit NVDA is deliberately skipped. It runs in a
 separate 32-bit synth host, so this global plugin cannot process that audio.
-The add-on may make configured eSpeak-NG SAPI voices visible in `sapi5_32`, but
-that synth path still has no global Sonic processing.
+That synth path still has no global Sonic processing.
 
 ## Migration From The Old Add-on
 
@@ -110,18 +107,13 @@ Useful entries:
 - `globalSonicPitch: installed synth Sonic pitch setting hook`
 - `globalSonicPitch: added Sonic pitch voice setting`
 - `globalSonicPitch: captured Sonic pitch setting`
+- `globalSonicPitch: loaded bundled Sonic library`
 - `globalSonicPitch: processed speech audio`
 
 For standard `sapi5_32`, the expected entry is:
 
 ```text
 Loaded synthDriver sapi5_32
-```
-
-With configured eSpeak-NG SAPI voices, version 0.4.7 and newer may also log:
-
-```text
-globalSonicPitch: added 2 eSpeak-NG SAPI dynamic voices to NVDA sapi5_32 voice list
 ```
 
 ## Troubleshooting
@@ -143,15 +135,21 @@ If you hear the synth's native pitch change, that is expected. NVDA's normal
 processing.
 
 If small audio gaps remain, check CPU load, less extreme `Sonic pitch` values,
-and more than one synth. Since version 0.3.1, the add-on uses a continuous
-Sonic stream to reduce micro-gaps between audio blocks. Since version 0.4.4,
-pitch changes during active speech reset the Sonic processor instead of
-changing the active stream in place, avoiding freezes seen with some SAPI5
-voices during rapid downward pitch changes. Since version 0.4.5, the add-on
-also reduces lock contention while processing fast SAPI5 voices such as
-eSpeak-NG SAPI at rate 100. Since version 0.4.9, `Sonic pitch` changes are
-applied from the next utterance instead of replacing the active Sonic processor
-while speech is already being processed.
+and more than one synth. Since version 0.3.1, the add-on reuses a continuous
+Sonic stream while the audio format and selected pitch stay the same. Current
+versions do not retune an already-used Sonic stream in place; changes during
+active speech are applied from the next safe utterance boundary with a fresh
+stream. This avoids freezes seen with some SAPI5 voices during rapid downward
+pitch changes. Since version 0.4.5, the add-on also reduces lock contention
+while processing fast SAPI5 voices such as eSpeak-NG SAPI at rate 100.
+
+Since version 0.4.10, the add-on uses bundled 32-bit and 64-bit Sonic native
+libraries. In 32-bit NVDA processes, Sonic streams are kept alive instead of
+being passed to native `sonicDestroyStream`, which works around a reproduced
+native heap crash on NVDA 2025.3.3 x86 with SAPI5.
+
+Since version 0.4.11, short feedback messages after repeated PageUp/PageDown
+changes use the latest `Sonic pitch` value more reliably.
 
 ## Logs
 
