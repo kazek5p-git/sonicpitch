@@ -149,7 +149,9 @@ pitch changes during active speech reset the Sonic processor instead of
 changing the active stream in place, avoiding freezes seen with some SAPI5
 voices during rapid downward pitch changes. Since version 0.4.5, the add-on
 also reduces lock contention while processing fast SAPI5 voices such as
-eSpeak-NG SAPI at rate 100.
+eSpeak-NG SAPI at rate 100. Since version 0.4.9, `Sonic pitch` changes are
+applied from the next utterance instead of replacing the active Sonic processor
+while speech is already being processed.
 
 ## Logs
 

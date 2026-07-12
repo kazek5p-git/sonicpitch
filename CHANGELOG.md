@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.9
+
+- Changes Sonic pitch application to be utterance-scoped for all supported
+  synthesizers.
+- `Sonic pitch` values are still saved immediately, but active Sonic streams are
+  no longer reset or replaced in the middle of speech.
+- New values start with the next utterance, reducing the chance of native Sonic
+  or SAPI callback instability during rapid pitch changes.
+- Keeps SAPI5 support enabled; this is a stability workaround, not a synth
+  compatibility block.
+- Clears per-utterance Sonic state on idle, stop, close, and synth changes.
+
 ## 0.4.8
 
 - Changes `Sonic pitch` from one shared global value to a value stored

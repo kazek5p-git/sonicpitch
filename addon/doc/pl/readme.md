@@ -152,7 +152,9 @@ wersji 0.4.4 zmiana wysokości podczas aktywnej mowy resetuje procesor Sonic
 zamiast zmieniać aktywny strumień w locie, co omija zawieszenia widziane z
 niektórymi głosami SAPI5 przy szybkim obniżaniu wysokości. Od wersji 0.4.5
 dodatek zmniejsza też blokowanie między wątkami podczas przetwarzania szybkich
-głosów SAPI5, takich jak eSpeak-NG SAPI przy prędkości 100.
+głosów SAPI5, takich jak eSpeak-NG SAPI przy prędkości 100. Od wersji 0.4.9
+zmiany `Sonic pitch` są stosowane od następnej wypowiedzi zamiast wymieniać
+aktywny procesor Sonic, gdy mowa jest już przetwarzana.
 
 ## Logi
 

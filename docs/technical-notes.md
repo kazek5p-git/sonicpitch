@@ -70,6 +70,13 @@ value. The add-on settings panel now only enables/disables processing and debug
 logging. The dynamic Voice dialog/ring setting and Input Gesture scripts read
 and write the active supported synth's own `sonicPitch` value.
 
+Version 0.4.9 makes Sonic pitch application utterance-scoped. Changing
+`sonicPitch` stores the new value immediately, but an already active speech
+`WavePlayer` continues using the pitch value captured at the start of that
+utterance. The new value is used by the next utterance. This avoids resetting or
+replacing a native `SonicStream` while SAPI or another synth is feeding audio
+callbacks.
+
 ## Config
 
 Current config section:
@@ -145,6 +152,11 @@ a class-level Python `property` named `sonicPitch` to the active synth class.
 That property reads and writes the active synth's entry in
 `[globalSonicPitch] pitchBySynth`.
 
+In version 0.4.9 and newer, writes to that property no longer call
+`_resetAllPlayerProcessors()`. The processor for the current utterance keeps its
+captured pitch until `WavePlayer.idle()`, `stop()`, `close()`, an end-of-stream
+empty feed, or a synth change clears the per-player utterance state.
+
 An earlier prototype tried to attach `_get_sonicPitch` and `_set_sonicPitch` to
 the synth instance. That does not work reliably because NVDA's
 `AutoPropertyType` creates descriptor properties from `_get_*` methods when the
@@ -169,11 +181,13 @@ The hook is intentionally narrow:
   `nvwave.AudioPurpose.SPEECH`;
 - it only processes 16-bit PCM blocks;
 - it keeps one Sonic stream per speech `WavePlayer` while speech is active;
-- it recreates that stream when the audio format or `Sonic pitch` value changes;
+- it captures `Sonic pitch` at the start of an utterance and keeps that value
+  until the utterance ends;
+- it recreates that stream when the audio format changes;
 - it buffers the first chunk until about 50 ms of processed audio is available;
 - it avoids `SonicStream.flush()` in the middle of ordinary audio blocks;
-- it discards the old stream rather than flushing a tail when Sonic pitch changes
-  during active speech;
+- it does not replace the active stream when Sonic pitch changes during active
+  speech;
 - it flushes the remaining Sonic stream tail before `WavePlayer.idle()`;
 - it uses a global lock only for the processor map and a per-stream lock around
   Sonic calls;

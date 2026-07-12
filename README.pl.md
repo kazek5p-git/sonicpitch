@@ -151,6 +151,12 @@ własnej wartości `Sonic pitch` aktywnego syntezatora. Zwykła `Wysokość` NVD
 nadal działa jako natywna wysokość syntezatora. Jeśli oba suwaki są ustawione
 poza `50`, usłyszysz połączenie obu efektów.
 
+Od wersji 0.4.9 zmiany `Sonic pitch` są stosowane na granicach wypowiedzi.
+Przesunięcie kontrolki zapisuje nową wartość od razu, ale aktywny strumień Sonic
+zachowuje dotychczasową wartość do końca bieżącej wypowiedzi. Następna wypowiedź
+używa już nowej wartości. Dzięki temu dodatek nie wymienia natywnych obiektów
+Sonic w środku aktywnych callbacków audio.
+
 ## Zgodność Syntezatorów
 
 | Syntezator | Oczekiwane działanie |
@@ -256,6 +262,12 @@ wysokości.
 Wersja 0.4.5 dodatkowo zmniejsza blokowanie między wątkami podczas
 przetwarzania szybkich głosów SAPI5, w tym eSpeak-NG SAPI przy prędkości 100.
 
+Wersja 0.4.9 stosuje zmiany wysokości od następnej wypowiedzi zamiast wymieniać
+aktywny procesor Sonic podczas mowy. Jeśli przesuniesz `Sonic pitch`, gdy NVDA
+już mówi, słyszalna zmiana może pojawić się dopiero przy następnej wypowiedzi.
+To zachowanie jest celowe i stawia stabilność ponad natychmiastowe przestrajanie
+w środku słowa.
+
 ### eSpeak-NG SAPI nie pojawia się w SAPI5
 
 Zewnętrzny głos eSpeak-NG SAPI trzeba najpierw skonfigurować jego własnym
@@ -328,7 +340,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.8.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.9.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

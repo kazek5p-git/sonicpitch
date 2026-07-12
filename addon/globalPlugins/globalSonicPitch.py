@@ -91,6 +91,7 @@ _ESPEAK_NG_SAPI_TOKEN_ENUM_PART = "\\Speech\\Voices\\TokenEnums\\eSpeak-NG\\"
 
 _sonicModule = None
 _processingLogKeys: set[tuple[Any, ...]] = set()
+_deferredPitchLogKeys: set[tuple[Any, ...]] = set()
 _voiceSettingLogKeys: set[str] = set()
 _sapi5VoiceEnumLogKeys: set[str] = set()
 _sonicUnavailableReason: str | None = None
@@ -100,6 +101,7 @@ _sonicPitchClassPatches: dict[type, Any] = {}
 _configMigrated = False
 _deferSynthPitchPatchDepth = 0
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
+_playerUtterancePitches: dict[int, int] = {}
 _playerProcessorsLock = threading.RLock()
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
 
@@ -283,7 +285,10 @@ def _setSonicPitchForSynth(synthName: str | None, pitch: int | float) -> int | N
 	_saveSynthPitchMap(pitches)
 	_setConfigValue(LEGACY_PITCH_CONFIG_KEY, NEUTRAL_PITCH)
 	if pitch != oldPitch:
-		_resetAllPlayerProcessors()
+		log.info(
+			"globalSonicPitch: stored Sonic pitch for next utterance; "
+			f"synth={key}; oldPitch={oldPitch}; pendingPitch={pitch}",
+		)
 	return pitch
 
 
@@ -306,9 +311,12 @@ def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str,
 	if not _isGlobalAudioSupportedSynth(synthName):
 		return None
 	pitch = _getSonicPitchForSynth(synthName)
-	if pitch == NEUTRAL_PITCH:
+	utterancePitch = _getOrCreatePlayerUtterancePitch(player, pitch)
+	if utterancePitch != pitch:
+		_logDeferredPitchOnce(synthName, utterancePitch, pitch)
+	if utterancePitch == NEUTRAL_PITCH:
 		return None
-	return synthName, pitch
+	return synthName, utterancePitch
 
 
 def _isSpeechPlayer(player: nvwave.WavePlayer) -> bool:
@@ -457,6 +465,31 @@ def _resetPlayerProcessor(player: nvwave.WavePlayer) -> None:
 def _resetAllPlayerProcessors() -> None:
 	with _playerProcessorsLock:
 		_playerProcessors.clear()
+		_playerUtterancePitches.clear()
+
+
+def _getOrCreatePlayerUtterancePitch(player: nvwave.WavePlayer, pitch: int) -> int:
+	with _playerProcessorsLock:
+		processorKey = _getPlayerProcessorKey(player)
+		if processorKey not in _playerUtterancePitches:
+			_playerUtterancePitches[processorKey] = _clampPitch(pitch)
+		return _playerUtterancePitches[processorKey]
+
+
+def _clearPlayerUtterancePitch(player: nvwave.WavePlayer) -> None:
+	with _playerProcessorsLock:
+		_playerUtterancePitches.pop(_getPlayerProcessorKey(player), None)
+
+
+def _logDeferredPitchOnce(synthName: str, activePitch: int, pendingPitch: int) -> None:
+	key = (synthName, activePitch, pendingPitch)
+	if key in _deferredPitchLogKeys and not _isDebugLoggingEnabled():
+		return
+	_deferredPitchLogKeys.add(key)
+	log.info(
+		"globalSonicPitch: deferring Sonic pitch change until next utterance; "
+		f"synth={synthName or 'unknown'}; activePitch={activePitch}; pendingPitch={pendingPitch}",
+	)
 
 
 def _getOrCreatePlayerProcessor(
@@ -521,6 +554,8 @@ def _patchedFeed(self, data, size=None, onDone=None):
 			tail = _finishPlayerProcessor(self) if onDone is None else _drainPlayerProcessor(self)
 			if tail:
 				originalFeed(self, tail, len(tail), None)
+			if onDone is None:
+				_clearPlayerUtterancePitch(self)
 			return originalFeed(self, data, size, onDone)
 		processingContext = _getProcessingContext(self, len(raw)) if raw is not None else None
 		if raw is not None and processingContext is not None:
@@ -563,6 +598,8 @@ def _feedProcessorTail(player: nvwave.WavePlayer) -> None:
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed to flush Sonic stream tail", exc_info=True)
 		_resetPlayerProcessor(player)
+	finally:
+		_clearPlayerUtterancePitch(player)
 
 
 def _patchedIdle(self, *args, **kwargs):
@@ -573,12 +610,14 @@ def _patchedIdle(self, *args, **kwargs):
 
 def _patchedStop(self, *args, **kwargs):
 	_resetPlayerProcessor(self)
+	_clearPlayerUtterancePitch(self)
 	originalStop = getattr(nvwave.WavePlayer, _ORIGINAL_STOP_ATTR)
 	return originalStop(self, *args, **kwargs)
 
 
 def _patchedClose(self, *args, **kwargs):
 	_resetPlayerProcessor(self)
+	_clearPlayerUtterancePitch(self)
 	originalClose = getattr(nvwave.WavePlayer, _ORIGINAL_CLOSE_ATTR)
 	return originalClose(self, *args, **kwargs)
 
@@ -1055,6 +1094,7 @@ def _schedulePatchCurrentSynthPitch() -> None:
 
 def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
 	result = originalSetSynth(*args, **kwargs)
+	_resetAllPlayerProcessors()
 	if not _deferSynthPitchPatchDepth:
 		_safePatchCurrentSynthPitch()
 	return result

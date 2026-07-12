@@ -144,6 +144,12 @@ using the active synthesizer's own `Sonic pitch` value. NVDA's normal `Pitch`
 setting still changes the synth's native pitch. If both sliders are away from
 `50`, you will hear the combined result.
 
+Starting with version 0.4.9, `Sonic pitch` changes are applied at utterance
+boundaries. Moving the `Sonic pitch` control saves the new value immediately,
+but an already speaking Sonic stream keeps its current value until that
+utterance ends. The next utterance uses the new value. This avoids replacing
+native Sonic processing objects inside active speech callbacks.
+
 ## Synth Compatibility
 
 | Synth | Expected behavior |
@@ -246,6 +252,12 @@ downward pitch changes.
 Version 0.4.5 further reduces lock contention while Sonic processes fast SAPI5
 voices, including eSpeak-NG SAPI at rate 100.
 
+Version 0.4.9 makes pitch changes apply from the next utterance instead of
+replacing the active Sonic processor during speech. If you move `Sonic pitch`
+while NVDA is already speaking, the audible change may wait until the next
+spoken phrase. This is intentional and favors stability over instant mid-word
+retuning.
+
 ### eSpeak-NG SAPI Does Not Appear In SAPI5
 
 The third-party eSpeak-NG SAPI voice must be configured with its own
@@ -319,7 +331,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.8.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.9.nvda-addon -Force
 ```
 
 Syntax check:
