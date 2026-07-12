@@ -70,14 +70,6 @@ value. The add-on settings panel now only enables/disables processing and debug
 logging. The dynamic Voice dialog/ring setting and Input Gesture scripts read
 and write the active supported synth's own `sonicPitch` value.
 
-Version 0.4.9 disables global Sonic processing for standard `sapi5` when NVDA
-itself is 32-bit and older than 2026.1. Logs from NVDA 2025.3.3 x86 show
-repeatable `APPCRASH` events while rapidly changing Sonic pitch on SAPI5:
-`nvda.exe`, faulting module `ntdll.dll`, exception `0xc0000374`, and
-`PCH_*_FROM_ntdll`. This is native heap corruption, not a Python exception, so
-the safe runtime behavior is to leave SAPI5 native and hide `sonicPitch` for
-that specific NVDA line.
-
 ## Config
 
 Current config section:
@@ -136,12 +128,6 @@ global plugin cannot process that host's audio, so `sapi5_32` is left as a
 normal native synth path. The eSpeak-NG SAPI voice-list compatibility hook may
 add dynamic eSpeak-NG SAPI voices to this native synth's visible voice list, but
 it does not change the audio routing limitation.
-
-Standard `sapi5` on 32-bit NVDA 2025.x is also excluded. Although its audio is
-in the main process, collected logs from NVDA 2025.3.3 x86 show native heap
-corruption during rapid Sonic pitch changes. The guard is intentionally limited
-to 32-bit NVDA versions older than 2026.1 so 64-bit NVDA and newer NVDA builds
-can keep using global Sonic processing with SAPI5.
 
 ## Dynamic Voice Setting
 

@@ -93,12 +93,6 @@ separate 32-bit synth host, so this global plugin cannot process that audio.
 The add-on may make configured eSpeak-NG SAPI voices visible in `sapi5_32`, but
 that synth path still has no global Sonic processing.
 
-Standard `sapi5` on 32-bit NVDA 2025.x is also deliberately skipped. Logs from
-NVDA 2025.3.3 x86 show repeatable native heap crashes in `ntdll.dll` with
-exception `0xc0000374` during rapid Sonic pitch changes. Version 0.4.9 and
-newer keep SAPI5 loading normally on that NVDA line, but do not add the
-`Sonic pitch` voice setting there.
-
 ## Migration From The Old Add-on
 
 The old `sapi5SonicPitch` add-on added separate SAPI5 Sonic Pitch synths. The

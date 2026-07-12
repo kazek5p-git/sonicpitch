@@ -25,37 +25,35 @@
 19. Configured eSpeak-NG SAPI dynamic voices appear in NVDA's standard
     `sapi5_32` voice list, while `sapi5_32` remains a native unprocessed synth.
 20. eSpeak-NG SAPI through SAPI5 speaks with global Sonic enabled.
-21. On 32-bit NVDA 2025.x, standard `sapi5` loads normally but does not expose
-    `Sonic pitch`, and the log explains the compatibility guard.
-22. While eSpeak-NG SAPI is speaking on a supported SAPI5 path, quickly lower `Sonic pitch` through 45,
+21. While eSpeak-NG SAPI is speaking, quickly lower `Sonic pitch` through 45,
     40, 35, 30, 25, 20, 15, 10, 5, and 0, confirming NVDA does not freeze.
-23. Repeat the eSpeak-NG SAPI test with SAPI5 rate set to 100. For stress
+22. Repeat the eSpeak-NG SAPI test with SAPI5 rate set to 100. For stress
     testing, use repeated pitch changes about every 40 ms while speech is
     active.
-24. Pitch 25, 50, and 75 through the normal NVDA pitch setting, confirming it
+23. Pitch 25, 50, and 75 through the normal NVDA pitch setting, confirming it
     remains the synth's native pitch control.
-25. Confirm the Global Sonic Pitch panel has no `Sonic pitch` slider; it only
+24. Confirm the Global Sonic Pitch panel has no `Sonic pitch` slider; it only
     enables processing, debug logging, and the support button.
-26. Pitch 25, 50, and 75 through the `Sonic pitch` setting in the Voice dialog
+25. Pitch 25, 50, and 75 through the `Sonic pitch` setting in the Voice dialog
     or synth settings ring when it is exposed.
-27. Set different `Sonic pitch` values for two supported synths, switch between
+26. Set different `Sonic pitch` values for two supported synths, switch between
     them, and confirm each synth restores its own value.
-28. While SAPI5 is speaking on a supported SAPI5 path, quickly decrease `Sonic pitch` several steps and
+27. While SAPI5 is speaking, quickly decrease `Sonic pitch` several steps and
     confirm NVDA does not crash or report repeated empty processed blocks.
-29. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
+28. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
     Voice dialog or synth settings ring.
-30. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
+29. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
     dialog or synth settings ring for supported synths.
-31. Input Gesture scripts for opening the support page, increasing,
+30. Input Gesture scripts for opening the support page, increasing,
     decreasing, and resetting Sonic pitch for the current synth appear in the
     `Global Sonic Pitch` category.
-32. During installation or update, the optional support prompt appears outside
+31. During installation or update, the optional support prompt appears outside
     minimal mode. `No` continues installation. `Yes` opens
     `https://buycoffee.to/kazimierz-parzych` in the default browser.
-33. Rate, volume, voice switching, and cancellation still behave normally.
-34. Say-all / continuous reading does not obviously regress.
-35. NVDA sound effects are not processed as speech audio.
-36. Error log check after each scenario.
+32. Rate, volume, voice switching, and cancellation still behave normally.
+33. Say-all / continuous reading does not obviously regress.
+34. NVDA sound effects are not processed as speech audio.
+35. Error log check after each scenario.
 
 ## Expected Results
 
@@ -81,8 +79,6 @@
 - Different supported synths can keep different `Sonic pitch` values.
 - Standard `sapi5_32` still loads. On 64-bit NVDA it is not globally processed
   because it runs in the separate 32-bit synth host.
-- Standard `sapi5` still loads on 32-bit NVDA 2025.x, but `Sonic pitch` is not
-  exposed there and global Sonic does not process that SAPI5 path.
 - eSpeak-NG SAPI can be tested only after its own configurator enables at least
   one SAPI voice profile.
 - Configured eSpeak-NG SAPI dynamic voices are visible in NVDA's standard
@@ -101,8 +97,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.9:
+Expected package name for version 0.4.8:
 
 ```text
-globalSonicPitch-0.4.9.nvda-addon
+globalSonicPitch-0.4.8.nvda-addon
 ```
