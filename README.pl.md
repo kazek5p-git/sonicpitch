@@ -16,6 +16,7 @@ Dokumentacja angielska: [README.md](README.md)
   syntezatorów.
 - `Sonic pitch` jest osobną regulacją Sonic i nie zastępuje natywnej
   `Wysokości`.
+- `Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora.
 - Audio mowy jest filtrowane przez Sonic w głównym `WavePlayer` NVDA.
 - Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany, bo działa w
   osobnym 32-bitowym hoście.
@@ -65,12 +66,14 @@ Ostatnio testowana lokalnie konfiguracja: NVDA 2026.2 beta, 64-bit.
 1. Wybierz normalny syntezator NVDA, na przykład RHVoice, eSpeak, OneCore albo
    SAPI5 64-bit.
 2. W ustawieniach NVDA włącz `Global Sonic Pitch`.
-3. Zmieniaj przetwarzanie Sonic ustawieniem głosu `Sonic pitch` albo panelem
-   dodatku. Jeśli `Sonic pitch` nie ma jeszcze w ustawieniach głosu, włącz tryb
-   globalny w panelu dodatku i otwórz ustawienia głosu ponownie.
+3. Zmieniaj przetwarzanie Sonic ustawieniem głosu `Sonic pitch`, pierścieniem
+   ustawień syntezatora albo przypisanym gestem wejścia. Jeśli `Sonic pitch` nie
+   ma jeszcze w ustawieniach głosu, włącz tryb globalny w panelu dodatku i
+   otwórz ustawienia głosu ponownie.
 4. Zmieniaj natywną wysokość syntezatora normalnym ustawieniem `Wysokość`, jeśli
    chcesz używać obu regulacji równocześnie.
-5. Ustawienie `50` traktuj jako neutralne dla `Sonic pitch`.
+5. Ustawienie `50` traktuj jako neutralne dla `Sonic pitch`. Każdy obsługiwany
+   syntezator ma własną wartość `Sonic pitch`.
 6. Jeśli coś brzmi źle, wróć do `50` albo wyłącz globalny tryb w panelu dodatku.
 
 ## Ustawienia
@@ -79,13 +82,12 @@ Panel `Global Sonic Pitch` zawiera:
 
 - `Enable global Sonic pitch` - włącza lub wyłącza globalne przetwarzanie Sonic
   pitch.
-- `Sonic pitch` - ustawia wartość wysokości używaną przez Sonic.
 - `Enable debug logging` - dodaje szczegółowe wpisy do logu NVDA.
 - `Support the author` - otwiera zewnętrzną stronę wsparcia BuyCoffee.
 
 Normalne ustawienie `Wysokość` w pierścieniu ustawień syntezatora pozostaje
 natywnym ustawieniem aktywnego syntezatora. `Sonic pitch` jest osobnym
-ustawieniem dodatku.
+ustawieniem dodatku zapisywanym osobno dla obsługiwanego syntezatora.
 
 Panel dodatku jest zawsze dostępny w ustawieniach NVDA, żeby można było włączyć
 albo wyłączyć funkcję.
@@ -96,6 +98,11 @@ ustawień syntezatora. To ustawienie jest dokładane dynamicznie do aktywnego
 syntezatora, bez modyfikowania rdzenia NVDA. Gdy globalny Sonic pitch jest
 wyłączony, ustawienie znika z dialogu `Głos` i pierścienia ustawień syntezatora.
 
+W globalnym panelu dodatku celowo nie ma suwaka `Sonic pitch`. Panel globalny
+włącza procesor audio, a wartość `Sonic pitch` zmienia się z poziomu ustawień
+głosu, pierścienia ustawień syntezatora albo przypisanych gestów dla bieżącego
+obsługiwanego syntezatora.
+
 Jeśli używasz dodatku `Synth ring settings selector`, `sonicPitch` jest
 dopisywane do jego listy dostępnych ustawień, żeby mogło pojawić się w
 pierścieniu po włączeniu trybu globalnego.
@@ -105,9 +112,9 @@ W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` dostępne są komendy:
 - `Toggle global Sonic pitch`;
 - `Report global Sonic pitch status`;
 - `Open support page`;
-- `Increase global Sonic pitch`;
-- `Decrease global Sonic pitch`;
-- `Reset global Sonic pitch`.
+- `Increase Sonic pitch for the current synthesizer`;
+- `Decrease Sonic pitch for the current synthesizer`;
+- `Reset Sonic pitch for the current synthesizer`.
 
 Komendy nie mają domyślnych gestów, więc możesz przypisać własne skróty.
 
@@ -140,9 +147,9 @@ NVDA używa skali od `0` do `100`.
   zniekształceń.
 
 Gdy globalny tryb jest włączony, dodatek przetwarza audio mowy przez Sonic według
-wartości `Sonic pitch`. Zwykła `Wysokość` NVDA nadal działa jako natywna
-wysokość syntezatora. Jeśli oba suwaki są ustawione poza `50`, usłyszysz
-połączenie obu efektów.
+własnej wartości `Sonic pitch` aktywnego syntezatora. Zwykła `Wysokość` NVDA
+nadal działa jako natywna wysokość syntezatora. Jeśli oba suwaki są ustawione
+poza `50`, usłyszysz połączenie obu efektów.
 
 ## Zgodność Syntezatorów
 
@@ -222,6 +229,10 @@ Sprawdź, czy globalny tryb jest włączony i czy wartość `Sonic pitch` nie wy
 `50`. Sprawdź też log NVDA pod kątem `processed speech audio`. Jeśli tego wpisu
 nie ma, audio danego syntezatora prawdopodobnie nie przechodzi przez główny
 `WavePlayer`.
+
+Jeśli po przełączeniu syntezatora `Sonic pitch` wraca do `50`, jest to
+oczekiwane, dopóki nie ustawisz wartości dla tego konkretnego syntezatora.
+Wartości są zapisywane osobno dla każdego obsługiwanego syntezatora.
 
 ### Syntezator zmienia swoją natywną wysokość
 
@@ -317,7 +328,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.7.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.8.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

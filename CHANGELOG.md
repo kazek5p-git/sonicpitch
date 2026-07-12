@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.8
+
+- Changes `Sonic pitch` from one shared global value to a value stored
+  separately for each supported synthesizer.
+- Removes the `Sonic pitch` slider from the `Global Sonic Pitch` settings
+  panel. The panel now only controls global enablement, debug logging, and the
+  support button.
+- Keeps the dynamic `Sonic pitch` control in NVDA Voice settings and the synth
+  settings ring while global Sonic pitch is enabled and the active synth is
+  supported.
+- Updates Input Gesture scripts so increase, decrease, reset, and status report
+  operate on the current supported synthesizer's Sonic pitch value.
+- Migrates an existing legacy global `pitch` value to the current supported
+  synth on first use, then resets the legacy key to neutral.
+
 ## 0.4.7
 
 - Extends the eSpeak-NG SAPI dynamic voice compatibility hook to NVDA's

@@ -14,6 +14,7 @@ NVDA's main process.
   supported.
 - NVDA's normal `Pitch` setting continues to control the synth's native pitch.
 - `Sonic pitch` is a separate Sonic control.
+- `Sonic pitch` is stored separately for each supported synthesizer.
 - Processes speech audio through Sonic.
 - Includes an optional external support link.
 - May ask during installation whether to open the support page.
@@ -25,23 +26,23 @@ NVDA's main process.
 2. Open NVDA Settings.
 3. Choose `Global Sonic Pitch`.
 4. Enable `Enable global Sonic pitch`.
-5. Change Sonic processing from the `Sonic pitch` voice setting or the add-on
-   panel's `Sonic pitch` slider.
+5. Change Sonic processing from the `Sonic pitch` voice setting, the synth
+   settings ring, or an assigned Input Gesture.
 6. Change native pitch from NVDA's normal `Pitch` setting if you want to use
    both controls together.
 
 `Sonic pitch` `50` is neutral. Values below `50` lower speech through Sonic,
-and values above `50` raise speech through Sonic.
+and values above `50` raise speech through Sonic. Each supported synthesizer
+keeps its own `Sonic pitch` value.
 
 ## Settings
 
 - `Enable global Sonic pitch` - enables global Sonic pitch processing.
-- `Sonic pitch` - sets the pitch used by Sonic.
 - `Enable debug logging` - writes detailed entries to the NVDA log.
 - `Support the author` - opens the external BuyCoffee support page.
 
 NVDA's normal `Pitch` setting remains the synth's native pitch. `Sonic pitch`
-is a separate add-on setting.
+is a separate add-on setting stored per supported synthesizer.
 
 The add-on panel is always available. The separate `Sonic pitch` slider is added
 to NVDA's Voice dialog and synth settings ring only while `Enable global Sonic
@@ -49,9 +50,14 @@ pitch` is enabled. It is removed from those Voice controls when global Sonic
 pitch is disabled. If `Synth ring settings selector` is installed, `sonicPitch`
 is added to its settings list.
 
+There is intentionally no `Sonic pitch` slider in the add-on's global settings
+panel. The global panel enables the audio processor; the `Sonic pitch` value is
+changed from Voice settings, the synth settings ring, or assigned gestures for
+the current supported synthesizer.
+
 In Input Gestures, the `Global Sonic Pitch` category lets you assign gestures
 for toggling, reporting status, opening the support page, increasing,
-decreasing, and resetting Sonic pitch.
+decreasing, and resetting Sonic pitch for the current supported synthesizer.
 
 ## Support
 
@@ -127,6 +133,10 @@ synthesizers.
 If `Sonic pitch` does not change, make sure global mode is enabled and `Sonic
 pitch` is not `50`. Also check whether `processed speech audio` appears in the
 log.
+
+If switching synthesizers seems to reset `Sonic pitch`, that is expected until
+you change it for that synthesizer. Values are stored separately for each
+supported synthesizer.
 
 If you hear the synth's native pitch change, that is expected. NVDA's normal
 `Pitch` setting controls native pitch, while `Sonic pitch` controls only Sonic

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import json
 import locale
 import threading
 import webbrowser
@@ -52,6 +53,7 @@ OLD_CONFIG_SECTION = "sapi5SonicPitchGlobal"
 CONFIG_SPEC = {
 	"enabled": "boolean(default=False)",
 	"pitch": "integer(default=50, min=0, max=100)",
+	"pitchBySynth": "string(default='{}')",
 	"debugLogging": "boolean(default=False)",
 }
 
@@ -61,6 +63,8 @@ MIN_SONIC_PITCH_RATIO = 0.70
 MAX_SONIC_PITCH_RATIO = 1.45
 SONIC_PITCH_SETTING_ID = "sonicPitch"
 SUPPORT_URL = "https://buycoffee.to/kazimierz-parzych"
+LEGACY_PITCH_CONFIG_KEY = "pitch"
+PITCH_BY_SYNTH_CONFIG_KEY = "pitchBySynth"
 
 UNSUPPORTED_GLOBAL_SYNTHS = {
 	# On 64-bit NVDA, sapi5_32 speaks in the separate 32-bit synth host.
@@ -143,19 +147,6 @@ def _setGlobalEnabled(enabled: bool) -> None:
 	_patchCurrentSynthPitch()
 
 
-def _setGlobalPitch(pitch: int | float) -> int:
-	pitch = _clampPitch(pitch)
-	oldPitch = _clampPitch(_getConfigValue("pitch", NEUTRAL_PITCH))
-	_setConfigValue("pitch", pitch)
-	if pitch != oldPitch:
-		_resetAllPlayerProcessors()
-	return pitch
-
-
-def _changeGlobalPitch(delta: int) -> int:
-	return _setGlobalPitch(int(_getConfigValue("pitch", NEUTRAL_PITCH)) + delta)
-
-
 def _openSupportPage() -> None:
 	try:
 		opened = webbrowser.open_new_tab(SUPPORT_URL)
@@ -175,7 +166,11 @@ def _clamp(value: float, minimum: float, maximum: float) -> float:
 
 
 def _clampPitch(value: int | float) -> int:
-	return int(_clamp(float(value), 0.0, 100.0))
+	try:
+		numericValue = float(value)
+	except Exception:
+		numericValue = float(NEUTRAL_PITCH)
+	return int(_clamp(numericValue, 0.0, 100.0))
 
 
 def _pitchPercentToSonicRatio(pitchPercent: int | float) -> float:
@@ -212,6 +207,110 @@ def _isGlobalAudioSupportedSynth(synthName: str) -> bool:
 	return True
 
 
+def _getSynthPitchKey(synthName: str | None) -> str:
+	return str(synthName or "").strip()
+
+
+def _loadSynthPitchMap() -> dict[str, int]:
+	value = _getConfigValue(PITCH_BY_SYNTH_CONFIG_KEY, "{}")
+	if isinstance(value, dict):
+		data = value
+	else:
+		try:
+			data = json.loads(str(value or "{}"))
+		except Exception:
+			if _isDebugLoggingEnabled():
+				log.debugWarning("globalSonicPitch: failed to parse per-synth pitch config", exc_info=True)
+			return {}
+	if not isinstance(data, dict):
+		return {}
+	pitches: dict[str, int] = {}
+	for synthName, pitch in data.items():
+		key = _getSynthPitchKey(str(synthName))
+		if key:
+			pitches[key] = _clampPitch(pitch)
+	return pitches
+
+
+def _saveSynthPitchMap(pitches: dict[str, int]) -> None:
+	serializable = {
+		_getSynthPitchKey(synthName): _clampPitch(pitch)
+		for synthName, pitch in pitches.items()
+		if _getSynthPitchKey(synthName)
+	}
+	_setConfigValue(
+		PITCH_BY_SYNTH_CONFIG_KEY,
+		json.dumps(serializable, sort_keys=True, separators=(",", ":")),
+	)
+
+
+def _migrateLegacyGlobalPitchToSynth(synthName: str) -> None:
+	legacyPitch = _clampPitch(_getConfigValue(LEGACY_PITCH_CONFIG_KEY, NEUTRAL_PITCH))
+	if legacyPitch == NEUTRAL_PITCH:
+		return
+	key = _getSynthPitchKey(synthName)
+	if not key or not _isGlobalAudioSupportedSynth(key):
+		return
+	pitches = _loadSynthPitchMap()
+	if not pitches:
+		pitches[key] = legacyPitch
+		_saveSynthPitchMap(pitches)
+		log.info(
+			"globalSonicPitch: migrated global Sonic pitch to current synth; "
+			f"synth={key}; sonicPitch={legacyPitch}",
+		)
+	_setConfigValue(LEGACY_PITCH_CONFIG_KEY, NEUTRAL_PITCH)
+
+
+def _getSonicPitchForSynth(synthName: str | None = None) -> int:
+	if synthName is None:
+		synthName = _getSynthName()
+	key = _getSynthPitchKey(synthName)
+	if not key:
+		return NEUTRAL_PITCH
+	_migrateLegacyGlobalPitchToSynth(key)
+	return _loadSynthPitchMap().get(key, NEUTRAL_PITCH)
+
+
+def _setSonicPitchForSynth(synthName: str | None, pitch: int | float) -> int | None:
+	key = _getSynthPitchKey(synthName)
+	if not key or not _isGlobalAudioSupportedSynth(key):
+		return None
+	pitch = _clampPitch(pitch)
+	pitches = _loadSynthPitchMap()
+	oldPitch = pitches.get(key, NEUTRAL_PITCH)
+	pitches[key] = pitch
+	_saveSynthPitchMap(pitches)
+	_setConfigValue(LEGACY_PITCH_CONFIG_KEY, NEUTRAL_PITCH)
+	if pitch != oldPitch:
+		_resetAllPlayerProcessors()
+	return pitch
+
+
+def _setCurrentSynthSonicPitch(pitch: int | float) -> int | None:
+	return _setSonicPitchForSynth(_getSynthName(), pitch)
+
+
+def _changeCurrentSynthSonicPitch(delta: int) -> int | None:
+	return _setCurrentSynthSonicPitch(_getSonicPitchForSynth() + delta)
+
+
+def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str, int] | None:
+	if rawSize <= 0:
+		return None
+	if not bool(_getConfigValue("enabled", False)):
+		return None
+	if not _isSpeechPlayer(player):
+		return None
+	synthName = _getSynthName()
+	if not _isGlobalAudioSupportedSynth(synthName):
+		return None
+	pitch = _getSonicPitchForSynth(synthName)
+	if pitch == NEUTRAL_PITCH:
+		return None
+	return synthName, pitch
+
+
 def _isSpeechPlayer(player: nvwave.WavePlayer) -> bool:
 	try:
 		return getattr(player, "_purpose", None) == nvwave.AudioPurpose.SPEECH
@@ -230,21 +329,6 @@ def _getWaveFormat(player: nvwave.WavePlayer) -> tuple[int, int, int] | None:
 	if channels <= 0 or sampleRate <= 0:
 		return None
 	return channels, sampleRate, bitsPerSample
-
-
-def _shouldProcess(player: nvwave.WavePlayer, rawSize: int) -> bool:
-	if rawSize <= 0:
-		return False
-	if not bool(_getConfigValue("enabled", False)):
-		return False
-	if int(_getConfigValue("pitch", NEUTRAL_PITCH)) == NEUTRAL_PITCH:
-		return False
-	if not _isSpeechPlayer(player):
-		return False
-	synthName = _getSynthName()
-	if not _isGlobalAudioSupportedSynth(synthName):
-		return False
-	return True
 
 
 def _getRawBytes(data: Any, size: int | None) -> bytes | None:
@@ -438,16 +522,17 @@ def _patchedFeed(self, data, size=None, onDone=None):
 			if tail:
 				originalFeed(self, tail, len(tail), None)
 			return originalFeed(self, data, size, onDone)
-		if raw is not None and _shouldProcess(self, len(raw)):
+		processingContext = _getProcessingContext(self, len(raw)) if raw is not None else None
+		if raw is not None and processingContext is not None:
+			synthName, pitch = processingContext
 			waveFormat = _getWaveFormat(self)
 			if waveFormat is not None:
 				channels, sampleRate, bitsPerSample = waveFormat
 				if bitsPerSample == 16:
-					pitch = int(_getConfigValue("pitch", NEUTRAL_PITCH))
 					processed = _processPcm16Block(self, raw, channels, sampleRate, pitch)
 					if processed is not None:
 						_logProcessedOnce(
-							_getSynthName(),
+							synthName,
 							channels,
 							sampleRate,
 							pitch,
@@ -794,14 +879,17 @@ def _hasSonicPitchSetting(settings: Any) -> bool:
 
 
 def _patchedGetSonicPitchSetting(self):
-	return _clampPitch(_getConfigValue("pitch", NEUTRAL_PITCH))
+	return _getSonicPitchForSynth(_getSynthName(self))
 
 
 def _patchedSetSonicPitchSetting(self, value):
-	pitch = _setGlobalPitch(value)
+	synthName = _getSynthName(self)
+	pitch = _setSonicPitchForSynth(synthName, value)
+	if pitch is None:
+		return None
 	log.info(
 		"globalSonicPitch: captured Sonic pitch setting; "
-		f"synth={_getSynthName(self)}; sonicPitch={pitch}",
+		f"synth={synthName}; sonicPitch={pitch}",
 	)
 	return None
 
@@ -1044,14 +1132,6 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 			wx.CheckBox(self, label=_("Enable global Sonic pitch")),
 		)
 		self.enableCheckbox.SetValue(bool(conf["enabled"]))
-		self.pitchSlider = helper.addLabeledControl(
-			_("Sonic pitch"),
-			wx.Slider,
-			minValue=0,
-			maxValue=100,
-			style=wx.SL_HORIZONTAL | wx.SL_LABELS,
-		)
-		self.pitchSlider.SetValue(int(conf["pitch"]))
 		self.debugCheckbox = helper.addItem(
 			wx.CheckBox(self, label=_("Enable debug logging")),
 		)
@@ -1065,14 +1145,12 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 
 	def _updateControlState(self, event=None):
 		enabled = self.enableCheckbox.IsChecked()
-		self.pitchSlider.Enable(enabled)
 		self.debugCheckbox.Enable(enabled)
 
 	def _onSupport(self, event):
 		_openSupportPage()
 
 	def onSave(self):
-		_setConfigValue("pitch", self.pitchSlider.GetValue())
 		_setConfigValue("debugLogging", self.debugCheckbox.IsChecked())
 		_setGlobalEnabled(self.enableCheckbox.IsChecked())
 		config.conf.save()
@@ -1117,10 +1195,19 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	)
 	def script_reportGlobalSonicPitch(self, gesture):
 		enabled = bool(_getConfigValue("enabled", False))
-		pitch = int(_getConfigValue("pitch", NEUTRAL_PITCH))
-		message = _("Global Sonic pitch on, pitch {pitch}").format(pitch=pitch) if enabled else _(
-			"Global Sonic pitch off",
-		)
+		synthName = _getSynthName()
+		if enabled and _isGlobalAudioSupportedSynth(synthName):
+			pitch = _getSonicPitchForSynth(synthName)
+			message = _("Global Sonic pitch on, {synth} Sonic pitch {pitch}").format(
+				synth=synthName or _("current synth"),
+				pitch=pitch,
+			)
+		elif enabled:
+			message = _("Global Sonic pitch on, Sonic pitch is unavailable for {synth}").format(
+				synth=synthName or _("current synth"),
+			)
+		else:
+			message = _("Global Sonic pitch off")
 		if _sonicUnavailableReason:
 			message = f"{message}. Sonic unavailable: {_sonicUnavailableReason}"
 		if ui is not None:
@@ -1134,31 +1221,40 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		_openSupportPage()
 
 	@script(
-		description=_("Increase global Sonic pitch"),
+		description=_("Increase Sonic pitch for the current synthesizer"),
 		category=scriptCategory,
 	)
 	def script_increaseGlobalSonicPitch(self, gesture):
-		pitch = _changeGlobalPitch(5)
+		pitch = _changeCurrentSynthSonicPitch(5)
 		config.conf.save()
 		if ui is not None:
-			ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
+			if pitch is None:
+				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getSynthName() or _("current synth")))
+			else:
+				ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
 
 	@script(
-		description=_("Decrease global Sonic pitch"),
+		description=_("Decrease Sonic pitch for the current synthesizer"),
 		category=scriptCategory,
 	)
 	def script_decreaseGlobalSonicPitch(self, gesture):
-		pitch = _changeGlobalPitch(-5)
+		pitch = _changeCurrentSynthSonicPitch(-5)
 		config.conf.save()
 		if ui is not None:
-			ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
+			if pitch is None:
+				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getSynthName() or _("current synth")))
+			else:
+				ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
 
 	@script(
-		description=_("Reset global Sonic pitch"),
+		description=_("Reset Sonic pitch for the current synthesizer"),
 		category=scriptCategory,
 	)
 	def script_resetGlobalSonicPitch(self, gesture):
-		pitch = _setGlobalPitch(NEUTRAL_PITCH)
+		pitch = _setCurrentSynthSonicPitch(NEUTRAL_PITCH)
 		config.conf.save()
 		if ui is not None:
-			ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
+			if pitch is None:
+				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getSynthName() or _("current synth")))
+			else:
+				ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))

@@ -65,6 +65,11 @@ entries. It also updates the current `sapi5_32` instance's cached
 voice visibility and selection; the 32-bit host audio is still not processed by
 Global Sonic Pitch.
 
+Version 0.4.8 changes `sonicPitch` from one global pitch value to a per-synth
+value. The add-on settings panel now only enables/disables processing and debug
+logging. The dynamic Voice dialog/ring setting and Input Gesture scripts read
+and write the active supported synth's own `sonicPitch` value.
+
 ## Config
 
 Current config section:
@@ -73,11 +78,21 @@ Current config section:
 [globalSonicPitch]
 enabled = boolean(default=False)
 pitch = integer(default=50, min=0, max=100)
+pitchBySynth = string(default='{}')
 debugLogging = boolean(default=False)
 ```
 
+`pitch` is kept as a legacy migration key. Current per-synth values are stored
+as JSON in `pitchBySynth`, for example:
+
+```json
+{"RHVoice":45,"sapi5":38,"vocalizer":52}
+```
+
 The plugin migrates values from the old `[sapi5SonicPitchGlobal]` section once
-at startup so users testing version 0.2.0 keep their enabled state and pitch.
+at startup. If a legacy global `pitch` value exists and no per-synth values are
+stored yet, the value is moved lazily to the current supported synth and the
+legacy `pitch` key is reset to neutral `50`.
 
 ## Sonic Pitch Mapping
 
@@ -100,9 +115,9 @@ The add-on intentionally does not patch the active synth instance's `_set_pitch`
 or `_get_pitch` methods in version 0.4.1 and newer.
 
 NVDA's normal `pitch` setting remains native synth pitch. The add-on's
-`sonicPitch` setting is a separate value stored in `[globalSonicPitch] pitch`.
-If both are away from neutral `50`, the user hears the combined native synth
-pitch and Sonic processing.
+`sonicPitch` setting is a separate value stored per synth in
+`[globalSonicPitch] pitchBySynth`. If both are away from neutral `50`, the user
+hears the combined native synth pitch and Sonic processing.
 
 The add-on still wraps `synthDriverHandler.setSynth` so it can inject or remove
 the dynamic `sonicPitch` setting after synth changes.
@@ -127,7 +142,8 @@ panel remains available so the user can turn the feature back on.
 
 The setting is not stored in the synth's own config. At runtime, the plugin adds
 a class-level Python `property` named `sonicPitch` to the active synth class.
-That property reads and writes `[globalSonicPitch] pitch`.
+That property reads and writes the active synth's entry in
+`[globalSonicPitch] pitchBySynth`.
 
 An earlier prototype tried to attach `_get_sonicPitch` and `_set_sonicPitch` to
 the synth instance. That does not work reliably because NVDA's
