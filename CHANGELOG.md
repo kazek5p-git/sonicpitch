@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.9
+
+- Disables global Sonic processing for standard `sapi5` on 32-bit NVDA versions
+  older than 2026.1.
+- The guard is based on collected NVDA 2025.3.3 x86 logs showing repeated
+  native `APPCRASH` events in `ntdll.dll` with exception `0xc0000374` during
+  rapid Sonic pitch changes on SAPI5.
+- Keeps SAPI5 loading normally on that NVDA line, but does not add the
+  `Sonic pitch` Voice dialog/ring setting there.
+- Leaves SAPI5 global Sonic processing available on 64-bit NVDA and on newer
+  NVDA versions where this crash signature was not reproduced.
+- Adds an unsupported-synth log entry and status reason for this compatibility
+  guard.
+
 ## 0.4.8
 
 - Changes `Sonic pitch` from one shared global value to a value stored

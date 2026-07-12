@@ -161,6 +161,7 @@ poza `50`, usłyszysz połączenie obu efektów.
 | OneCore | Obsługiwany w głównym procesie NVDA. |
 | SAPI5 64-bit | Obsługiwany, gdy używa ścieżki audio NVDA. |
 | SAPI5 32-bit na 64-bitowym NVDA | Ładuje się normalnie, ale globalny Sonic go nie przetwarza. |
+| SAPI5 na 32-bitowym NVDA 2025.x | Ładuje się normalnie, ale globalny Sonic jest wyłączony, żeby uniknąć natywnych crashy sterty widzianych w NVDA 2025.3.3 x86. |
 | Dodatkowe syntezatory | Mogą działać, jeśli wysyłają 16-bitowe PCM przez główny `WavePlayer`. |
 
 ## Ważne Ograniczenie SAPI5 32-bit
@@ -177,6 +178,24 @@ przetwarzania Sonic dla `sapi5_32`.
 
 To zachowanie jest celowe. Dzięki temu standardowy `sapi5_32` nadal ładuje się
 normalnie i nie jest neutralizowany bez faktycznego przetwarzania Sonic.
+
+## Ważne Ograniczenie SAPI5 Na 32-bitowym NVDA 2025.x
+
+Na 32-bitowym NVDA 2025.x standardowy `sapi5` działa w głównym procesie NVDA,
+ale szybkie przetwarzanie Sonic tą ścieżką może na niektórych systemach
+uszkadzać natywną stertę pamięci. Zaobserwowany podpis crasha Windows to:
+
+```text
+Aplikacja: nvda.exe
+Moduł: ntdll.dll
+Wyjątek: 0xc0000374
+```
+
+Od wersji 0.4.9 Global Sonic Pitch nie dodaje więc ustawienia głosu
+`Sonic pitch` do `sapi5`, gdy samo NVDA jest 32-bitowe i starsze niż 2026.1.
+Standardowe SAPI5 nadal się ładuje i działa z natywną regulacją wysokości.
+Jeśli potrzebujesz globalnego przetwarzania Sonic, użyj 64-bitowego NVDA,
+NVDA 2026.1 lub nowszego albo innego obsługiwanego syntezatora.
 
 ## Migracja Ze Starego SAPI5 Sonic Pitch
 
@@ -328,7 +347,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.8.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.9.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import ctypes
 import json
 import locale
+import sys
 import threading
 import webbrowser
 from typing import Any, Callable
@@ -20,6 +21,10 @@ try:
 	import globalVars
 except Exception:
 	globalVars = None
+try:
+	import versionInfo
+except Exception:
+	versionInfo = None
 from gui import guiHelper
 from gui.settingsDialogs import NVDASettingsDialog, SettingsPanel
 from logHandler import log
@@ -65,6 +70,7 @@ SONIC_PITCH_SETTING_ID = "sonicPitch"
 SUPPORT_URL = "https://buycoffee.to/kazimierz-parzych"
 LEGACY_PITCH_CONFIG_KEY = "pitch"
 PITCH_BY_SYNTH_CONFIG_KEY = "pitchBySynth"
+SAPI5_32BIT_NVDA_MIN_SAFE_VERSION = (2026, 1)
 
 UNSUPPORTED_GLOBAL_SYNTHS = {
 	# On 64-bit NVDA, sapi5_32 speaks in the separate 32-bit synth host.
@@ -92,6 +98,7 @@ _ESPEAK_NG_SAPI_TOKEN_ENUM_PART = "\\Speech\\Voices\\TokenEnums\\eSpeak-NG\\"
 _sonicModule = None
 _processingLogKeys: set[tuple[Any, ...]] = set()
 _voiceSettingLogKeys: set[str] = set()
+_unsupportedSynthLogKeys: set[tuple[str, str]] = set()
 _sapi5VoiceEnumLogKeys: set[str] = set()
 _sonicUnavailableReason: str | None = None
 _sonicPitchDriverSetting: Any | None = None
@@ -199,12 +206,70 @@ def _getSynthName(synth: Any | None = None) -> str:
 	return str(getattr(synth, "name", "") or "")
 
 
-def _isGlobalAudioSupportedSynth(synthName: str) -> bool:
+def _getNvdaVersionTuple() -> tuple[int, int]:
+	if versionInfo is None:
+		return (0, 0)
+	try:
+		year = int(getattr(versionInfo, "version_year", 0) or 0)
+		major = int(getattr(versionInfo, "version_major", 0) or 0)
+		if year:
+			return year, major
+	except Exception:
+		pass
+	try:
+		versionText = str(getattr(versionInfo, "version", "") or "")
+		parts = []
+		for part in versionText.split("."):
+			if not part.isdigit():
+				break
+			parts.append(int(part))
+		if parts:
+			return parts[0], parts[1] if len(parts) > 1 else 0
+	except Exception:
+		pass
+	return (0, 0)
+
+
+def _is32BitNvdaProcess() -> bool:
+	return sys.maxsize <= 2**32
+
+
+def _isLegacy32BitNvdaSapi5(synthName: str) -> bool:
+	nvdaVersion = _getNvdaVersionTuple()
+	return (
+		synthName == "sapi5"
+		and _is32BitNvdaProcess()
+		and nvdaVersion != (0, 0)
+		and nvdaVersion < SAPI5_32BIT_NVDA_MIN_SAFE_VERSION
+	)
+
+
+def _getUnsupportedGlobalAudioReason(synthName: str) -> str | None:
 	if synthName in UNSUPPORTED_GLOBAL_SYNTHS:
-		return False
+		return _("the synth speaks through a separate 32-bit synth host")
 	if synthName.startswith("sapi5SonicPitch"):
-		return False
-	return True
+		return _("old SAPI5 Sonic Pitch synth paths are not processed by the global add-on")
+	if _isLegacy32BitNvdaSapi5(synthName):
+		return _(
+			"SAPI5 global Sonic processing is disabled on 32-bit NVDA before 2026.1 "
+			"to avoid native heap crashes",
+		)
+	return None
+
+
+def _isGlobalAudioSupportedSynth(synthName: str) -> bool:
+	return _getUnsupportedGlobalAudioReason(synthName) is None
+
+
+def _logUnsupportedSynthOnce(synthName: str, reason: str) -> None:
+	key = (synthName, reason)
+	if key in _unsupportedSynthLogKeys and not _isDebugLoggingEnabled():
+		return
+	_unsupportedSynthLogKeys.add(key)
+	log.info(
+		"globalSonicPitch: not adding Sonic pitch voice setting; "
+		f"synth={synthName or 'unknown'}; reason={reason}",
+	)
 
 
 def _getSynthPitchKey(synthName: str | None) -> str:
@@ -981,7 +1046,9 @@ def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 		_unpatchSynthSonicPitchSetting(synth)
 		return
 	synthName = _getSynthName(synth)
-	if not _isGlobalAudioSupportedSynth(synthName):
+	unsupportedReason = _getUnsupportedGlobalAudioReason(synthName)
+	if unsupportedReason is not None:
+		_logUnsupportedSynthOnce(synthName, unsupportedReason)
 		return
 	setting = _getSonicPitchDriverSetting()
 	if setting is None:
@@ -1203,9 +1270,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				pitch=pitch,
 			)
 		elif enabled:
+			reason = _getUnsupportedGlobalAudioReason(synthName)
 			message = _("Global Sonic pitch on, Sonic pitch is unavailable for {synth}").format(
 				synth=synthName or _("current synth"),
 			)
+			if reason:
+				message = f"{message}. {reason}"
 		else:
 			message = _("Global Sonic pitch off")
 		if _sonicUnavailableReason:

@@ -95,6 +95,12 @@ Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany. Działa w osobny
 jego audio. Dodatek może pokazać skonfigurowane głosy eSpeak-NG SAPI w
 `sapi5_32`, ale ta ścieżka nadal nie ma globalnego przetwarzania Sonic.
 
+Standardowy `sapi5` na 32-bitowym NVDA 2025.x też jest celowo pomijany. Logi z
+NVDA 2025.3.3 x86 pokazują powtarzalne natywne crashe sterty w `ntdll.dll` z
+wyjątkiem `0xc0000374` podczas szybkich zmian Sonic pitch. Wersja 0.4.9 i nowsze
+zostawiają SAPI5 działające normalnie na tej linii NVDA, ale nie dodają tam
+ustawienia głosu `Sonic pitch`.
+
 ## Migracja Ze Starej Wersji
 
 Stary dodatek `sapi5SonicPitch` dodawał osobne syntezatory SAPI5 Sonic Pitch.

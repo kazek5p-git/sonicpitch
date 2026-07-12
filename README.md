@@ -154,6 +154,7 @@ setting still changes the synth's native pitch. If both sliders are away from
 | OneCore | Supported in NVDA's main process. |
 | 64-bit SAPI5 | Supported when it uses NVDA's audio path. |
 | 32-bit SAPI5 on 64-bit NVDA | Loads normally, but global Sonic does not process it. |
+| SAPI5 on 32-bit NVDA 2025.x | Loads normally, but global Sonic is disabled to avoid native heap crashes seen in NVDA 2025.3.3 x86. |
 | Other synths | May work if they feed 16-bit PCM through the main `WavePlayer`. |
 
 ## Important 32-bit SAPI5 Limitation
@@ -169,6 +170,24 @@ visibility and selection; it does not make `sapi5_32` globally Sonic-processed.
 
 This is intentional. It keeps standard `sapi5_32` loading normally and avoids
 altering native pitch when Sonic cannot process that audio path.
+
+## Important 32-bit NVDA 2025.x SAPI5 Limitation
+
+On 32-bit NVDA 2025.x, standard `sapi5` runs in the main NVDA process, but rapid
+Sonic processing through this path can corrupt native heap memory on some
+systems. The observed Windows crash signature is:
+
+```text
+Application: nvda.exe
+Module: ntdll.dll
+Exception: 0xc0000374
+```
+
+Starting with version 0.4.9, Global Sonic Pitch therefore does not add the
+`Sonic pitch` voice setting to `sapi5` when NVDA itself is 32-bit and older than
+2026.1. Standard SAPI5 still loads and works with its native pitch control.
+Use 64-bit NVDA, NVDA 2026.1 or newer, or another supported synth if you need
+global Sonic processing.
 
 ## Migration From SAPI5 Sonic Pitch
 
@@ -319,7 +338,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.8.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.9.nvda-addon -Force
 ```
 
 Syntax check:
