@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.16
+
+- Updates add-on author metadata to include both `Kazek` and `DJ Graco`.
+- No audio processing behavior changes from 0.4.15.
+
 ## 0.4.15
 
 - Further stabilizes standard `sapi5_32` on 64-bit NVDA during rapid Voice

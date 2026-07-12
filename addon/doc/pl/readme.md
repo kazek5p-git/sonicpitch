@@ -187,6 +187,9 @@ Od wersji 0.4.15 host `sapi5_32` lepiej odwzorowuje stresowe zachowanie dialogu
 zmianie pitch i odzyskuje działanie po uszkodzonych blokach Sonic, aby mowa nie
 pozostawała wyciszona do czasu przeładowania syntezatora.
 
+Od wersji 0.4.16 metadane autorów dodatku zawierają Kazka i DJ Graco. Działanie
+audio nie zmienia się względem wersji 0.4.15.
+
 ## Licencja
 
 Kod źródłowy Global Sonic Pitch jest licencjonowany na GNU GPL w wersji 2 lub

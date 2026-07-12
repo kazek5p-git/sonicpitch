@@ -182,6 +182,9 @@ behavior more closely. It locks the full SAPI audio callback, replaces the host
 Sonic stream when pitch changes, and recovers from damaged host Sonic blocks so
 speech does not stay silent until the synth is reloaded.
 
+Since version 0.4.16, the add-on author metadata lists both Kazek and DJ Graco.
+Audio behavior is unchanged from version 0.4.15.
+
 ## License
 
 Global Sonic Pitch source code is licensed under the GNU GPL version 2 or

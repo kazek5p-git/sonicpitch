@@ -189,6 +189,9 @@ value. The 32-bit host now locks the complete SAPI audio callback, replaces the
 host Sonic stream when pitch changes, and recovers from damaged Sonic stream
 blocks instead of leaving `sapi5_32` silent.
 
+Version 0.4.16 updates the add-on author metadata to list both Kazek and
+DJ Graco. Audio behavior is unchanged from 0.4.15.
+
 ## Synth Compatibility
 
 | Synth | Expected behavior |
@@ -404,7 +407,7 @@ release safety policy, and verification checklist for submitting this add-on to
 the NVDA Add-on Store.
 
 For stable store submission, the add-on manifest should point to the latest
-stable NVDA API target, not a beta target. Version 0.4.15 declares:
+stable NVDA API target, not a beta target. Version 0.4.16 declares:
 
 ```ini
 minimumNVDAVersion = 2025.1.0
@@ -434,7 +437,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.15.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.16.nvda-addon -Force
 ```
 
 Syntax check:

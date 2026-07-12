@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 0.4.15.
+Status: mostly ready after version 0.4.16.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version uses `major.minor.patch`: `0.4.15`.
+- Package version uses `major.minor.patch`: `0.4.16`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -29,6 +29,7 @@ Completed:
 - Voice dialog Sonic pitch changes now follow normal settings behavior: OK or
   Apply commits, while Escape or Cancel restores the previous value.
 - Current GitHub Release contains one `.nvda-addon` asset.
+- Manifest author metadata lists `Kazek, DJ Graco`.
 - User documentation exists in English and Polish.
 - Store submission metadata draft is recorded below.
 
@@ -49,18 +50,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "0A6F4DDA1FF321E57043989BA8E7618BE5E39BEC4E5C13FEAA1339CE8467C902",
-  "addonVersionName": "0.4.15",
+  "sha256": "F122263679E96FA9F71FE85D0807614394EC903D14F2A3CDED2F275111008EA4",
+  "addonVersionName": "0.4.16",
   "channel": "stable",
-  "publisher": "Kazek",
+  "publisher": "Kazek, DJ Graco",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.15/globalSonicPitch-0.4.15.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.16/globalSonicPitch-0.4.16.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.15"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.16"
 }
 ```
 

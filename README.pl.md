@@ -202,6 +202,9 @@ NVDA szybko anuluje mowę, zmienia ustawienie i wypowiada nową wartość. Host
 zmianie pitch i odzyskuje działanie po uszkodzonym bloku Sonic zamiast zostawiać
 `sapi5_32` bez mowy.
 
+Wersja 0.4.16 aktualizuje metadane autorów dodatku, aby zawierały Kazka i
+DJ Graco. Działanie audio nie zmienia się względem wersji 0.4.15.
+
 ## Zgodność Syntezatorów
 
 | Syntezator | Oczekiwane działanie |
@@ -422,7 +425,7 @@ bezpieczeństwa wydań i checklistę weryfikacji przed zgłoszeniem dodatku do N
 Add-on Store.
 
 Dla zgłoszenia do kanału stable manifest dodatku powinien wskazywać najnowszy
-stabilny cel API NVDA, nie wersję beta. Wersja 0.4.15 deklaruje:
+stabilny cel API NVDA, nie wersję beta. Wersja 0.4.16 deklaruje:
 
 ```ini
 minimumNVDAVersion = 2025.1.0
@@ -452,7 +455,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.15.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.16.nvda-addon -Force
 ```
 
 Sprawdzenie składni:
