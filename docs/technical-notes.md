@@ -77,6 +77,21 @@ Version 0.4.12 prepares the project for NVDA Add-on Store submission. It updates
 stable-channel metadata, adds root licensing and third-party notice files, and
 records the store submission checklist in `docs/addon-store-submission.md`.
 
+Version 0.4.13 adds support for the standard `sapi5_32` synth on 64-bit NVDA.
+Because that synth speaks in NVDA's separate 32-bit synth host, the main global
+plugin cannot process its audio through the main-process `WavePlayer` hook. The
+add-on instead patches the in-memory `sapi5_32.SynthDriver.synthDriver32Path`
+to point at a bundled 32-bit host wrapper. The wrapper imports NVDA's original
+32-bit SAPI5 driver, exposes a hidden remote `sonicPitch` parameter, and applies
+that value to the host-side Sonic stream. This still uses the standard NVDA
+`sapi5_32` synth entry and does not modify NVDA files on disk.
+
+The same release makes Voice dialog changes transactional. While the dialog is
+open, `sonicPitch` writes are stored as a temporary preview and applied to the
+current runtime path. OK or Apply commits the values to
+`[globalSonicPitch] pitchBySynth`; Escape, Cancel, or dialog destruction
+restores the captured values.
+
 ## Config
 
 Current config section:
@@ -93,7 +108,7 @@ debugLogging = boolean(default=False)
 as JSON in `pitchBySynth`, for example:
 
 ```json
-{"RHVoice":45,"sapi5":38,"vocalizer":52}
+{"RHVoice":45,"sapi5_64":38,"sapi5_32":44,"vocalizer":52}
 ```
 
 The plugin migrates values from the old `[sapi5SonicPitchGlobal]` section once
@@ -129,11 +144,15 @@ hears the combined native synth pitch and Sonic processing.
 The add-on still wraps `synthDriverHandler.setSynth` so it can inject or remove
 the dynamic `sonicPitch` setting after synth changes.
 
-The built-in `sapi5_32` synth is excluded from Sonic processing because its
-speech is produced in the separate 32-bit host on 64-bit NVDA. The main-process
-global plugin cannot process that host's audio, so `sapi5_32` is left as a
-normal native synth path. Current versions do not add eSpeak-NG SAPI voices to
-`sapi5_32` or any other SAPI voice list.
+For SAPI5, the add-on normalizes pitch storage keys by process architecture:
+
+- `sapi5` in a 64-bit NVDA process is stored as `sapi5_64`.
+- `sapi5` in a 32-bit NVDA process is stored as `sapi5_32`.
+- Explicit `sapi5_32` in 64-bit NVDA is stored as `sapi5_32`.
+
+This lets 64-bit NVDA keep separate Sonic pitch values for its standard SAPI5
+64-bit path and the standard `sapi5_32` remote-host path. Current versions do
+not add eSpeak-NG SAPI voices to `sapi5_32` or any other SAPI voice list.
 
 ## Dynamic Voice Setting
 
@@ -159,6 +178,12 @@ empty feed, or a synth change clears the per-player utterance state. Version
 lets short setting feedback messages pick up the latest value without unsafe
 mid-stream retuning.
 
+In version 0.4.13 and newer, while a Voice settings panel is open, writes to
+the dynamic property are treated as dialog preview state. They are applied to
+runtime audio immediately, but they are not written to config until the panel's
+`onSave`. The panel's `onDiscard` and destroy handler restore the captured
+value.
+
 An earlier prototype tried to attach `_get_sonicPitch` and `_set_sonicPitch` to
 the synth instance. That does not work reliably because NVDA's
 `AutoPropertyType` creates descriptor properties from `_get_*` methods when the
@@ -171,6 +196,32 @@ the selector does not hide it from the ring while global mode is enabled.
 
 On plugin termination, the original `supportedSettings` tuple is restored for
 the current synth.
+
+## 32-bit SAPI5 Host Wrapper
+
+The 64-bit NVDA `sapi5_32` driver talks to a 32-bit host process. To support
+that path without replacing NVDA's synth in the synthesizer dialog, the add-on
+temporarily points `sapi5_32.SynthDriver.synthDriver32Path` at
+`addon/sapi32HostDrivers` while the add-on is loaded.
+
+`addon/sapi32HostDrivers/sapi5.py` is loaded inside the 32-bit host. It:
+
+- locates NVDA's original `_synthDrivers32` directory;
+- appends that directory to `synthDrivers.__path__`;
+- imports NVDA's original `_sapi5.SynthDriver`;
+- adds a host-side `sonicPitch` numeric setting with `useConfig=False`;
+- maps `0..100` to the same Sonic pitch ratio as the main plugin;
+- applies the ratio to the host's `sonicStream.pitch`;
+- reapplies the value after the host recreates WASAPI/Sonic audio.
+
+The main plugin verifies remote support by calling `getParam("sonicPitch")` on
+the remote service. If the currently loaded `sapi5_32` host does not expose that
+parameter, the plugin strips the local UI setting, schedules a reload of
+`sapi5_32`, and tries again after the host starts through the wrapper.
+
+The host wrapper deliberately does not enumerate voices, add registry tokens,
+or modify NVDA's installed `_synthDrivers32` files. It only adds the remote
+pitch parameter and reuses NVDA's original 32-bit SAPI5 implementation.
 
 ## Global WavePlayer Path
 
@@ -195,7 +246,7 @@ The hook is intentionally narrow:
 - it uses a global lock only for the processor map and a per-stream lock around
   Sonic calls;
 - it bypasses non-speech sounds;
-- it bypasses unsupported host paths such as `sapi5_32`;
+- it leaves remote-host audio such as `sapi5_32` to the host wrapper path;
 - it falls back to the original `WavePlayer.feed` call on any exception.
 
 The continuous stream is important for audio quality. Flushing Sonic after every
@@ -222,6 +273,8 @@ Look for:
 - `globalSonicPitch: installed synth Sonic pitch setting hook`
 - `globalSonicPitch: added Sonic pitch voice setting`
 - `globalSonicPitch: captured Sonic pitch setting`
+- `globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch`
+- `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - `globalSonicPitch: processed speech audio`
 - `globalSonicPitch: Sonic is unavailable`
 
@@ -233,6 +286,7 @@ This add-on relies on private NVDA internals:
 - `autoSettingsUtils.driverSetting.NumericDriverSetting`
 - `globalVars.settingsRing.updateSupportedSettings`
 - synth driver `supportedSettings`
+- `synthDrivers.sapi5_32.SynthDriver.synthDriver32Path`
 - `synthDrivers._sonic.SonicStream` as a fallback Sonic path
 - `nvwave.WavePlayer.feed`
 - `nvwave.WavePlayer.idle`

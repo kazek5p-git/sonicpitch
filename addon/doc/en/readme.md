@@ -3,7 +3,8 @@
 Global Sonic Pitch adds a separate `Sonic pitch` control and applies it through
 Sonic. NVDA's normal `Pitch` setting remains the active synth's native pitch
 control. The add-on works globally for synthesizers whose speech audio reaches
-NVDA's main process.
+NVDA's main process, and it supports standard `sapi5_32` on 64-bit NVDA through
+a small 32-bit host wrapper.
 
 ## What It Does
 
@@ -16,13 +17,14 @@ NVDA's main process.
 - `Sonic pitch` is a separate Sonic control.
 - `Sonic pitch` is stored separately for each supported synthesizer.
 - Processes speech audio through Sonic.
+- Supports standard `sapi5_32` on 64-bit NVDA without adding a new synthesizer.
 - Includes an optional external support link.
 - May ask during installation whether to open the support page.
 
 ## Quick Start
 
-1. Select a normal NVDA synth, such as RHVoice, eSpeak, OneCore, or 64-bit
-   SAPI5.
+1. Select a normal NVDA synth, such as RHVoice, eSpeak, OneCore, 64-bit SAPI5,
+   or standard `sapi5_32`.
 2. Open NVDA Settings.
 3. Choose `Global Sonic Pitch`.
 4. Enable `Enable global Sonic pitch`.
@@ -78,17 +80,19 @@ installation without changing add-on behavior.
 ## Compatibility
 
 The add-on is expected to work with RHVoice, eSpeak, OneCore, 64-bit SAPI5,
-eSpeak-NG SAPI through SAPI5, and similar synths when their 16-bit PCM speech
-audio reaches NVDA's main `WavePlayer`.
+standard `sapi5_32` on 64-bit NVDA, eSpeak-NG SAPI through SAPI5, and similar
+synths when their 16-bit PCM speech audio reaches NVDA's main `WavePlayer` or
+NVDA's 32-bit SAPI5 synth host.
 
 Third-party eSpeak-NG SAPI voices must be configured in the eSpeak-NG SAPI
 configuration tool before they appear in SAPI. Current versions of this add-on
 do not patch SAPI voice enumeration, do not modify NVDA files, and do not write
 registry voice tokens.
 
-Standard `sapi5_32` on 64-bit NVDA is deliberately skipped. It runs in a
-separate 32-bit synth host, so this global plugin cannot process that audio.
-That synth path still has no global Sonic processing.
+Standard `sapi5_32` on 64-bit NVDA runs in a separate 32-bit synth host. Current
+versions load a bundled wrapper in that host so the standard NVDA `sapi5_32`
+synth can receive the same `Sonic pitch` value. This does not modify NVDA files,
+does not change the SAPI voice list, and does not add a separate synthesizer.
 
 ## Migration From The Old Add-on
 
@@ -114,6 +118,13 @@ For standard `sapi5_32`, the expected entry is:
 
 ```text
 Loaded synthDriver sapi5_32
+globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch
+```
+
+The host log `%TEMP%\nvda_synthDriverHost.*.log` should also contain:
+
+```text
+globalSonicPitch sapi5_32 host: set Sonic pitch
 ```
 
 ## Troubleshooting
@@ -123,8 +134,10 @@ the `Global Sonic Pitch` settings panel, then reopen Voice settings or switch
 synthesizers.
 
 If `Sonic pitch` does not change, make sure global mode is enabled and `Sonic
-pitch` is not `50`. Also check whether `processed speech audio` appears in the
-log.
+pitch` is not `50`. For main-process synths, check whether `processed speech
+audio` appears in the log. For `sapi5_32`, check for `applied remote SAPI5
+32-bit Sonic pitch` in `%TEMP%\nvda.log` and `globalSonicPitch sapi5_32 host:
+set Sonic pitch` in `%TEMP%\nvda_synthDriverHost.*.log`.
 
 If switching synthesizers seems to reset `Sonic pitch`, that is expected until
 you change it for that synthesizer. Values are stored separately for each
@@ -153,6 +166,11 @@ changes use the latest `Sonic pitch` value more reliably.
 
 Since version 0.4.12, repository documentation includes license files,
 third-party Sonic notices, and NVDA Add-on Store submission notes.
+
+Since version 0.4.13, standard `sapi5_32` on 64-bit NVDA is controlled through
+the bundled 32-bit host wrapper. The same version also makes Voice dialog Sonic
+pitch changes transactional: OK or Apply commits the previewed value, while
+Escape or Cancel restores the previous value.
 
 ## License
 

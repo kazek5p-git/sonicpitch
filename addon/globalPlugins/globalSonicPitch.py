@@ -66,12 +66,6 @@ SUPPORT_URL = "https://buycoffee.to/kazimierz-parzych"
 LEGACY_PITCH_CONFIG_KEY = "pitch"
 PITCH_BY_SYNTH_CONFIG_KEY = "pitchBySynth"
 
-UNSUPPORTED_GLOBAL_SYNTHS = {
-	# On 64-bit NVDA, sapi5_32 speaks in the separate 32-bit synth host.
-	# This global plugin is loaded only in the main NVDA process.
-	"sapi5_32",
-}
-
 _ORIGINAL_FEED_ATTR = "_globalSonicPitchOriginalFeed"
 _ORIGINAL_IDLE_ATTR = "_globalSonicPitchOriginalIdle"
 _ORIGINAL_STOP_ATTR = "_globalSonicPitchOriginalStop"
@@ -81,11 +75,18 @@ _ORIGINAL_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSetSynth"
 _SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSetSynthPatched"
 _ORIGINAL_SETTINGS_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSettingsSetSynth"
 _SETTINGS_SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSettingsSetSynthPatched"
+_ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR = "_globalSonicPitchOriginalVoicePanelMakeSettings"
+_ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR = "_globalSonicPitchOriginalVoicePanelOnSave"
+_ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR = "_globalSonicPitchOriginalVoicePanelOnDiscard"
+_VOICE_PANEL_PATCHED_ATTR = "_globalSonicPitchVoicePanelPatched"
 _ORIGINAL_SUPPORTED_SETTINGS_ATTR = "_globalSonicPitchOriginalSupportedSettings"
 _SONIC_PITCH_SETTING_PATCHED_ATTR = "_globalSonicPitchVoiceSettingPatched"
 _BUNDLED_SONIC_DIR = "sonicPitchNative"
 _BUNDLED_SONIC_32_DLL = "sonicPitchSonic32.dll"
 _BUNDLED_SONIC_64_DLL = "sonicPitchSonic64.dll"
+_SAPI32_HOST_DRIVER_DIR = "sapi32HostDrivers"
+_ORIGINAL_SAPI32_HOST_PATH_ATTR = "_globalSonicPitchOriginalSynthDriver32Path"
+_SAPI32_HOST_PATH_PATCHED_ATTR = "_globalSonicPitchHostPathPatched"
 
 _sonicModule = None
 _processingLogKeys: set[tuple[Any, ...]] = set()
@@ -102,6 +103,9 @@ _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
 _playerUtterancePitches: dict[int, int] = {}
 _playerProcessorsLock = threading.RLock()
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
+_sapi32HostReloading = False
+_sapi32HostReloadRequested = False
+_voiceDialogSessions: dict[int, dict[str, dict[str, int]]] = {}
 
 
 class _SonicStreamP(ctypes.c_void_p):
@@ -153,6 +157,8 @@ def _setConfigValue(key: str, value: Any) -> None:
 
 
 def _setGlobalEnabled(enabled: bool) -> None:
+	if enabled:
+		_installSapi32HostDriverPatch()
 	_setConfigValue("enabled", bool(enabled))
 	_resetAllPlayerProcessors()
 	_patchCurrentSynthPitch()
@@ -218,15 +224,255 @@ def _getCurrentSynthDisplayName() -> str:
 
 
 def _isGlobalAudioSupportedSynth(synthName: str) -> bool:
-	if synthName in UNSUPPORTED_GLOBAL_SYNTHS:
-		return False
 	if synthName.startswith("sapi5SonicPitch"):
 		return False
 	return True
 
 
 def _getSynthPitchKey(synthName: str | None) -> str:
-	return str(synthName or "").strip()
+	key = str(synthName or "").strip()
+	if key == "sapi5":
+		return "sapi5_32" if _is32BitProcess() else "sapi5_64"
+	if key == "sapi5_32":
+		return "sapi5_32"
+	return key
+
+
+def _isRemoteSapi32Synth(synthName: str | None) -> bool:
+	return not _is32BitProcess() and str(synthName or "").strip() == "sapi5_32"
+
+
+def _getSapi32HostDriverPath() -> str:
+	return os.path.join(os.path.dirname(os.path.dirname(__file__)), _SAPI32_HOST_DRIVER_DIR)
+
+
+def _installSapi32HostDriverPatch() -> bool:
+	if _is32BitProcess():
+		return False
+	driverPath = _getSapi32HostDriverPath()
+	if not os.path.isdir(driverPath):
+		log.debugWarning(f"globalSonicPitch: SAPI5 32-bit host driver path is missing: {driverPath}")
+		return False
+	try:
+		from synthDrivers import sapi5_32
+
+		synthClass = sapi5_32.SynthDriver
+		if not hasattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR):
+			setattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR, getattr(synthClass, "synthDriver32Path", None))
+		if getattr(synthClass, "synthDriver32Path", None) != driverPath:
+			synthClass.synthDriver32Path = driverPath
+			log.info(f"globalSonicPitch: installed SAPI5 32-bit host driver path; path={driverPath}")
+		setattr(synthClass, _SAPI32_HOST_PATH_PATCHED_ATTR, True)
+		return True
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to install SAPI5 32-bit host driver path", exc_info=True)
+		return False
+
+
+def _restoreSapi32HostDriverPatch() -> None:
+	if _is32BitProcess():
+		return
+	try:
+		from synthDrivers import sapi5_32
+
+		synthClass = sapi5_32.SynthDriver
+		if not getattr(synthClass, _SAPI32_HOST_PATH_PATCHED_ATTR, False):
+			return
+		originalPath = getattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR, None)
+		if originalPath:
+			synthClass.synthDriver32Path = originalPath
+		for attr in (_ORIGINAL_SAPI32_HOST_PATH_ATTR, _SAPI32_HOST_PATH_PATCHED_ATTR):
+			try:
+				delattr(synthClass, attr)
+			except Exception:
+				pass
+		log.info("globalSonicPitch: restored SAPI5 32-bit host driver path")
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to restore SAPI5 32-bit host driver path", exc_info=True)
+
+
+def _getRemoteService(synth: Any | None) -> Any | None:
+	if synth is None:
+		return None
+	return getattr(synth, "_remoteService", None)
+
+
+def _remoteSapi32SupportsSonicPitch(synth: Any | None) -> bool:
+	if not _isRemoteSapi32Synth(_getSynthName(synth)):
+		return False
+	return _hasSonicPitchSetting(getattr(synth, "supportedSettings", ()))
+
+
+def _reloadCurrentRemoteSapi32Synth() -> None:
+	global _sapi32HostReloading, _sapi32HostReloadRequested
+	if synthDriverHandler is None or _sapi32HostReloading:
+		return
+	if not _isRemoteSapi32Synth(_getSynthName()):
+		return
+	_sapi32HostReloading = True
+	try:
+		log.info("globalSonicPitch: reloading SAPI5 32-bit synth to enable host Sonic pitch support")
+		synthDriverHandler.setSynth("sapi5_32")
+	finally:
+		_sapi32HostReloading = False
+		_sapi32HostReloadRequested = False
+
+
+def _requestRemoteSapi32SynthReload() -> None:
+	global _sapi32HostReloadRequested
+	if _sapi32HostReloadRequested or not _installSapi32HostDriverPatch():
+		return
+	if not _isRemoteSapi32Synth(_getSynthName()):
+		return
+	_sapi32HostReloadRequested = True
+	try:
+		wx.CallAfter(_reloadCurrentRemoteSapi32Synth)
+	except Exception:
+		_reloadCurrentRemoteSapi32Synth()
+
+
+def _setRemoteSapi32SonicPitch(synth: Any | None, pitch: int | float) -> bool:
+	if not _isRemoteSapi32Synth(_getSynthName(synth)):
+		return False
+	service = _getRemoteService(synth)
+	if service is None:
+		return False
+	pitch = _clampPitch(pitch)
+	try:
+		service.setParam(SONIC_PITCH_SETTING_ID, pitch)
+		log.info(
+			"globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch; "
+			f"sonicPitch={pitch}",
+		)
+		return True
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to apply remote SAPI5 32-bit Sonic pitch", exc_info=True)
+		return False
+
+
+def _applyRuntimeSonicPitch(synth: Any | None, pitch: int | float) -> None:
+	if _isRemoteSapi32Synth(_getSynthName(synth)):
+		if not _setRemoteSapi32SonicPitch(synth, pitch):
+			_requestRemoteSapi32SynthReload()
+
+
+def _getActiveVoiceDialogSession() -> dict[str, dict[str, int]] | None:
+	if not _voiceDialogSessions:
+		return None
+	try:
+		return next(reversed(_voiceDialogSessions.values()))
+	except Exception:
+		return None
+
+
+def _getVoiceDialogPendingPitch(key: str) -> int | None:
+	for session in reversed(tuple(_voiceDialogSessions.values())):
+		pending = session.get("pending", {})
+		if key in pending:
+			return _clampPitch(pending[key])
+	return None
+
+
+def _captureVoiceDialogBaseline(session: dict[str, dict[str, int]], synthName: str | None) -> str:
+	key = _getSynthPitchKey(synthName)
+	if not key:
+		return ""
+	snapshots = session.setdefault("snapshots", {})
+	if key not in snapshots:
+		snapshots[key] = _loadSynthPitchMap().get(key, NEUTRAL_PITCH)
+	return key
+
+
+def _setVoiceDialogPendingSonicPitch(synth: Any | None, pitch: int | float) -> bool:
+	session = _getActiveVoiceDialogSession()
+	if session is None:
+		return False
+	synthName = _getSynthName(synth)
+	if not _isGlobalAudioSupportedSynth(synthName):
+		return False
+	key = _captureVoiceDialogBaseline(session, synthName)
+	if not key:
+		return False
+	pitch = _clampPitch(pitch)
+	pending = session.setdefault("pending", {})
+	snapshotPitch = session.setdefault("snapshots", {}).get(key, NEUTRAL_PITCH)
+	if key not in pending and pitch == snapshotPitch:
+		return True
+	pending[key] = pitch
+	_clearIdlePlayerUtterancePitches()
+	_applyRuntimeSonicPitch(synth, pitch)
+	log.info(
+		"globalSonicPitch: captured temporary Sonic pitch setting; "
+		f"synth={synthName}; key={key}; pendingPitch={pitch}",
+	)
+	return True
+
+
+def _commitVoiceDialogSession(panelId: int) -> None:
+	session = _voiceDialogSessions.get(panelId)
+	if not session:
+		return
+	pending = dict(session.get("pending", {}))
+	session["pending"] = {}
+	for key, pitch in pending.items():
+		_setSonicPitchForSynth(key, pitch)
+	currentSynth = _getCurrentSynth()
+	currentKey = _getSynthPitchKey(_getSynthName(currentSynth))
+	if currentKey in pending:
+		_applyRuntimeSonicPitch(currentSynth, pending[currentKey])
+	snapshots = session.setdefault("snapshots", {})
+	for key in set(snapshots) | set(pending):
+		snapshots[key] = _loadSynthPitchMap().get(key, NEUTRAL_PITCH)
+	if pending:
+		log.info(
+			"globalSonicPitch: committed Sonic pitch changes from Voice settings; "
+			f"keys={','.join(sorted(pending))}",
+		)
+
+
+def _restoreVoiceDialogSession(panelId: int) -> None:
+	session = _voiceDialogSessions.get(panelId)
+	if not session:
+		return
+	pending = dict(session.get("pending", {}))
+	snapshots = dict(session.get("snapshots", {}))
+	session["pending"] = {}
+	if not pending:
+		return
+	_clearIdlePlayerUtterancePitches()
+	for key, pitch in snapshots.items():
+		_setSonicPitchForSynth(key, pitch)
+	currentSynth = _getCurrentSynth()
+	currentKey = _getSynthPitchKey(_getSynthName(currentSynth))
+	if currentKey in snapshots:
+		_applyRuntimeSonicPitch(currentSynth, snapshots[currentKey])
+	log.info(
+		"globalSonicPitch: restored Sonic pitch after Voice settings discard; "
+		f"keys={','.join(sorted(pending))}",
+	)
+
+
+def _ensureVoiceDialogSession(panel: Any) -> None:
+	panelId = id(panel)
+	if panelId not in _voiceDialogSessions:
+		_voiceDialogSessions[panelId] = {"snapshots": {}, "pending": {}}
+	_captureVoiceDialogBaseline(_voiceDialogSessions[panelId], _getSynthName())
+	if getattr(panel, "_globalSonicPitchVoiceSessionDestroyBound", False):
+		return
+
+	def _onDestroy(evt):
+		try:
+			if evt.GetEventObject() is panel:
+				_restoreVoiceDialogSession(panelId)
+				_voiceDialogSessions.pop(panelId, None)
+		finally:
+			evt.Skip()
+
+	try:
+		panel.Bind(wx.EVT_WINDOW_DESTROY, _onDestroy)
+		setattr(panel, "_globalSonicPitchVoiceSessionDestroyBound", True)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to bind Voice settings destroy handler", exc_info=True)
 
 
 def _loadSynthPitchMap() -> dict[str, int]:
@@ -286,6 +532,9 @@ def _getSonicPitchForSynth(synthName: str | None = None) -> int:
 	key = _getSynthPitchKey(synthName)
 	if not key:
 		return NEUTRAL_PITCH
+	pendingPitch = _getVoiceDialogPendingPitch(key)
+	if pendingPitch is not None:
+		return pendingPitch
 	_migrateLegacyGlobalPitchToSynth(key)
 	return _loadSynthPitchMap().get(key, NEUTRAL_PITCH)
 
@@ -310,7 +559,13 @@ def _setSonicPitchForSynth(synthName: str | None, pitch: int | float) -> int | N
 
 
 def _setCurrentSynthSonicPitch(pitch: int | float) -> int | None:
-	return _setSonicPitchForSynth(_getSynthName(), pitch)
+	synth = _getCurrentSynth()
+	if _setVoiceDialogPendingSonicPitch(synth, pitch):
+		return _clampPitch(pitch)
+	pitch = _setSonicPitchForSynth(_getSynthName(synth), pitch)
+	if pitch is not None:
+		_applyRuntimeSonicPitch(synth, pitch)
+	return pitch
 
 
 def _changeCurrentSynthSonicPitch(delta: int) -> int | None:
@@ -906,15 +1161,40 @@ def _hasSonicPitchSetting(settings: Any) -> bool:
 		return False
 
 
+def _withoutSonicPitchSettings(settings: Any) -> tuple[Any, ...]:
+	try:
+		return tuple(setting for setting in settings if _settingId(setting) != SONIC_PITCH_SETTING_ID)
+	except Exception:
+		return tuple(settings or ())
+
+
+def _stripSonicPitchSetting(synth: Any | None) -> None:
+	if synth is None:
+		return
+	try:
+		supportedSettings = tuple(getattr(synth, "supportedSettings", ()))
+		filteredSettings = _withoutSonicPitchSettings(supportedSettings)
+		if len(filteredSettings) == len(supportedSettings):
+			return
+		synth.supportedSettings = filteredSettings
+		_updateSynthSettingsRing(synth)
+		log.info(f"globalSonicPitch: hid Sonic pitch voice setting; synth={_getSynthName(synth)}")
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to hide Sonic pitch voice setting", exc_info=True)
+
+
 def _patchedGetSonicPitchSetting(self):
 	return _getSonicPitchForSynth(_getSynthName(self))
 
 
 def _patchedSetSonicPitchSetting(self, value):
 	synthName = _getSynthName(self)
+	if _setVoiceDialogPendingSonicPitch(self, value):
+		return None
 	pitch = _setSonicPitchForSynth(synthName, value)
 	if pitch is None:
 		return None
+	_applyRuntimeSonicPitch(self, pitch)
 	log.info(
 		"globalSonicPitch: captured Sonic pitch setting; "
 		f"synth={synthName}; sonicPitch={pitch}",
@@ -1011,16 +1291,21 @@ def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 	synthName = _getSynthName(synth)
 	if not _isGlobalAudioSupportedSynth(synthName):
 		return
+	if _isRemoteSapi32Synth(synthName):
+		_installSapi32HostDriverPatch()
+		if not _remoteSapi32SupportsSonicPitch(synth):
+			_stripSonicPitchSetting(synth)
+			_requestRemoteSapi32SynthReload()
+			return
 	setting = _getSonicPitchDriverSetting()
 	if setting is None:
 		return
 	try:
 		_patchSonicPitchClassProperty(synth)
-		supportedSettings = tuple(getattr(synth, "supportedSettings", ()))
+		supportedSettings = _withoutSonicPitchSettings(tuple(getattr(synth, "supportedSettings", ())))
 		if not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
 			setattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, supportedSettings)
-			if not _hasSonicPitchSetting(supportedSettings):
-				synth.supportedSettings = supportedSettings + (setting,)
+			synth.supportedSettings = supportedSettings + (setting,)
 			setattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, True)
 		elif not _hasSonicPitchSetting(supportedSettings):
 			synth.supportedSettings = supportedSettings + (setting,)
@@ -1028,6 +1313,7 @@ def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 		if settingValue is None:
 			_unpatchSynthSonicPitchSetting(synth)
 			return
+		_applyRuntimeSonicPitch(synth, settingValue)
 		_ensureSynthRingSettingsSelectorIncludesSonicPitch()
 		_updateSynthSettingsRing(synth)
 		_logVoiceSettingOnce(synthName, settingValue)
@@ -1036,12 +1322,16 @@ def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 
 
 def _unpatchSynthSonicPitchSetting(synth: Any | None) -> None:
-	if synth is None or not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
+	if synth is None:
+		return
+	if not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
+		if _isRemoteSapi32Synth(_getSynthName(synth)):
+			_stripSonicPitchSetting(synth)
 		return
 	try:
 		originalSupportedSettings = getattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, None)
 		if originalSupportedSettings is not None:
-			synth.supportedSettings = originalSupportedSettings
+			synth.supportedSettings = _withoutSonicPitchSettings(originalSupportedSettings)
 		for attr in (
 			_ORIGINAL_SUPPORTED_SETTINGS_ATTR,
 			_SONIC_PITCH_SETTING_PATCHED_ATTR,
@@ -1103,6 +1393,76 @@ def _patchedSettingsSetSynth(*args, **kwargs):
 		_deferSynthPitchPatchDepth = max(0, _deferSynthPitchPatchDepth - 1)
 		if not _deferSynthPitchPatchDepth:
 			_schedulePatchCurrentSynthPitch()
+
+
+def _patchedVoicePanelMakeSettings(self, *args, **kwargs):
+	_ensureVoiceDialogSession(self)
+	originalMakeSettings = getattr(settingsDialogs.VoiceSettingsPanel, _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR)
+	return originalMakeSettings(self, *args, **kwargs)
+
+
+def _patchedVoicePanelOnSave(self, *args, **kwargs):
+	originalOnSave = getattr(settingsDialogs.VoiceSettingsPanel, _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR)
+	result = originalOnSave(self, *args, **kwargs)
+	_commitVoiceDialogSession(id(self))
+	return result
+
+
+def _patchedVoicePanelOnDiscard(self, *args, **kwargs):
+	originalOnDiscard = getattr(settingsDialogs.VoiceSettingsPanel, _ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR)
+	try:
+		return originalOnDiscard(self, *args, **kwargs)
+	finally:
+		panelId = id(self)
+		_restoreVoiceDialogSession(panelId)
+		_voiceDialogSessions.pop(panelId, None)
+
+
+def installVoiceSettingsDialogHook() -> None:
+	voicePanelClass = getattr(settingsDialogs, "VoiceSettingsPanel", None)
+	if voicePanelClass is None:
+		return
+	if getattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, False):
+		return
+	setattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR, voicePanelClass.makeSettings)
+	setattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR, voicePanelClass.onSave)
+	setattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR, voicePanelClass.onDiscard)
+	voicePanelClass.makeSettings = _patchedVoicePanelMakeSettings
+	voicePanelClass.onSave = _patchedVoicePanelOnSave
+	voicePanelClass.onDiscard = _patchedVoicePanelOnDiscard
+	setattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, True)
+	log.info("globalSonicPitch: installed Voice settings Sonic pitch transaction hook")
+
+
+def uninstallVoiceSettingsDialogHook() -> None:
+	voicePanelClass = getattr(settingsDialogs, "VoiceSettingsPanel", None)
+	if voicePanelClass is None:
+		return
+	for panelId in list(_voiceDialogSessions):
+		_restoreVoiceDialogSession(panelId)
+		_voiceDialogSessions.pop(panelId, None)
+	if not getattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, False):
+		return
+	originalMakeSettings = getattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR, None)
+	originalOnSave = getattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR, None)
+	originalOnDiscard = getattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR, None)
+	if originalMakeSettings is not None and voicePanelClass.makeSettings is _patchedVoicePanelMakeSettings:
+		voicePanelClass.makeSettings = originalMakeSettings
+	if originalOnSave is not None and voicePanelClass.onSave is _patchedVoicePanelOnSave:
+		voicePanelClass.onSave = originalOnSave
+	if originalOnDiscard is not None and voicePanelClass.onDiscard is _patchedVoicePanelOnDiscard:
+		voicePanelClass.onDiscard = originalOnDiscard
+	for attr in (
+		_ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR,
+		_ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR,
+		_ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR,
+	):
+		try:
+			delattr(voicePanelClass, attr)
+		except Exception:
+			pass
+	setattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, False)
+	log.info("globalSonicPitch: removed Voice settings Sonic pitch transaction hook")
 
 
 def installSynthPitchHook() -> None:
@@ -1195,8 +1555,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		_ensureConfigSpec()
+		_installSapi32HostDriverPatch()
 		installWavePlayerHook()
 		installSynthPitchHook()
+		installVoiceSettingsDialogHook()
 		if GlobalSonicPitchSettingsPanel not in NVDASettingsDialog.categoryClasses:
 			NVDASettingsDialog.categoryClasses.append(GlobalSonicPitchSettingsPanel)
 
@@ -1205,8 +1567,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			if GlobalSonicPitchSettingsPanel in NVDASettingsDialog.categoryClasses:
 				NVDASettingsDialog.categoryClasses.remove(GlobalSonicPitchSettingsPanel)
 		finally:
+			uninstallVoiceSettingsDialogHook()
 			uninstallSynthPitchHook()
 			uninstallWavePlayerHook()
+			_restoreSapi32HostDriverPatch()
 			super().terminate()
 
 	@script(

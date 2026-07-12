@@ -3,7 +3,8 @@
 Global Sonic Pitch is an NVDA add-on that adds a separate `Sonic pitch` control
 and applies it through Sonic audio processing. NVDA's normal `Pitch` setting
 remains the active synth's native pitch control. The add-on works globally for
-synthesizers whose speech audio is played through NVDA's main process.
+synthesizers whose speech audio is played through NVDA's main process, and also
+supports standard `sapi5_32` on 64-bit NVDA through a small 32-bit host wrapper.
 
 Polish documentation: [README.pl.md](README.pl.md)
 
@@ -15,9 +16,11 @@ Polish documentation: [README.pl.md](README.pl.md)
   Voice settings and the synth settings ring for supported synthesizers.
 - `Sonic pitch` is a separate Sonic control and does not replace native `Pitch`.
 - `Sonic pitch` is stored separately for each supported synthesizer.
-- Speech audio is filtered through Sonic in NVDA's main `WavePlayer`.
-- Standard `sapi5_32` on 64-bit NVDA is deliberately skipped because it speaks
-  in a separate 32-bit synth host.
+- Speech audio is filtered through Sonic in NVDA's main `WavePlayer` when that
+  audio path is available.
+- Standard `sapi5_32` on 64-bit NVDA is supported through a bundled 32-bit host
+  driver wrapper; it remains the standard NVDA `sapi5_32` synth in the
+  synthesizer dialog.
 - The add-on includes an optional support link that opens BuyCoffee in the
   default browser.
 - During installation, the add-on may ask whether to open the support page.
@@ -35,7 +38,7 @@ Tested locally with:
 - eSpeak-NG SAPI through SAPI5;
 - OneCore;
 - 64-bit SAPI5;
-- standard 32-bit SAPI5 as a loadable but intentionally unprocessed path.
+- standard 32-bit SAPI5 on 64-bit NVDA.
 
 ## Requirements
 
@@ -44,7 +47,7 @@ Tested locally with:
 - The bundled Sonic native library, with NVDA's internal Sonic library used as
   a fallback if the bundled library cannot be loaded.
 - A synthesizer that feeds 16-bit PCM speech audio through NVDA's main
-  `WavePlayer`.
+  `WavePlayer`, or standard `sapi5_32` on 64-bit NVDA.
 
 Latest local test targets:
 
@@ -69,8 +72,8 @@ Store compatibility target:
 
 ## Quick Start
 
-1. Select a normal NVDA synth, such as RHVoice, eSpeak, OneCore, or 64-bit
-   SAPI5.
+1. Select a normal NVDA synth, such as RHVoice, eSpeak, OneCore, 64-bit SAPI5,
+   or standard `sapi5_32`.
 2. Enable `Global Sonic Pitch` in NVDA settings.
 3. Change Sonic processing with the `Sonic pitch` voice setting, the synth
    settings ring, or an assigned Input Gesture. If `Sonic pitch` is not in Voice
@@ -153,8 +156,7 @@ setting still changes the synth's native pitch. If both sliders are away from
 `50`, you will hear the combined result.
 
 Starting with version 0.4.9, `Sonic pitch` changes are applied at utterance
-boundaries. Moving the `Sonic pitch` control saves the new value immediately,
-but an already speaking Sonic stream keeps its current value until that
+boundaries. An already speaking Sonic stream keeps its current value until that
 utterance ends. The next utterance uses the new value. This avoids replacing
 native Sonic processing objects inside active speech callbacks.
 
@@ -171,6 +173,11 @@ Version 0.4.12 is a store-preparation release. It updates metadata to target
 the latest stable NVDA API, adds root license documentation, and records the
 NVDA Add-on Store submission checklist in `docs/addon-store-submission.md`.
 
+Version 0.4.13 adds Sonic pitch control for standard `sapi5_32` on 64-bit NVDA
+through a bundled 32-bit host wrapper. It also makes Voice settings changes
+transactional: changing `Sonic pitch` in the Voice dialog is previewed live, but
+Escape/Cancel restores the previous value. OK or Apply commits the change.
+
 ## Synth Compatibility
 
 | Synth | Expected behavior |
@@ -180,18 +187,27 @@ NVDA Add-on Store submission checklist in `docs/addon-store-submission.md`.
 | eSpeak-NG SAPI through SAPI5 | Supported as a normal SAPI5 voice after it is configured and visible in NVDA's standard SAPI5 voice list. The add-on no longer augments SAPI voice lists. |
 | OneCore | Supported in NVDA's main process. |
 | 64-bit SAPI5 | Supported when it uses NVDA's audio path. |
-| 32-bit SAPI5 on 64-bit NVDA | Loads normally, but global Sonic does not process it. |
+| 32-bit SAPI5 on 64-bit NVDA | Supported through the bundled 32-bit host wrapper. |
 | Other synths | May work if they feed 16-bit PCM through the main `WavePlayer`. |
 
-## Important 32-bit SAPI5 Limitation
+## 32-bit SAPI5 On 64-bit NVDA
 
 Standard `sapi5_32` on 64-bit NVDA speaks through a separate 32-bit synth host.
-This add-on's global plugin is loaded in the main NVDA process, not in that
-host. Therefore, the add-on does not process `sapi5_32` audio through Sonic and
-does not add the separate `Sonic pitch` setting to that synth.
+The main-process `WavePlayer` hook cannot see that audio, so the add-on
+registers a small wrapper for the 32-bit host. The wrapper loads NVDA's original
+32-bit SAPI5 driver and exposes one extra host parameter, `sonicPitch`, which
+sets the host's existing Sonic stream pitch.
 
-This is intentional. It keeps standard `sapi5_32` loading normally and avoids
-altering native pitch when Sonic cannot process that audio path.
+This does not add a new synthesizer and does not modify NVDA files. In the
+synthesizer dialog, the synth remains `Microsoft Speech API version 5 (32 bit)`.
+If `sapi5_32` was already active when the add-on starts, the add-on may reload it
+once so the wrapper is used.
+
+Sonic pitch values are stored with architecture-aware keys:
+
+- `sapi5_32` for 32-bit NVDA's normal `sapi5` and for `sapi5_32` on 64-bit
+  NVDA.
+- `sapi5_64` for standard `sapi5` on 64-bit NVDA.
 
 ## Migration From SAPI5 Sonic Pitch
 
@@ -229,6 +245,14 @@ For `sapi5_32`, the expected entry is:
 
 ```text
 Loaded synthDriver sapi5_32
+globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch
+```
+
+The 32-bit synth host log at `%TEMP%\nvda_synthDriverHost.*.log` should also
+contain:
+
+```text
+globalSonicPitch sapi5_32 host: set Sonic pitch
 ```
 
 ## Troubleshooting
@@ -294,10 +318,17 @@ patch SAPI voice enumeration and do not modify NVDA files or registry voice
 tokens. If the voice is not visible in SAPI5, fix the eSpeak-NG SAPI
 configuration first.
 
-### Standard 32-bit SAPI5 Has No Global Sonic Pitch
+### Sonic Pitch In The Voice Dialog Reverts On Escape
 
-This is a known limitation. `sapi5_32` runs in a separate host and is not
-globally filtered by this add-on.
+Changes made in the Voice dialog are temporary until OK or Apply is pressed.
+Escape or Cancel restores the previous `Sonic pitch` value. Changes made through
+the synth settings ring or input gestures are committed immediately.
+
+### Standard 32-bit SAPI5 Does Not Show Sonic Pitch
+
+On 64-bit NVDA, `sapi5_32` must be loaded through the add-on's host wrapper.
+Restart NVDA or switch away from `sapi5_32` and back again. Then check the NVDA
+log for `applied remote SAPI5 32-bit Sonic pitch`.
 
 ### Old Sonic Pitch Synths Still Appear
 
@@ -331,6 +362,7 @@ It uses:
   stream state;
 - dynamic insertion of a `sonicPitch` setting into the active synth's
   `supportedSettings`;
+- a small 32-bit SAPI5 host wrapper for standard `sapi5_32` on 64-bit NVDA;
 - bundled 32-bit and 64-bit Sonic native DLLs loaded with `ctypes`;
 - NVDA's internal `synthDrivers._sonic.SonicStream` as a fallback when the
   bundled Sonic library is unavailable.
@@ -354,7 +386,7 @@ release safety policy, and verification checklist for submitting this add-on to
 the NVDA Add-on Store.
 
 For stable store submission, the add-on manifest should point to the latest
-stable NVDA API target, not a beta target. Version 0.4.12 declares:
+stable NVDA API target, not a beta target. Version 0.4.13 declares:
 
 ```ini
 minimumNVDAVersion = 2025.1.0
@@ -384,13 +416,13 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.12.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.13.nvda-addon -Force
 ```
 
 Syntax check:
 
 ```powershell
-python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\installTasks.py
+python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\sapi32HostDrivers\sapi5.py addon\installTasks.py
 ```
 
 ## Repository Layout
@@ -400,6 +432,8 @@ python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\installTasks.
 - `addon/globalPlugins/globalSonicPitch.py` - main plugin.
 - `addon/globalPlugins/sonicPitchNative/` - bundled Sonic native DLLs and
   Apache 2.0 license metadata.
+- `addon/sapi32HostDrivers/` - wrapper registered only for NVDA's 32-bit SAPI5
+  synth host.
 - `addon/doc/en/readme.md` - English add-on help.
 - `addon/doc/pl/readme.md` - Polish add-on help.
 - `docs/technical-notes.md` - maintenance notes.

@@ -3,7 +3,8 @@
 Global Sonic Pitch dodaje osobną regulację `Sonic pitch` i stosuje ją przez
 Sonic. Zwykła `Wysokość` NVDA pozostaje natywnym ustawieniem aktywnego
 syntezatora. Dodatek działa globalnie dla syntezatorów, których audio mowy
-przechodzi przez główny proces NVDA.
+przechodzi przez główny proces NVDA, a standardowy `sapi5_32` na 64-bitowym
+NVDA obsługuje przez mały wrapper 32-bitowego hosta.
 
 ## Co Robi Dodatek
 
@@ -17,13 +18,15 @@ przechodzi przez główny proces NVDA.
 - `Sonic pitch` jest osobną regulacją Sonic.
 - `Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora.
 - Przetwarza audio mowy przez Sonic.
+- Obsługuje standardowy `sapi5_32` na 64-bitowym NVDA bez dodawania nowego
+  syntezatora.
 - Zawiera opcjonalny zewnętrzny link wsparcia autora.
 - Może zapytać podczas instalacji, czy otworzyć stronę wsparcia.
 
 ## Szybki Start
 
-1. Wybierz normalny syntezator NVDA, na przykład RHVoice, eSpeak, OneCore albo
-   SAPI5 64-bit.
+1. Wybierz normalny syntezator NVDA, na przykład RHVoice, eSpeak, OneCore,
+   SAPI5 64-bit albo standardowy `sapi5_32`.
 2. Otwórz ustawienia NVDA.
 3. Wybierz kategorię `Global Sonic Pitch`.
 4. Włącz `Enable global Sonic pitch`.
@@ -79,17 +82,20 @@ komunikat wsparcia. `Yes` otwiera tę samą stronę w domyślnej przeglądarce.
 
 ## Zgodność
 
-Dodatek powinien działać z RHVoice, eSpeak, OneCore, SAPI5 64-bit, eSpeak-NG
-SAPI przez SAPI5 i podobnymi syntezatorami, jeśli ich 16-bitowe PCM mowy trafia
-do głównego `WavePlayer` NVDA.
+Dodatek powinien działać z RHVoice, eSpeak, OneCore, SAPI5 64-bit,
+standardowym `sapi5_32` na 64-bitowym NVDA, eSpeak-NG SAPI przez SAPI5 i
+podobnymi syntezatorami, jeśli ich 16-bitowe PCM mowy trafia do głównego
+`WavePlayer` NVDA albo do 32-bitowego hosta SAPI5 NVDA.
 
 Zewnętrzne głosy eSpeak-NG SAPI trzeba najpierw skonfigurować w konfiguratorze
 eSpeak-NG SAPI. Aktualne wersje dodatku nie patchują enumeracji głosów SAPI,
 nie modyfikują plików NVDA i nie zapisują tokenów głosów w rejestrze.
 
-Standardowy `sapi5_32` na 64-bitowym NVDA jest celowo pomijany. Działa w osobnym
-32-bitowym hoście syntezatorów, więc ten globalny plugin nie może przetwarzać
-jego audio. Ta ścieżka nadal nie ma globalnego przetwarzania Sonic.
+Standardowy `sapi5_32` na 64-bitowym NVDA działa w osobnym 32-bitowym hoście
+syntezatorów. Aktualne wersje ładują w tym hoście dołączony wrapper, dzięki
+czemu standardowy syntezator NVDA `sapi5_32` dostaje tę samą wartość `Sonic
+pitch`. Nie modyfikuje to plików NVDA, nie zmienia listy głosów SAPI i nie
+dodaje osobnego syntezatora.
 
 ## Migracja Ze Starej Wersji
 
@@ -115,6 +121,13 @@ Dla standardowego `sapi5_32` oczekiwany jest wpis:
 
 ```text
 Loaded synthDriver sapi5_32
+globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch
+```
+
+W logu hosta `%TEMP%\nvda_synthDriverHost.*.log` powinien też pojawić się wpis:
+
+```text
+globalSonicPitch sapi5_32 host: set Sonic pitch
 ```
 
 ## Rozwiązywanie Problemów
@@ -124,8 +137,11 @@ pitch` w panelu `Global Sonic Pitch`, a potem otwórz ustawienia głosu ponownie
 albo przełącz syntezator.
 
 Jeśli `Sonic pitch` się nie zmienia, upewnij się, że globalny tryb jest
-włączony, a wartość `Sonic pitch` nie wynosi `50`. Sprawdź też, czy w logu pojawia się
-`processed speech audio`.
+włączony, a wartość `Sonic pitch` nie wynosi `50`. Dla syntezatorów z głównego
+procesu sprawdź, czy w logu pojawia się `processed speech audio`. Dla
+`sapi5_32` sprawdź `applied remote SAPI5 32-bit Sonic pitch` w `%TEMP%\nvda.log`
+i `globalSonicPitch sapi5_32 host: set Sonic pitch` w
+`%TEMP%\nvda_synthDriverHost.*.log`.
 
 Jeśli po przełączeniu syntezatora `Sonic pitch` wraca do `50`, jest to
 oczekiwane, dopóki nie ustawisz wartości dla tego konkretnego syntezatora.
@@ -155,6 +171,11 @@ pewniej używają najnowszej wartości `Sonic pitch`.
 
 Od wersji 0.4.12 dokumentacja repozytorium zawiera pliki licencji, notatki o
 zewnętrznych bibliotekach Sonic i notatki do zgłoszenia w NVDA Add-on Store.
+
+Od wersji 0.4.13 standardowy `sapi5_32` na 64-bitowym NVDA jest sterowany przez
+dołączony wrapper 32-bitowego hosta. Ta sama wersja poprawia zachowanie dialogu
+`Głos`: OK albo Zastosuj zapisuje podglądaną wartość `Sonic pitch`, a Escape
+albo Anuluj przywraca poprzednią wartość.
 
 ## Licencja
 

@@ -54,25 +54,38 @@
     Voice dialog or synth settings ring.
 34. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
     dialog or synth settings ring for supported synths.
-35. Input Gesture scripts for opening the support page, increasing,
+35. In the Voice dialog, change `Sonic pitch`, press Escape or Cancel, reopen
+    Voice settings, and confirm the previous value and spoken pitch are
+    restored.
+36. In the Voice dialog, change `Sonic pitch`, press OK or Apply, reopen Voice
+    settings, and confirm the new value is stored.
+37. On 64-bit NVDA, test standard `sapi5_32` with global Sonic enabled and
+    confirm the Sonic pitch slider appears and changes the 32-bit host output.
+38. On 64-bit NVDA, set different values for standard `sapi5`/SAPI64 and
+    `sapi5_32`/SAPI32, then confirm the config stores separate `sapi5_64` and
+    `sapi5_32` entries.
+39. On 32-bit NVDA, test standard `sapi5` and confirm its value maps to the
+    `sapi5_32` key.
+40. Input Gesture scripts for opening the support page, increasing,
     decreasing, and resetting Sonic pitch for the current synth appear in the
     `Global Sonic Pitch` category.
-36. During installation or update, the optional support prompt appears outside
+41. During installation or update, the optional support prompt appears outside
     minimal mode. `No` continues installation. `Yes` opens
     `https://buycoffee.to/kazimierz-parzych` in the default browser.
-37. Rate, volume, voice switching, and cancellation still behave normally.
-38. Say-all / continuous reading does not obviously regress.
-39. NVDA sound effects are not processed as speech audio.
-40. The repository contains root license documentation and third-party notices.
-41. `docs/addon-store-submission.md` has the current package version, download
+42. Rate, volume, voice switching, and cancellation still behave normally.
+43. Say-all / continuous reading does not obviously regress.
+44. NVDA sound effects are not processed as speech audio.
+45. The repository contains root license documentation and third-party notices.
+46. `docs/addon-store-submission.md` has the current package version, download
     URL, and SHA256 before submitting to the NVDA Add-on Store.
-42. Error log check after each scenario.
+47. Error log check after each scenario.
 
 ## Expected Results
 
 - NVDA loads with no startup errors.
-- The package contains `globalPlugins`, `installTasks.py`, documentation, and
-  `globalPlugins/sonicPitchNative`; it does not contain add-on synth drivers.
+- The package contains `globalPlugins`, `sapi32HostDrivers`, `installTasks.py`,
+  documentation, and `globalPlugins/sonicPitchNative`; it does not contain
+  replacement synthesizers shown in NVDA's synthesizer dialog.
 - `SAPI5 32-bit Sonic Pitch` and `SAPI5 64-bit Sonic Pitch` do not appear in the
   synthesizer dialog after the old `sapi5SonicPitch` add-on is removed.
 - Global Sonic processing is disabled by default.
@@ -91,11 +104,17 @@
   `globalSonicPitch: captured Sonic pitch setting` and changes the current
   supported synth's Sonic pitch value.
 - Different supported synths can keep different `Sonic pitch` values.
+- Standard 64-bit SAPI5 and standard `sapi5_32` on 64-bit NVDA keep separate
+  `sapi5_64` and `sapi5_32` values.
+- Changes made from the Voice dialog are previewed live; Escape or Cancel
+  restores the previous value, while OK or Apply commits the new value.
 - Changing `Sonic pitch` during active speech does not reset the current Sonic
   processor. The active utterance keeps its starting value, and the next
   utterance uses the new value.
-- Standard `sapi5_32` still loads. On 64-bit NVDA it is not globally processed
-  because it runs in the separate 32-bit synth host.
+- Standard `sapi5_32` still loads. On 64-bit NVDA it is controlled through the
+  bundled 32-bit host wrapper, and logs show:
+  - `globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch`
+  - `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - eSpeak-NG SAPI can be tested only after its own configurator enables at least
   one SAPI voice profile.
 - The add-on does not add eSpeak-NG SAPI dynamic voices to NVDA's SAPI voice
@@ -114,8 +133,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.12:
+Expected package name for version 0.4.13:
 
 ```text
-globalSonicPitch-0.4.12.nvda-addon
+globalSonicPitch-0.4.13.nvda-addon
 ```

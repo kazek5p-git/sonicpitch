@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.13
+
+- Adds Sonic pitch control for standard `sapi5_32` on 64-bit NVDA through a
+  bundled 32-bit host wrapper.
+- Keeps the standard NVDA `sapi5_32` synthesizer entry; the add-on still does
+  not add replacement synthesizers or modify NVDA files on disk.
+- Stores SAPI5 Sonic pitch values with architecture-aware keys: `sapi5_64` for
+  the 64-bit SAPI5 path and `sapi5_32` for 32-bit SAPI5.
+- Makes Voice dialog changes transactional. `Sonic pitch` changes are previewed
+  live, OK or Apply commits them, and Escape or Cancel restores the previous
+  value.
+- Applies remote `sapi5_32` pitch changes immediately through the 32-bit host
+  service and logs the host-side `sonicPitch` application.
+- Updates English and Polish documentation, technical notes, and manual testing
+  instructions for the new SAPI5 architecture behavior.
+
 ## 0.4.12
 
 - Prepares the package for NVDA Add-on Store submission.
