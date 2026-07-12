@@ -111,8 +111,9 @@ write or flush still raises an `OSError`, the host drops that damaged audio
 block, replaces the Sonic stream, and returns success to SAPI so later speech
 requests can continue.
 
-Version 0.4.16 updates only author metadata, adding DJ Graco alongside Kazek in
-the add-on manifest. There are no audio processing changes from 0.4.15.
+Version 0.4.17 updates only author and store publisher metadata, listing
+Kazimierz Parzych alongside DJ Graco. There are no audio processing changes from
+0.4.16.
 
 ## Config
 

@@ -187,8 +187,9 @@ Od wersji 0.4.15 host `sapi5_32` lepiej odwzorowuje stresowe zachowanie dialogu
 zmianie pitch i odzyskuje działanie po uszkodzonych blokach Sonic, aby mowa nie
 pozostawała wyciszona do czasu przeładowania syntezatora.
 
-Od wersji 0.4.16 metadane autorów dodatku zawierają Kazka i DJ Graco. Działanie
-audio nie zmienia się względem wersji 0.4.15.
+Od wersji 0.4.17 metadane autorów dodatku i wydawcy w sklepie zawierają
+Kazimierza Parzycha i DJ Graco. Działanie audio nie zmienia się względem wersji
+0.4.16.
 
 ## Licencja
 

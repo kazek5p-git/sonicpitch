@@ -149,8 +149,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.16:
+Expected package name for version 0.4.17:
 
 ```text
-globalSonicPitch-0.4.16.nvda-addon
+globalSonicPitch-0.4.17.nvda-addon
 ```

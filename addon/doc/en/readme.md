@@ -182,8 +182,8 @@ behavior more closely. It locks the full SAPI audio callback, replaces the host
 Sonic stream when pitch changes, and recovers from damaged host Sonic blocks so
 speech does not stay silent until the synth is reloaded.
 
-Since version 0.4.16, the add-on author metadata lists both Kazek and DJ Graco.
-Audio behavior is unchanged from version 0.4.15.
+Since version 0.4.17, the add-on author and store publisher metadata list both
+Kazimierz Parzych and DJ Graco. Audio behavior is unchanged from version 0.4.16.
 
 ## License
 

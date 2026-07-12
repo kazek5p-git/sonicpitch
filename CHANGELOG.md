@@ -1,8 +1,15 @@
 # Changelog
 
+## 0.4.17
+
+- Updates add-on author and store publisher metadata to use `Kazimierz Parzych`
+  alongside `DJ Graco`.
+- No audio processing behavior changes from 0.4.16.
+
 ## 0.4.16
 
-- Updates add-on author metadata to include both `Kazek` and `DJ Graco`.
+- Updates add-on author metadata to include both `Kazimierz Parzych` and
+  `DJ Graco`.
 - No audio processing behavior changes from 0.4.15.
 
 ## 0.4.15

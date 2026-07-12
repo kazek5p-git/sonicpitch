@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 0.4.16.
+Status: mostly ready after version 0.4.17.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version uses `major.minor.patch`: `0.4.16`.
+- Package version uses `major.minor.patch`: `0.4.17`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -29,7 +29,7 @@ Completed:
 - Voice dialog Sonic pitch changes now follow normal settings behavior: OK or
   Apply commits, while Escape or Cancel restores the previous value.
 - Current GitHub Release contains one `.nvda-addon` asset.
-- Manifest author metadata lists `Kazek, DJ Graco`.
+- Manifest author metadata lists `Kazimierz Parzych, DJ Graco`.
 - User documentation exists in English and Polish.
 - Store submission metadata draft is recorded below.
 
@@ -50,18 +50,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "F122263679E96FA9F71FE85D0807614394EC903D14F2A3CDED2F275111008EA4",
-  "addonVersionName": "0.4.16",
+  "sha256": "DEDB792CED78157D6D3D38453CD7DC40FE88085724F2D51A2DB457DBA624876F",
+  "addonVersionName": "0.4.17",
   "channel": "stable",
-  "publisher": "Kazek, DJ Graco",
+  "publisher": "Kazimierz Parzych, DJ Graco",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.16/globalSonicPitch-0.4.16.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.17/globalSonicPitch-0.4.17.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.16"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.17"
 }
 ```
 

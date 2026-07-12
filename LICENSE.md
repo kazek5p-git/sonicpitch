@@ -2,7 +2,7 @@
 
 Global Sonic Pitch is free software.
 
-Copyright (C) 2026 Kazek
+Copyright (C) 2026 Kazimierz Parzych
 
 The add-on source code is licensed under the GNU General Public License,
 version 2 or later. You may redistribute it and/or modify it under the terms of
