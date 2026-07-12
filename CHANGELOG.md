@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.12
+
+- Prepares the package for NVDA Add-on Store submission.
+- Sets `lastTestedNVDAVersion` to the latest stable target `2026.1.1` instead
+  of the locally tested 2026.2 beta target.
+- Adds root licensing documentation for the add-on source and third-party Sonic
+  native binaries.
+- Adds store submission notes, metadata draft, and a release verification
+  checklist.
+- Adds translator comments for visible UI strings and gesture descriptions.
+- No audio processing behavior changes from 0.4.11.
+
 ## 0.4.11
 
 - Improves `Sonic pitch` slider responsiveness for rapid PageUp/PageDown

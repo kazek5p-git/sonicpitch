@@ -53,6 +53,10 @@ Ostatnio testowane lokalnie konfiguracje:
 - NVDA 2025.3.3 x86 portable z SAPI5 przy prędkości 100.
 - NVDA 2026.2 beta AMD64 z SAPI5 przy prędkości 100.
 
+Cel zgodności dla sklepu:
+
+- Metadane kanału stable celują w NVDA 2026.1.1.
+
 ## Instalacja
 
 1. Pobierz najnowszy plik `.nvda-addon` z
@@ -171,6 +175,11 @@ Od wersji 0.4.11 krótkie komunikaty zwrotne po szybkich zmianach `Sonic pitch`,
 na przykład PageUp/PageDown w ustawieniach głosu albo pierścieniu ustawień
 syntezatora, pewniej używają najnowszej wartości od następnej granicy
 wypowiedzi.
+
+Wersja 0.4.12 jest wydaniem przygotowującym dodatek do sklepu. Aktualizuje
+metadane pod najnowszy stabilny cel API NVDA, dodaje dokumentację licencji w
+repozytorium i zapisuje checklistę zgłoszenia do NVDA Add-on Store w
+`docs/addon-store-submission.md`.
 
 ## Zgodność Syntezatorów
 
@@ -350,6 +359,30 @@ przekazywania ich do natywnego `sonicDestroyStream`. To omija odtworzony crash
 natywnej sterty 32-bit; zwykła mowa używa ponownie bieżącego strumienia, a nowe
 strumienie są alokowane tylko wtedy, gdy wymaga tego zmiana pitch albo formatu.
 
+## NVDA Add-on Store
+
+Notatki przygotowujące dodatek do sklepu są w
+`docs/addon-store-submission.md`. Ten plik zawiera szkic metadanych, politykę
+bezpieczeństwa wydań i checklistę weryfikacji przed zgłoszeniem dodatku do NVDA
+Add-on Store.
+
+Dla zgłoszenia do kanału stable manifest dodatku powinien wskazywać najnowszy
+stabilny cel API NVDA, nie wersję beta. Wersja 0.4.12 deklaruje:
+
+```ini
+minimumNVDAVersion = 2025.1.0
+lastTestedNVDAVersion = 2026.1.1
+```
+
+## Licencja
+
+Kod źródłowy Global Sonic Pitch jest licencjonowany na GNU GPL w wersji 2 lub
+nowszej. Zobacz `LICENSE.md`.
+
+Dołączone natywne biblioteki Sonic są zewnętrznymi komponentami na licencji
+Apache 2.0. Zobacz `THIRD_PARTY_NOTICES.md` oraz
+`addon/globalPlugins/sonicPitchNative/LICENSE-Sonic.txt`.
+
 ## Budowanie Ze Źródeł
 
 Katalogiem głównym paczki dodatku jest `addon`.
@@ -364,7 +397,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.11.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.12.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

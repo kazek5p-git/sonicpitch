@@ -153,6 +153,15 @@ odtworzony natywny crash sterty na NVDA 2025.3.3 x86 z SAPI5.
 Od wersji 0.4.11 krótkie komunikaty po powtarzanych zmianach PageUp/PageDown
 pewniej używają najnowszej wartości `Sonic pitch`.
 
+Od wersji 0.4.12 dokumentacja repozytorium zawiera pliki licencji, notatki o
+zewnętrznych bibliotekach Sonic i notatki do zgłoszenia w NVDA Add-on Store.
+
+## Licencja
+
+Kod źródłowy Global Sonic Pitch jest licencjonowany na GNU GPL w wersji 2 lub
+nowszej. Dołączone natywne biblioteki Sonic są zewnętrznymi komponentami na
+licencji Apache 2.0.
+
 ## Logi
 
 - Aktualny log: `%TEMP%\nvda.log`

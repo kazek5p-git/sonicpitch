@@ -29,11 +29,13 @@ def onInstall() -> None:
 	parent = getattr(gui, "mainFrame", None)
 	style = wx.YES_NO | getattr(wx, "NO_DEFAULT", 0) | wx.ICON_INFORMATION
 	result = gui.messageBox(
+		# Translators: Optional support prompt shown after installing or updating the add-on.
 		_(
 			"If you like Sonic Pitch and want to support my work, "
 			"you can buy me a coffee.\n\n"
 			"Do you want to open the support page now?",
 		),
+		# Translators: Title of the optional support prompt.
 		_("Support Sonic Pitch"),
 		style,
 		parent,
@@ -47,7 +49,9 @@ def onInstall() -> None:
 		log.debugWarning("globalSonicPitch: failed to open support page during install", exc_info=True)
 	if not opened:
 		gui.messageBox(
+			# Translators: Error shown when the support page cannot be opened automatically.
 			_("Cannot open support page. Open this address manually: {url}").format(url=SUPPORT_URL),
+			# Translators: Title of the support page error.
 			_("Support Sonic Pitch"),
 			wx.OK | wx.ICON_WARNING,
 			parent,

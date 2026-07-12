@@ -9,7 +9,8 @@ installed files or adding replacement synthesizer drivers.
 
 Version 0.3.0 changed the add-on identity from `sapi5SonicPitch` to
 `globalSonicPitch` and removes the previous custom SAPI5 synth drivers from the
-package. The current package contains only a global plugin and documentation.
+package. The current package contains a global plugin, documentation, and
+bundled native Sonic libraries.
 
 Version 0.4.0 adds a dynamic `sonicPitch` driver setting so NVDA's standard
 Voice dialog and synth settings ring can expose the add-on pitch without
@@ -32,10 +33,10 @@ racing NVDA's own Voice dialog refresh.
 Version 0.4.4 fixes freezes seen with some SAPI5 voices, including eSpeak-NG
 SAPI, while lowering `sonicPitch` during active speech. Version 0.4.3 tried to
 keep the active `SonicStream` and update `stream.pitch` in place. That was good
-for continuity but unsafe with some SAPI callback timing. The current behavior
-recreates the per-player Sonic processor when pitch or audio format changes,
-discards the old processor without flushing its tail on mid-utterance pitch
-changes, and protects the processor map with an `RLock`.
+for continuity but unsafe with some SAPI callback timing. Version 0.4.4 stopped
+retuning a native stream in place. Current versions defer pitch changes during
+active speech, apply them at a safe boundary, and protect the processor map with
+an `RLock`.
 
 Version 0.4.5 shortens the scope of the global processor-map lock. The map lock
 now protects only lookup, insertion, removal, and reset. Each
@@ -44,26 +45,10 @@ now protects only lookup, insertion, removal, and reset. Each
 global lock around expensive Sonic processing, which matters for fast SAPI5
 voices such as eSpeak-NG SAPI at rate 100.
 
-Version 0.4.6 adds a narrow SAPI5 voice-list compatibility hook for eSpeak-NG
-SAPI. NVDA 2026.2 reads voice IDs from the standard
-`HKLM\SOFTWARE\Microsoft\Speech\Voices\Tokens` registry path. eSpeak-NG SAPI
-exposes configured voices through the dynamic SAPI token enumerator path
-`HKLM\SOFTWARE\Microsoft\Speech\Voices\TokenEnums\eSpeak-NG`, so Windows SAPI
-can see them while NVDA's direct registry scan can miss them. The add-on patches
-`synthDrivers.sapi5.SynthDriver._getVoiceTokens` at runtime and appends only
-dynamic token IDs containing `\Speech\Voices\TokenEnums\eSpeak-NG\` from
-`ISpeechVoice.GetVoices`. It restores the original method on termination. It
-does not patch NVDA files on disk and does not write registry voice tokens.
-
-Version 0.4.7 extends that compatibility layer to `sapi5_32`. NVDA's
-`sapi5_32` driver is a proxy in the main process while speech is produced in the
-separate 32-bit synth host. The add-on patches the proxy
-`synthDrivers.sapi5_32.SynthDriver._getAvailableVoices` at runtime and adds
-configured eSpeak-NG SAPI dynamic token IDs as `synthDriverHandler.VoiceInfo`
-entries. It also updates the current `sapi5_32` instance's cached
-`availableVoices` map if `sapi5_32` is already active. This only supplements
-voice visibility and selection; the 32-bit host audio is still not processed by
-Global Sonic Pitch.
+Versions 0.4.6 and 0.4.7 briefly experimented with SAPI voice-list
+compatibility hooks for eSpeak-NG SAPI and `sapi5_32`. Those hooks were removed
+in version 0.4.10. Current versions do not patch SAPI voice enumeration, do not
+write registry voice tokens, and do not modify NVDA files on disk.
 
 Version 0.4.8 changes `sonicPitch` from one global pitch value to a per-synth
 value. The add-on settings panel now only enables/disables processing and debug
@@ -76,6 +61,21 @@ Version 0.4.9 makes Sonic pitch application utterance-scoped. Changing
 utterance. The new value is used by the next utterance. This avoids resetting or
 replacing a native `SonicStream` while SAPI or another synth is feeding audio
 callbacks.
+
+Version 0.4.10 bundles local 32-bit and 64-bit Sonic native DLLs and prefers
+them over NVDA's internal Sonic module. If the bundled DLL cannot be loaded, the
+add-on falls back to NVDA's internal `synthDrivers._sonic` module. On 32-bit
+NVDA processes, the add-on avoids calling native `sonicDestroyStream` to work
+around a reproduced native heap crash on NVDA 2025.3.3 x86 with SAPI5.
+
+Version 0.4.11 improves short setting feedback after repeated PageUp/PageDown
+changes. Empty `WavePlayer.feed` markers are treated as safe utterance
+boundaries, and a changed `sonicPitch` creates a fresh Sonic stream at the next
+safe boundary instead of retuning an already-used native stream in place.
+
+Version 0.4.12 prepares the project for NVDA Add-on Store submission. It updates
+stable-channel metadata, adds root licensing and third-party notice files, and
+records the store submission checklist in `docs/addon-store-submission.md`.
 
 ## Config
 
@@ -132,9 +132,8 @@ the dynamic `sonicPitch` setting after synth changes.
 The built-in `sapi5_32` synth is excluded from Sonic processing because its
 speech is produced in the separate 32-bit host on 64-bit NVDA. The main-process
 global plugin cannot process that host's audio, so `sapi5_32` is left as a
-normal native synth path. The eSpeak-NG SAPI voice-list compatibility hook may
-add dynamic eSpeak-NG SAPI voices to this native synth's visible voice list, but
-it does not change the audio routing limitation.
+normal native synth path. Current versions do not add eSpeak-NG SAPI voices to
+`sapi5_32` or any other SAPI voice list.
 
 ## Dynamic Voice Setting
 
@@ -155,7 +154,10 @@ That property reads and writes the active synth's entry in
 In version 0.4.9 and newer, writes to that property no longer call
 `_resetAllPlayerProcessors()`. The processor for the current utterance keeps its
 captured pitch until `WavePlayer.idle()`, `stop()`, `close()`, an end-of-stream
-empty feed, or a synth change clears the per-player utterance state.
+empty feed, or a synth change clears the per-player utterance state. Version
+0.4.11 also clears idle utterance state when the stored pitch changes, which
+lets short setting feedback messages pick up the latest value without unsafe
+mid-stream retuning.
 
 An earlier prototype tried to attach `_get_sonicPitch` and `_set_sonicPitch` to
 the synth instance. That does not work reliably because NVDA's
@@ -183,7 +185,8 @@ The hook is intentionally narrow:
 - it keeps one Sonic stream per speech `WavePlayer` while speech is active;
 - it captures `Sonic pitch` at the start of an utterance and keeps that value
   until the utterance ends;
-- it recreates that stream when the audio format changes;
+- it recreates that stream when the audio format or captured pitch changes at a
+  safe boundary;
 - it buffers the first chunk until about 50 ms of processed audio is available;
 - it avoids `SonicStream.flush()` in the middle of ordinary audio blocks;
 - it does not replace the active stream when Sonic pitch changes during active
@@ -198,6 +201,12 @@ The hook is intentionally narrow:
 The continuous stream is important for audio quality. Flushing Sonic after every
 small block can create tiny gaps and artifacts because Sonic loses its internal
 analysis window at block boundaries.
+
+The bundled native path uses `ctypes` signatures for the Sonic C API. In 32-bit
+NVDA processes, `_NoDestroySonicStream` intentionally leaks the small native
+Sonic stream objects for process lifetime instead of calling
+`sonicDestroyStream`, because local testing reproduced native heap corruption
+when destroying those streams under NVDA 2025.3.3 x86.
 
 ## Logs
 
@@ -221,11 +230,10 @@ Look for:
 This add-on relies on private NVDA internals:
 
 - `synthDriverHandler.setSynth`
-- `synthDrivers.sapi5.SynthDriver._getVoiceTokens`
 - `autoSettingsUtils.driverSetting.NumericDriverSetting`
 - `globalVars.settingsRing.updateSupportedSettings`
 - synth driver `supportedSettings`
-- `synthDrivers._sonic.SonicStream.pitch`
+- `synthDrivers._sonic.SonicStream` as a fallback Sonic path
 - `nvwave.WavePlayer.feed`
 - `nvwave.WavePlayer.idle`
 - `nvwave.WavePlayer.stop`

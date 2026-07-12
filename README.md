@@ -51,6 +51,10 @@ Latest local test targets:
 - NVDA 2025.3.3 x86 portable with SAPI5 at rate 100.
 - NVDA 2026.2 beta AMD64 with SAPI5 at rate 100.
 
+Store compatibility target:
+
+- Stable channel metadata targets NVDA 2026.1.1.
+
 ## Installation
 
 1. Download the latest `.nvda-addon` file from
@@ -162,6 +166,10 @@ works around a reproduced native heap crash on NVDA 2025.3.3 x86 with SAPI5.
 Starting with version 0.4.11, short feedback messages from rapid `Sonic pitch`
 changes, such as PageUp/PageDown in Voice settings or the synth settings ring,
 more reliably use the latest value at the next utterance boundary.
+
+Version 0.4.12 is a store-preparation release. It updates metadata to target
+the latest stable NVDA API, adds root license documentation, and records the
+NVDA Add-on Store submission checklist in `docs/addon-store-submission.md`.
 
 ## Synth Compatibility
 
@@ -338,6 +346,30 @@ to native `sonicDestroyStream`. This avoids a reproduced 32-bit native heap
 crash; ordinary speech reuses the current stream, and new streams are allocated
 only when pitch or format changes require it.
 
+## NVDA Add-on Store
+
+Store preparation notes are maintained in
+`docs/addon-store-submission.md`. That file contains the metadata draft,
+release safety policy, and verification checklist for submitting this add-on to
+the NVDA Add-on Store.
+
+For stable store submission, the add-on manifest should point to the latest
+stable NVDA API target, not a beta target. Version 0.4.12 declares:
+
+```ini
+minimumNVDAVersion = 2025.1.0
+lastTestedNVDAVersion = 2026.1.1
+```
+
+## License
+
+Global Sonic Pitch source code is licensed under the GNU GPL version 2 or
+later. See `LICENSE.md`.
+
+Bundled Sonic native binaries are third-party Apache 2.0 components. See
+`THIRD_PARTY_NOTICES.md` and
+`addon/globalPlugins/sonicPitchNative/LICENSE-Sonic.txt`.
+
 ## Build From Source
 
 The add-on package root is `addon`.
@@ -352,7 +384,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.11.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.12.nvda-addon -Force
 ```
 
 Syntax check:

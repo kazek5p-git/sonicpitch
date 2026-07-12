@@ -151,6 +151,14 @@ native heap crash on NVDA 2025.3.3 x86 with SAPI5.
 Since version 0.4.11, short feedback messages after repeated PageUp/PageDown
 changes use the latest `Sonic pitch` value more reliably.
 
+Since version 0.4.12, repository documentation includes license files,
+third-party Sonic notices, and NVDA Add-on Store submission notes.
+
+## License
+
+Global Sonic Pitch source code is licensed under the GNU GPL version 2 or
+later. Bundled Sonic native binaries are Apache 2.0 third-party components.
+
 ## Logs
 
 - Current log: `%TEMP%\nvda.log`

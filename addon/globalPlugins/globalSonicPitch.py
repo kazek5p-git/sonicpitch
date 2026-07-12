@@ -166,9 +166,11 @@ def _openSupportPage() -> None:
 		log.debugWarning("globalSonicPitch: failed to open support page", exc_info=True)
 	if opened:
 		if ui is not None:
+			# Translators: Spoken message after opening the support page.
 			ui.message(_("Opening support page"))
 		return
 	if ui is not None:
+		# Translators: Spoken error when the support page cannot be opened automatically.
 		ui.message(_("Cannot open support page. Open this address manually: {url}").format(url=SUPPORT_URL))
 
 
@@ -208,6 +210,11 @@ def _getSynthName(synth: Any | None = None) -> str:
 	if synth is None:
 		synth = _getCurrentSynth()
 	return str(getattr(synth, "name", "") or "")
+
+
+def _getCurrentSynthDisplayName() -> str:
+	# Translators: Fallback synthesizer name used in spoken status messages.
+	return _getSynthName() or _("current synth")
 
 
 def _isGlobalAudioSupportedSynth(synthName: str) -> bool:
@@ -849,6 +856,7 @@ def _getSonicPitchDriverSetting() -> Any | None:
 	try:
 		_sonicPitchDriverSetting = NumericDriverSetting(
 			SONIC_PITCH_SETTING_ID,
+			# Translators: Name of the add-on pitch setting in NVDA Voice settings.
 			_("Sonic pitch"),
 			availableInSettingsRing=True,
 			defaultVal=NEUTRAL_PITCH,
@@ -857,6 +865,7 @@ def _getSonicPitchDriverSetting() -> Any | None:
 			minStep=1,
 			normalStep=5,
 			largeStep=10,
+			# Translators: Display name of the add-on pitch setting in the synth settings ring.
 			displayName=_("Sonic pitch"),
 			useConfig=False,
 		)
@@ -864,6 +873,7 @@ def _getSonicPitchDriverSetting() -> Any | None:
 		try:
 			_sonicPitchDriverSetting = NumericDriverSetting(
 				SONIC_PITCH_SETTING_ID,
+				# Translators: Name of the add-on pitch setting in NVDA Voice settings.
 				_("Sonic pitch"),
 				True,
 				NEUTRAL_PITCH,
@@ -872,6 +882,7 @@ def _getSonicPitchDriverSetting() -> Any | None:
 				1,
 				5,
 				10,
+				# Translators: Display name of the add-on pitch setting in the synth settings ring.
 				_("Sonic pitch"),
 				False,
 			)
@@ -1140,20 +1151,24 @@ def uninstallSynthPitchHook() -> None:
 
 
 class GlobalSonicPitchSettingsPanel(SettingsPanel):
+	# Translators: Title of the add-on settings panel in NVDA preferences.
 	title = _("Global Sonic Pitch")
 
 	def makeSettings(self, settingsSizer):
 		helper = guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
 		conf = config.conf[CONFIG_SECTION]
 		self.enableCheckbox = helper.addItem(
+			# Translators: Checkbox enabling or disabling Sonic pitch processing.
 			wx.CheckBox(self, label=_("Enable global Sonic pitch")),
 		)
 		self.enableCheckbox.SetValue(bool(conf["enabled"]))
 		self.debugCheckbox = helper.addItem(
+			# Translators: Checkbox enabling debug log messages for this add-on.
 			wx.CheckBox(self, label=_("Enable debug logging")),
 		)
 		self.debugCheckbox.SetValue(bool(conf["debugLogging"]))
 		self.supportButton = helper.addItem(
+			# Translators: Button opening the author's support page.
 			wx.Button(self, label=_("Support the author")),
 		)
 		self.enableCheckbox.Bind(wx.EVT_CHECKBOX, self._updateControlState)
@@ -1174,6 +1189,7 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
+	# Translators: Input Gestures category for this add-on.
 	scriptCategory = _("Global Sonic Pitch")
 
 	def __init__(self, *args, **kwargs):
@@ -1194,6 +1210,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			super().terminate()
 
 	@script(
+		# Translators: Input gesture description for toggling the add-on.
 		description=_("Toggle global Sonic pitch"),
 		category=scriptCategory,
 	)
@@ -1202,9 +1219,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		_setGlobalEnabled(enabled)
 		config.conf.save()
 		if ui is not None:
+			# Translators: Spoken status when global Sonic pitch has been enabled or disabled.
 			ui.message(_("Global Sonic pitch on") if enabled else _("Global Sonic pitch off"))
 
 	@script(
+		# Translators: Input gesture description for reporting the add-on status.
 		description=_("Report global Sonic pitch status"),
 		category=scriptCategory,
 	)
@@ -1213,15 +1232,18 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		synthName = _getSynthName()
 		if enabled and _isGlobalAudioSupportedSynth(synthName):
 			pitch = _getSonicPitchForSynth(synthName)
+			# Translators: Spoken status. {synth} is a synthesizer name, {pitch} is a number from 0 to 100.
 			message = _("Global Sonic pitch on, {synth} Sonic pitch {pitch}").format(
-				synth=synthName or _("current synth"),
+				synth=synthName or _getCurrentSynthDisplayName(),
 				pitch=pitch,
 			)
 		elif enabled:
+			# Translators: Spoken status when the current synth cannot be processed by Sonic. {synth} is a synth name.
 			message = _("Global Sonic pitch on, Sonic pitch is unavailable for {synth}").format(
-				synth=synthName or _("current synth"),
+				synth=synthName or _getCurrentSynthDisplayName(),
 			)
 		else:
+			# Translators: Spoken status when global Sonic pitch is disabled.
 			message = _("Global Sonic pitch off")
 		if _sonicUnavailableReason:
 			message = f"{message}. Sonic unavailable: {_sonicUnavailableReason}"
@@ -1229,6 +1251,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			ui.message(message)
 
 	@script(
+		# Translators: Input gesture description for opening the author's support page.
 		description=_("Open support page"),
 		category=scriptCategory,
 	)
@@ -1236,6 +1259,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		_openSupportPage()
 
 	@script(
+		# Translators: Input gesture description for increasing Sonic pitch for the current synth.
 		description=_("Increase Sonic pitch for the current synthesizer"),
 		category=scriptCategory,
 	)
@@ -1244,11 +1268,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		config.conf.save()
 		if ui is not None:
 			if pitch is None:
-				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getSynthName() or _("current synth")))
+				# Translators: Spoken message when Sonic pitch is unavailable. {synth} is a synth name.
+				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getCurrentSynthDisplayName()))
 			else:
+				# Translators: Spoken message after changing Sonic pitch. {pitch} is a number from 0 to 100.
 				ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
 
 	@script(
+		# Translators: Input gesture description for decreasing Sonic pitch for the current synth.
 		description=_("Decrease Sonic pitch for the current synthesizer"),
 		category=scriptCategory,
 	)
@@ -1257,11 +1284,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		config.conf.save()
 		if ui is not None:
 			if pitch is None:
-				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getSynthName() or _("current synth")))
+				# Translators: Spoken message when Sonic pitch is unavailable. {synth} is a synth name.
+				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getCurrentSynthDisplayName()))
 			else:
+				# Translators: Spoken message after changing Sonic pitch. {pitch} is a number from 0 to 100.
 				ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
 
 	@script(
+		# Translators: Input gesture description for resetting Sonic pitch for the current synth.
 		description=_("Reset Sonic pitch for the current synthesizer"),
 		category=scriptCategory,
 	)
@@ -1270,6 +1300,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		config.conf.save()
 		if ui is not None:
 			if pitch is None:
-				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getSynthName() or _("current synth")))
+				# Translators: Spoken message when Sonic pitch is unavailable. {synth} is a synth name.
+				ui.message(_("Sonic pitch is unavailable for {synth}").format(synth=_getCurrentSynthDisplayName()))
 			else:
+				# Translators: Spoken message after changing Sonic pitch. {pitch} is a number from 0 to 100.
 				ui.message(_("Sonic pitch {pitch}").format(pitch=pitch))
