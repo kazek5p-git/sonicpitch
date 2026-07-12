@@ -279,9 +279,14 @@ ustawienia głosu ponownie albo przełącz syntezator. Dodatek ukrywa ustawienie
 ### Sonic pitch się nie zmienia
 
 Sprawdź, czy globalny tryb jest włączony i czy wartość `Sonic pitch` nie wynosi
-`50`. Sprawdź też log NVDA pod kątem `processed speech audio`. Jeśli tego wpisu
-nie ma, audio danego syntezatora prawdopodobnie nie przechodzi przez główny
+`50`. Dla RHVoice, eSpeak, OneCore i SAPI5 64-bit sprawdź log NVDA pod kątem
+`processed speech audio`. Jeśli tego wpisu nie ma dla jednego z tych
+syntezatorów, jego audio prawdopodobnie nie przechodzi przez główny
 `WavePlayer`.
+
+Dla standardowego `sapi5_32` na 64-bitowym NVDA sprawdź `applied remote SAPI5
+32-bit Sonic pitch` w `%TEMP%\nvda.log` i `globalSonicPitch sapi5_32 host: set
+Sonic pitch` w `%TEMP%\nvda_synthDriverHost.*.log`.
 
 Jeśli po przełączeniu syntezatora `Sonic pitch` wraca do `50`, jest to
 oczekiwane, dopóki nie ustawisz wartości dla tego konkretnego syntezatora.
@@ -362,6 +367,8 @@ Najważniejsze frazy:
 - `globalSonicPitch`
 - `added Sonic pitch voice setting`
 - `captured Sonic pitch setting`
+- `applied remote SAPI5 32-bit Sonic pitch`
+- `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - `loaded bundled Sonic library`
 - `processed speech audio`
 - `Sonic is unavailable`

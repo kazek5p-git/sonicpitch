@@ -266,8 +266,13 @@ then reopen Voice settings or switch synthesizers. The add-on hides the
 ### Sonic Pitch Does Not Change
 
 Check that global mode is enabled and `Sonic pitch` is not `50`. Then check the
-NVDA log for `processed speech audio`. If that entry is missing, the selected
+NVDA log for `processed speech audio` when using RHVoice, eSpeak, OneCore, or
+64-bit SAPI5. If that entry is missing for one of those synths, the selected
 synth probably does not feed audio through NVDA's main `WavePlayer`.
+
+For standard `sapi5_32` on 64-bit NVDA, check for `applied remote SAPI5 32-bit
+Sonic pitch` in `%TEMP%\nvda.log` and `globalSonicPitch sapi5_32 host: set
+Sonic pitch` in `%TEMP%\nvda_synthDriverHost.*.log`.
 
 If switching synthesizers seems to reset `Sonic pitch`, that is expected until
 you change it for that synthesizer. Values are stored separately for each
@@ -346,6 +351,8 @@ Useful search terms:
 - `globalSonicPitch`
 - `added Sonic pitch voice setting`
 - `captured Sonic pitch setting`
+- `applied remote SAPI5 32-bit Sonic pitch`
+- `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - `loaded bundled Sonic library`
 - `processed speech audio`
 - `Sonic is unavailable`

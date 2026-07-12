@@ -156,7 +156,8 @@ not add eSpeak-NG SAPI voices to `sapi5_32` or any other SAPI voice list.
 
 ## Dynamic Voice Setting
 
-For supported main-process synths, while `[globalSonicPitch] enabled` is true,
+For supported main-process synths and for the 64-bit NVDA `sapi5_32` proxy
+after the host wrapper is active, while `[globalSonicPitch] enabled` is true,
 the plugin adds a `NumericDriverSetting` with id `sonicPitch` to the active
 synth instance's `supportedSettings`.
 
@@ -214,10 +215,12 @@ temporarily points `sapi5_32.SynthDriver.synthDriver32Path` at
 - applies the ratio to the host's `sonicStream.pitch`;
 - reapplies the value after the host recreates WASAPI/Sonic audio.
 
-The main plugin verifies remote support by calling `getParam("sonicPitch")` on
-the remote service. If the currently loaded `sapi5_32` host does not expose that
-parameter, the plugin strips the local UI setting, schedules a reload of
-`sapi5_32`, and tries again after the host starts through the wrapper.
+The main plugin verifies remote support by checking whether the remote proxy's
+`supportedSettings` contains `sonicPitch`. If the currently loaded `sapi5_32`
+host does not expose that setting, the plugin strips the local UI setting,
+schedules a reload of `sapi5_32`, and tries again after the host starts through
+the wrapper. This avoids probing `getParam("sonicPitch")` on an old host and
+keeps the 32-bit host log clean.
 
 The host wrapper deliberately does not enumerate voices, add registry tokens,
 or modify NVDA's installed `_synthDrivers32` files. It only adds the remote

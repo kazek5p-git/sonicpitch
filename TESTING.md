@@ -98,8 +98,9 @@
   - `globalSonicPitch: processed speech audio`
 - When global Sonic is disabled again, the dynamic `Sonic pitch` Voice setting
   is removed.
-- While global Sonic is enabled, changing NVDA pitch does not log
-  `globalSonicPitch: captured NVDA pitch`; it should remain native synth pitch.
+- While global Sonic is enabled, changing NVDA's normal `Pitch` setting changes
+  only the synth's native pitch. It should not change the stored `sonicPitch`
+  value for the current synth.
 - Changing the dynamic `Sonic pitch` setting logs
   `globalSonicPitch: captured Sonic pitch setting` and changes the current
   supported synth's Sonic pitch value.
