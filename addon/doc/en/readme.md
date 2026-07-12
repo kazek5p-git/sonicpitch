@@ -172,6 +172,11 @@ the bundled 32-bit host wrapper. The same version also makes Voice dialog Sonic
 pitch changes transactional: OK or Apply commits the previewed value, while
 Escape or Cancel restores the previous value.
 
+Since version 0.4.14, rapid `Sonic pitch` changes for standard `sapi5_32` on
+64-bit NVDA are applied at safe 32-bit host speech boundaries. The host also
+serializes Sonic stream operations, preventing the remote SAPI speech path from
+going silent during fast slider changes.
+
 ## License
 
 Global Sonic Pitch source code is licensed under the GNU GPL version 2 or

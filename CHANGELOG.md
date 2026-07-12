@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.14
+
+- Stabilizes rapid `Sonic pitch` changes for standard `sapi5_32` on 64-bit
+  NVDA.
+- Defers host-side `sonicPitch` updates until a safe 32-bit SAPI speech
+  boundary instead of retuning the host Sonic stream during active speech.
+- Serializes host-side Sonic stream reads, writes, flushes, and pitch updates
+  through a reentrant lock.
+- Fixes a case where 64-bit NVDA 2026.1.1 could keep running while the
+  `sapi5_32` speech path stopped talking after quick pitch changes.
+- Keeps the standard NVDA `sapi5_32` synthesizer entry and still does not
+  modify NVDA files on disk.
+
 ## 0.4.13
 
 - Adds Sonic pitch control for standard `sapi5_32` on 64-bit NVDA through a

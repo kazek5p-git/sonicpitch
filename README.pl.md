@@ -191,6 +191,11 @@ transakcyjne zachowanie w dialogu `Głos`: zmiana `Sonic pitch` jest słyszalna
 od razu jako podgląd, ale Escape/Anuluj przywraca poprzednią wartość. OK albo
 Zastosuj zapisuje zmianę.
 
+Wersja 0.4.14 stabilizuje szybkie zmiany `Sonic pitch` dla standardowego
+`sapi5_32` na 64-bitowym NVDA. Host 32-bitowy stosuje oczekujące zmiany pitch na
+bezpiecznych granicach mowy i serializuje operacje strumienia Sonic, dzięki
+czemu zdalna ścieżka SAPI nie milknie przy szybkim ruszaniu suwakiem.
+
 ## Zgodność Syntezatorów
 
 | Syntezator | Oczekiwane działanie |
@@ -411,7 +416,7 @@ bezpieczeństwa wydań i checklistę weryfikacji przed zgłoszeniem dodatku do N
 Add-on Store.
 
 Dla zgłoszenia do kanału stable manifest dodatku powinien wskazywać najnowszy
-stabilny cel API NVDA, nie wersję beta. Wersja 0.4.13 deklaruje:
+stabilny cel API NVDA, nie wersję beta. Wersja 0.4.14 deklaruje:
 
 ```ini
 minimumNVDAVersion = 2025.1.0
@@ -441,7 +446,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.13.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.14.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

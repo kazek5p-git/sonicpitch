@@ -177,6 +177,11 @@ dołączony wrapper 32-bitowego hosta. Ta sama wersja poprawia zachowanie dialog
 `Głos`: OK albo Zastosuj zapisuje podglądaną wartość `Sonic pitch`, a Escape
 albo Anuluj przywraca poprzednią wartość.
 
+Od wersji 0.4.14 szybkie zmiany `Sonic pitch` dla standardowego `sapi5_32` na
+64-bitowym NVDA są stosowane na bezpiecznych granicach mowy w hoście 32-bitowym.
+Host serializuje też operacje strumienia Sonic, co zapobiega wyciszaniu zdalnej
+ścieżki SAPI przy szybkim ruszaniu suwakiem.
+
 ## Licencja
 
 Kod źródłowy Global Sonic Pitch jest licencjonowany na GNU GPL w wersji 2 lub

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 
 try:
 	from logHandler import log
@@ -129,6 +130,7 @@ from . import _sonic  # noqa: E402
 
 _sonic.SONIC_DLL_PATH = os.path.join(_ORIGINAL_SYNTH_DRIVERS_32_PATH, "sonic.dll")
 
+from . import _sapi5  # noqa: E402
 from ._sapi5 import SynthDriver as _BaseSynthDriver  # noqa: E402
 
 try:
@@ -173,6 +175,62 @@ def _createSonicPitchSetting():
 _SONIC_PITCH_SETTING = _createSonicPitchSetting()
 
 
+class _LockedSonicStream:
+	def __init__(self, stream, lock):
+		self._stream = stream
+		self._lock = lock
+
+	def __getattr__(self, name: str):
+		return getattr(self._stream, name)
+
+	def writeShort(self, *args, **kwargs):
+		with self._lock:
+			return self._stream.writeShort(*args, **kwargs)
+
+	def readShort(self, *args, **kwargs):
+		with self._lock:
+			return self._stream.readShort(*args, **kwargs)
+
+	def flush(self, *args, **kwargs):
+		with self._lock:
+			return self._stream.flush(*args, **kwargs)
+
+	@property
+	def samplesAvailable(self) -> int:
+		with self._lock:
+			return self._stream.samplesAvailable
+
+	@property
+	def sampleRate(self) -> int:
+		with self._lock:
+			return self._stream.sampleRate
+
+	@property
+	def channels(self) -> int:
+		with self._lock:
+			return self._stream.channels
+
+	@property
+	def speed(self) -> float:
+		with self._lock:
+			return self._stream.speed
+
+	@speed.setter
+	def speed(self, value: float) -> None:
+		with self._lock:
+			self._stream.speed = value
+
+	@property
+	def pitch(self) -> float:
+		with self._lock:
+			return self._stream.pitch
+
+	@pitch.setter
+	def pitch(self, value: float) -> None:
+		with self._lock:
+			self._stream.pitch = value
+
+
 class SynthDriver(_BaseSynthDriver):
 	if _SONIC_PITCH_SETTING is None:
 		supportedSettings = _BaseSynthDriver.supportedSettings
@@ -182,9 +240,10 @@ class SynthDriver(_BaseSynthDriver):
 		) + (_SONIC_PITCH_SETTING,)
 
 	def __init__(self, *args, **kwargs):
+		self._sonicPitchLock = threading.RLock()
 		self._sonicPitch = NEUTRAL_PITCH
+		self._lastAppliedSonicPitch: int | None = None
 		super().__init__(*args, **kwargs)
-		self._applySonicPitch()
 		_logInfo(
 			"globalSonicPitch sapi5_32 host: initialized Sonic pitch wrapper; "
 			f"originalPath={_ORIGINAL_SYNTH_DRIVERS_32_PATH}",
@@ -195,22 +254,96 @@ class SynthDriver(_BaseSynthDriver):
 
 	def _set_sonicPitch(self, value: int | float) -> None:
 		self._sonicPitch = _clampPitch(value)
-		self._applySonicPitch()
+		self._applySonicPitchIfSafe()
 
-	def _applySonicPitch(self) -> None:
+	def _isSonicPitchApplySafe(self) -> bool:
+		return not (
+			getattr(self, "_isSpeaking", False)
+			or getattr(self, "_isCancelling", False)
+			or bool(getattr(self, "_speakRequests", ()))
+		)
+
+	def _applySonicPitchIfSafe(self) -> bool:
+		if not self._isSonicPitchApplySafe():
+			_logInfo(
+				"globalSonicPitch sapi5_32 host: deferred Sonic pitch until safe boundary; "
+				f"sonicPitch={self._sonicPitch}",
+			)
+			return False
+		return self._applySonicPitch(force=True)
+
+	def _applySonicPitch(self, force: bool = False) -> bool:
+		if not force and not self._isSonicPitchApplySafe():
+			return False
 		stream = getattr(self, "sonicStream", None)
 		if stream is None:
-			return
-		ratio = _pitchPercentToSonicRatio(self._sonicPitch)
-		stream.pitch = ratio
-		_logInfo(
-			"globalSonicPitch sapi5_32 host: set Sonic pitch; "
-			f"sonicPitch={self._sonicPitch}; ratio={ratio:.4f}",
-		)
+			return False
+		sonicPitch = _clampPitch(self._sonicPitch)
+		if self._lastAppliedSonicPitch == sonicPitch:
+			return True
+		ratio = _pitchPercentToSonicRatio(sonicPitch)
+		with self._sonicPitchLock:
+			stream.pitch = ratio
+			self._lastAppliedSonicPitch = sonicPitch
+			_logInfo(
+				"globalSonicPitch sapi5_32 host: set Sonic pitch; "
+				f"sonicPitch={sonicPitch}; ratio={ratio:.4f}",
+			)
+		return True
 
 	def _initWasapiAudio(self):
 		super()._initWasapiAudio()
-		self._applySonicPitch()
+		if self.sonicStream is not None and not isinstance(self.sonicStream, _LockedSonicStream):
+			self.sonicStream = _LockedSonicStream(self.sonicStream, self._sonicPitchLock)
+		self._lastAppliedSonicPitch = None
+		self._applySonicPitch(force=True)
+
+	def _onEndStream(self) -> None:
+		super()._onEndStream()
+		self._applySonicPitch(force=True)
+
+	def _speakThread(self):
+		request = None
+		while not self._isStoppingThread:
+			with self._threadCond:
+				self._threadCond.wait_for(self._requestsAvailable)
+				if self._speakRequests:
+					request = self._speakRequests.popleft()
+					self._isCancelling = False
+					self._isCompleted = False
+			if request is not None:
+				text, bookmarks = request
+				self._bookmarkLists.append(bookmarks)
+				try:
+					self._applySonicPitch(force=True)
+					self.tts.Speak(
+						text,
+						_sapi5.SpeechVoiceSpeakFlags.IsXML | _sapi5.SpeechVoiceSpeakFlags.Async,
+					)
+					with self._threadCond:
+						self._threadCond.wait_for(self._requestCompleted)
+					if not self._isCancelling:
+						self.sonicStream.flush()
+						audioData = self.sonicStream.readShort()
+						self.player.feed(audioData, len(audioData) * 2)
+						self._onEndStream()
+				except Exception:
+					self._bookmarkLists.pop()
+					_logWarning("globalSonicPitch sapi5_32 host: error speaking")
+				request = None
+				if not self._requestsAvailable():
+					self.player.idle()
+			if self._isCancelling:
+				self.tts.Speak(
+					None,
+					_sapi5.SpeechVoiceSpeakFlags.Async | _sapi5.SpeechVoiceSpeakFlags.PurgeBeforeSpeak,
+				)
+				self._bookmarkLists.clear()
+				if self.sonicStream:
+					self.sonicStream.flush()
+					self.sonicStream.readShort()
+				self._isCancelling = False
+				self._applySonicPitch(force=True)
 
 
 __all__ = ["SynthDriver"]

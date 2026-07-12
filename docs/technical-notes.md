@@ -92,6 +92,14 @@ current runtime path. OK or Apply commits the values to
 `[globalSonicPitch] pitchBySynth`; Escape, Cancel, or dialog destruction
 restores the captured values.
 
+Version 0.4.14 stabilizes fast `sonicPitch` changes for standard `sapi5_32` on
+64-bit NVDA. The 32-bit host no longer mutates `sonicStream.pitch` while SAPI is
+actively speaking or cancelling. Instead, it records the latest requested value,
+defers the host-side Sonic pitch update until a safe speech boundary, and
+serializes host Sonic stream operations with a reentrant lock. This fixes a
+failure mode where NVDA 2026.1.1 x64 kept running but the remote `sapi5_32`
+speech path went silent until the synth was reloaded.
+
 ## Config
 
 Current config section:
@@ -212,7 +220,9 @@ temporarily points `sapi5_32.SynthDriver.synthDriver32Path` at
 - imports NVDA's original `_sapi5.SynthDriver`;
 - adds a host-side `sonicPitch` numeric setting with `useConfig=False`;
 - maps `0..100` to the same Sonic pitch ratio as the main plugin;
-- applies the ratio to the host's `sonicStream.pitch`;
+- applies the ratio to the host's `sonicStream.pitch` at safe speech
+  boundaries;
+- serializes host Sonic stream reads, writes, flushes, and pitch changes;
 - reapplies the value after the host recreates WASAPI/Sonic audio.
 
 The main plugin verifies remote support by checking whether the remote proxy's
@@ -277,6 +287,7 @@ Look for:
 - `globalSonicPitch: added Sonic pitch voice setting`
 - `globalSonicPitch: captured Sonic pitch setting`
 - `globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch`
+- `globalSonicPitch sapi5_32 host: deferred Sonic pitch until safe boundary`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - `globalSonicPitch: processed speech audio`
 - `globalSonicPitch: Sonic is unavailable`
