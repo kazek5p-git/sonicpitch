@@ -10,9 +10,10 @@ ustawienie NVDA `Wysokość` pozostaje natywną wysokością syntezatora.
 - Osobne ustawienie głosu `Sonic pitch`, gdy globalne przetwarzanie jest
   włączone.
 - Wartości Sonic pitch osobne dla syntezatora i głosu.
+- Opcjonalny rozszerzony zakres około `-20..+20` półtonów.
 - Przetwarzanie obsługiwanego audio mowy w głównej ścieżce audio NVDA.
-- Obsługę standardowego `sapi5_32` na 64-bitowym NVDA przez dołączony wrapper
-  hosta 32-bitowego.
+- Obsługę standardowych `sapi5_32` i `sapi4_32` na 64-bitowym NVDA przez
+  dołączone wrappery hosta 32-bitowego.
 - Opcjonalne logowanie debugowania.
 - Opcjonalny link wsparcia autora.
 
@@ -22,7 +23,7 @@ modyfikuje plików NVDA na dysku.
 ## Szybki Start
 
 1. Wybierz normalny syntezator NVDA, na przykład RHVoice, eSpeak, OneCore,
-   SAPI5 64-bit albo standardowy `sapi5_32`.
+   SAPI5 64-bit, standardowy `sapi5_32` albo standardowy `sapi4_32`.
 2. Otwórz ustawienia NVDA.
 3. Wybierz `Global Sonic Pitch`.
 4. Włącz `Enable global Sonic pitch`.
@@ -35,6 +36,9 @@ wyższe wartości ją podwyższają.
 ## Ustawienia
 
 - `Enable global Sonic pitch` włącza albo wyłącza przetwarzanie Sonic pitch.
+- `Increase Sonic pitch range to 20 semitones` rozszerza regulację
+  `Sonic pitch` z normalnego zakresu `-6..+6` półtonów do około
+  `-20..+20` półtonów.
 - `Enable debug logging` zapisuje szczegółowe wpisy dodatku do logu NVDA.
 - `Support the author` otwiera zewnętrzną stronę wsparcia.
 
@@ -87,20 +91,26 @@ Oczekiwane obsługiwane ścieżki:
 - SAPI5 64-bit, jeśli używa normalnej ścieżki audio NVDA.
 - Standardowy `sapi5_32` na 64-bitowym NVDA przez dołączony wrapper hosta
   32-bitowego.
+- Standardowy `sapi4_32` na 64-bitowym NVDA przez dołączony wrapper hosta
+  32-bitowego, gdy aktywna jest ścieżka audio WASAPI dla SAPI4 w NVDA.
 - Inne syntezatory, które wysyłają zgodne audio mowy przez NVDA.
 
 Zewnętrzne głosy eSpeak-NG SAPI trzeba najpierw skonfigurować w ich własnym
 narzędziu konfiguracyjnym. Dodatek nie patchuje enumeracji głosów SAPI, nie
 zapisuje tokenów głosów w rejestrze i nie zmienia listy głosów SAPI.
 
-## Standardowy SAPI5 32-bit Na 64-bitowym NVDA
+## Standardowe SAPI 32-bit Na 64-bitowym NVDA
 
-Standardowy `sapi5_32` na 64-bitowym NVDA działa w osobnym 32-bitowym hoście
-syntezatorów. Global Sonic Pitch ładuje w tym hoście dołączony wrapper, aby
-standardowy syntezator NVDA `sapi5_32` otrzymał bieżącą wartość `Sonic pitch`.
+Standardowe `sapi5_32` i `sapi4_32` na 64-bitowym NVDA działają w osobnym
+32-bitowym hoście syntezatorów. Global Sonic Pitch ładuje w tym hoście
+dołączone wrappery, aby standardowy syntezator NVDA otrzymał bieżącą wartość
+`Sonic pitch`.
 
-To zachowuje normalną pozycję syntezatora NVDA `sapi5_32`. Dodatek nie dodaje
-nowego syntezatora i nie podmienia plików NVDA.
+To zachowuje normalne pozycje syntezatorów NVDA. Dodatek nie dodaje nowego
+syntezatora i nie podmienia plików NVDA. W przypadku SAPI4 przetwarzanie Sonic
+jest dostępne tylko przez ścieżkę WASAPI dla SAPI4 w NVDA. Jeśli NVDA używa
+starszej ścieżki SAPI4 `MMAudioDest`, audio omija `WavePlayer` NVDA i nie może
+być przetwarzane przez ten dodatek.
 
 ## Link Wsparcia
 
@@ -129,8 +139,9 @@ Jeśli po przełączeniu syntezatora albo głosu `Sonic pitch` wygląda jak
 zresetowany, ustaw wartość dla tego syntezatora i głosu. Wartości są zapisywane
 niezależnie.
 
-Jeśli standardowy `sapi5_32` na 64-bitowym NVDA nie pokazuje `Sonic pitch`,
-zrestartuj NVDA albo przełącz się z `sapi5_32` na inny syntezator i wróć.
+Jeśli standardowy `sapi5_32` albo `sapi4_32` na 64-bitowym NVDA nie pokazuje
+`Sonic pitch`, zrestartuj NVDA albo przełącz się z tego syntezatora na inny i
+wróć.
 
 Jeśli brakuje zewnętrznego głosu SAPI, skonfiguruj go najpierw w narzędziu tego
 pakietu głosowego, a potem zrestartuj NVDA.
@@ -149,8 +160,9 @@ Przydatne frazy:
 - `added Sonic pitch voice setting`
 - `captured Sonic pitch setting`
 - `processed speech audio`
-- `applied remote SAPI5 32-bit Sonic pitch`
+- `applied remote 32-bit Sonic pitch`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
+- `globalSonicPitch sapi4_32 host: processed SAPI4 audio`
 
 ## Licencja
 

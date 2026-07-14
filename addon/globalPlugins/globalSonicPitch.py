@@ -54,17 +54,20 @@ CONFIG_SPEC = {
 	"enabled": "boolean(default=False)",
 	"pitch": "integer(default=50, min=0, max=100)",
 	"pitchBySynth": "string(default='{}')",
+	"extendedPitchRange": "boolean(default=False)",
 	"debugLogging": "boolean(default=False)",
 }
 
 NEUTRAL_PITCH = 50
-MAX_SEMITONES = 6.0
-MIN_SONIC_PITCH_RATIO = 0.70
-MAX_SONIC_PITCH_RATIO = 1.45
+STANDARD_MAX_SEMITONES = 6.0
+EXTENDED_MAX_SEMITONES = 20.0
 SONIC_PITCH_SETTING_ID = "sonicPitch"
+SONIC_PITCH_EXTENDED_RANGE_PARAM_ID = "_sonicPitchExtendedRange"
+SONIC_PITCH_HOST_SETTING_IDS = {SONIC_PITCH_SETTING_ID, SONIC_PITCH_EXTENDED_RANGE_PARAM_ID}
 SUPPORT_URL = "https://buycoffee.to/kazimierz-parzych"
 LEGACY_PITCH_CONFIG_KEY = "pitch"
 PITCH_BY_SYNTH_CONFIG_KEY = "pitchBySynth"
+EXTENDED_PITCH_RANGE_CONFIG_KEY = "extendedPitchRange"
 VOICE_KEY_SEPARATOR = "::voice::"
 
 _ORIGINAL_FEED_ATTR = "_globalSonicPitchOriginalFeed"
@@ -167,6 +170,21 @@ def _setGlobalEnabled(enabled: bool) -> None:
 	_patchCurrentSynthPitch()
 
 
+def _isExtendedPitchRangeEnabled() -> bool:
+	return bool(_getConfigValue(EXTENDED_PITCH_RANGE_CONFIG_KEY, False))
+
+
+def _setExtendedPitchRangeEnabled(enabled: bool) -> None:
+	enabled = bool(enabled)
+	wasEnabled = _isExtendedPitchRangeEnabled()
+	_setConfigValue(EXTENDED_PITCH_RANGE_CONFIG_KEY, enabled)
+	if wasEnabled == enabled:
+		return
+	_resetAllPlayerProcessors()
+	_runtimeSonicPitchByKey.clear()
+	_patchCurrentSynthPitch()
+
+
 def _openSupportPage() -> None:
 	try:
 		opened = webbrowser.open_new_tab(SUPPORT_URL)
@@ -197,9 +215,12 @@ def _clampPitch(value: int | float) -> int:
 
 def _pitchPercentToSonicRatio(pitchPercent: int | float) -> float:
 	pitchPercent = _clamp(float(pitchPercent), 0.0, 100.0)
-	semitones = ((pitchPercent - 50.0) / 50.0) * MAX_SEMITONES
+	maxSemitones = EXTENDED_MAX_SEMITONES if _isExtendedPitchRangeEnabled() else STANDARD_MAX_SEMITONES
+	semitones = ((pitchPercent - 50.0) / 50.0) * maxSemitones
 	ratio = 2.0 ** (semitones / 12.0)
-	return _clamp(ratio, MIN_SONIC_PITCH_RATIO, MAX_SONIC_PITCH_RATIO)
+	minRatio = 2.0 ** (-maxSemitones / 12.0)
+	maxRatio = 2.0 ** (maxSemitones / 12.0)
+	return _clamp(ratio, minRatio, maxRatio)
 
 
 def _isDebugLoggingEnabled() -> bool:
@@ -308,7 +329,7 @@ def _getSonicPitchStorageKey(synthOrName: Any | None = None) -> str:
 
 
 def _isRemoteSapi32Synth(synthName: str | None) -> bool:
-	return not _is32BitProcess() and str(synthName or "").strip() == "sapi5_32"
+	return not _is32BitProcess() and str(synthName or "").strip() in {"sapi4_32", "sapi5_32"}
 
 
 def _getSapi32HostDriverPath() -> str:
@@ -320,44 +341,52 @@ def _installSapi32HostDriverPatch() -> bool:
 		return False
 	driverPath = _getSapi32HostDriverPath()
 	if not os.path.isdir(driverPath):
-		log.debugWarning(f"globalSonicPitch: SAPI5 32-bit host driver path is missing: {driverPath}")
+		log.debugWarning(f"globalSonicPitch: 32-bit host driver path is missing: {driverPath}")
 		return False
+	patched = False
 	try:
-		from synthDrivers import sapi5_32
-
-		synthClass = sapi5_32.SynthDriver
-		if not hasattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR):
-			setattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR, getattr(synthClass, "synthDriver32Path", None))
-		if getattr(synthClass, "synthDriver32Path", None) != driverPath:
-			synthClass.synthDriver32Path = driverPath
-			log.info(f"globalSonicPitch: installed SAPI5 32-bit host driver path; path={driverPath}")
-		setattr(synthClass, _SAPI32_HOST_PATH_PATCHED_ATTR, True)
-		return True
+		for moduleName in ("sapi4_32", "sapi5_32"):
+			try:
+				module = __import__(f"synthDrivers.{moduleName}", fromlist=["SynthDriver"])
+				synthClass = module.SynthDriver
+				if not hasattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR):
+					setattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR, getattr(synthClass, "synthDriver32Path", None))
+				if getattr(synthClass, "synthDriver32Path", None) != driverPath:
+					synthClass.synthDriver32Path = driverPath
+					log.info(
+						"globalSonicPitch: installed 32-bit host driver path; "
+						f"synth={moduleName}; path={driverPath}",
+					)
+				setattr(synthClass, _SAPI32_HOST_PATH_PATCHED_ATTR, True)
+				patched = True
+			except Exception:
+				log.debugWarning(f"globalSonicPitch: failed to install 32-bit host path for {moduleName}", exc_info=True)
+		return patched
 	except Exception:
-		log.debugWarning("globalSonicPitch: failed to install SAPI5 32-bit host driver path", exc_info=True)
+		log.debugWarning("globalSonicPitch: failed to install 32-bit host driver path", exc_info=True)
 		return False
 
 
 def _restoreSapi32HostDriverPatch() -> None:
 	if _is32BitProcess():
 		return
-	try:
-		from synthDrivers import sapi5_32
-
-		synthClass = sapi5_32.SynthDriver
-		if not getattr(synthClass, _SAPI32_HOST_PATH_PATCHED_ATTR, False):
-			return
-		originalPath = getattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR, None)
-		if originalPath:
-			synthClass.synthDriver32Path = originalPath
-		for attr in (_ORIGINAL_SAPI32_HOST_PATH_ATTR, _SAPI32_HOST_PATH_PATCHED_ATTR):
-			try:
-				delattr(synthClass, attr)
-			except Exception:
-				pass
-		log.info("globalSonicPitch: restored SAPI5 32-bit host driver path")
-	except Exception:
-		log.debugWarning("globalSonicPitch: failed to restore SAPI5 32-bit host driver path", exc_info=True)
+	for moduleName in ("sapi4_32", "sapi5_32"):
+		try:
+			module = __import__(f"synthDrivers.{moduleName}", fromlist=["SynthDriver"])
+			synthClass = module.SynthDriver
+			if not getattr(synthClass, _SAPI32_HOST_PATH_PATCHED_ATTR, False):
+				continue
+			originalPath = getattr(synthClass, _ORIGINAL_SAPI32_HOST_PATH_ATTR, None)
+			if originalPath:
+				synthClass.synthDriver32Path = originalPath
+			for attr in (_ORIGINAL_SAPI32_HOST_PATH_ATTR, _SAPI32_HOST_PATH_PATCHED_ATTR):
+				try:
+					delattr(synthClass, attr)
+				except Exception:
+					pass
+			log.info(f"globalSonicPitch: restored 32-bit host driver path; synth={moduleName}")
+		except Exception:
+			log.debugWarning(f"globalSonicPitch: failed to restore 32-bit host path for {moduleName}", exc_info=True)
 
 
 def _getRemoteService(synth: Any | None) -> Any | None:
@@ -376,12 +405,13 @@ def _reloadCurrentRemoteSapi32Synth() -> None:
 	global _sapi32HostReloading, _sapi32HostReloadRequested
 	if synthDriverHandler is None or _sapi32HostReloading:
 		return
-	if not _isRemoteSapi32Synth(_getSynthName()):
+	synthName = _getSynthName()
+	if not _isRemoteSapi32Synth(synthName):
 		return
 	_sapi32HostReloading = True
 	try:
-		log.info("globalSonicPitch: reloading SAPI5 32-bit synth to enable host Sonic pitch support")
-		synthDriverHandler.setSynth("sapi5_32")
+		log.info(f"globalSonicPitch: reloading 32-bit synth to enable host Sonic pitch support; synth={synthName}")
+		synthDriverHandler.setSynth(synthName)
 	finally:
 		_sapi32HostReloading = False
 		_sapi32HostReloadRequested = False
@@ -408,14 +438,21 @@ def _setRemoteSapi32SonicPitch(synth: Any | None, pitch: int | float) -> bool:
 		return False
 	pitch = _clampPitch(pitch)
 	try:
+		service.setParam(SONIC_PITCH_EXTENDED_RANGE_PARAM_ID, 1 if _isExtendedPitchRangeEnabled() else 0)
+	except Exception:
+		log.debugWarning(
+			"globalSonicPitch: failed to apply remote 32-bit Sonic pitch range",
+			exc_info=True,
+		)
+	try:
 		service.setParam(SONIC_PITCH_SETTING_ID, pitch)
 		log.info(
-			"globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch; "
-			f"sonicPitch={pitch}",
+			"globalSonicPitch: applied remote 32-bit Sonic pitch; "
+			f"synth={_getSynthName(synth)}; sonicPitch={pitch}; extendedRange={_isExtendedPitchRangeEnabled()}",
 		)
 		return True
 	except Exception:
-		log.debugWarning("globalSonicPitch: failed to apply remote SAPI5 32-bit Sonic pitch", exc_info=True)
+		log.debugWarning("globalSonicPitch: failed to apply remote 32-bit Sonic pitch", exc_info=True)
 		return False
 
 
@@ -683,6 +720,8 @@ def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str,
 	synth = _getCurrentSynth()
 	synthName = _getSynthName(synth)
 	if not _isGlobalAudioSupportedSynth(synthName):
+		return None
+	if _isRemoteSapi32Synth(synthName):
 		return None
 	pitch = _getSonicPitchForSynth(synth)
 	utterancePitch = _getOrCreatePlayerUtterancePitch(player, pitch)
@@ -1265,7 +1304,7 @@ def _hasSonicPitchSetting(settings: Any) -> bool:
 
 def _withoutSonicPitchSettings(settings: Any) -> tuple[Any, ...]:
 	try:
-		return tuple(setting for setting in settings if _settingId(setting) != SONIC_PITCH_SETTING_ID)
+		return tuple(setting for setting in settings if _settingId(setting) not in SONIC_PITCH_HOST_SETTING_IDS)
 	except Exception:
 		return tuple(settings or ())
 
@@ -1699,6 +1738,11 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 			wx.CheckBox(self, label=_("Enable global Sonic pitch")),
 		)
 		self.enableCheckbox.SetValue(bool(conf["enabled"]))
+		self.extendedRangeCheckbox = helper.addItem(
+			# Translators: Checkbox increasing the Sonic pitch control range from 6 to 20 semitones.
+			wx.CheckBox(self, label=_("Increase Sonic pitch range to 20 semitones")),
+		)
+		self.extendedRangeCheckbox.SetValue(bool(conf[EXTENDED_PITCH_RANGE_CONFIG_KEY]))
 		self.debugCheckbox = helper.addItem(
 			# Translators: Checkbox enabling debug log messages for this add-on.
 			wx.CheckBox(self, label=_("Enable debug logging")),
@@ -1714,6 +1758,7 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 
 	def _updateControlState(self, event=None):
 		enabled = self.enableCheckbox.IsChecked()
+		self.extendedRangeCheckbox.Enable(enabled)
 		self.debugCheckbox.Enable(enabled)
 
 	def _onSupport(self, event):
@@ -1721,6 +1766,7 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 
 	def onSave(self):
 		_setConfigValue("debugLogging", self.debugCheckbox.IsChecked())
+		_setExtendedPitchRangeEnabled(self.extendedRangeCheckbox.IsChecked())
 		_setGlobalEnabled(self.enableCheckbox.IsChecked())
 		config.conf.save()
 

@@ -11,23 +11,26 @@ Inspection was performed on this machine from `C:\Program Files\NVDA`.
 - The 32-bit synth host contains `_synthDrivers32\_sonic.py`.
 - The installed NVDA build exposes `nvwave.WavePlayer`.
 - Speech audio purpose is available as `nvwave.AudioPurpose.SPEECH`.
-- Built-in `sapi5_32` still runs through a separate 32-bit synth host on
-  64-bit NVDA.
+- Built-in `sapi5_32` and `sapi4_32` run through a separate 32-bit synth host
+  on 64-bit NVDA.
 
 Current add-on implications:
 
 - The add-on must not ship `addon/synthDrivers`, because that would add custom
   synth choices to NVDA's synthesizer dialog.
 - The package contains a global plugin, documentation, bundled Sonic native
-  libraries, and `addon/sapi32HostDrivers` for the standard 32-bit SAPI5 host.
+  libraries, and `addon/sapi32HostDrivers` for the standard 32-bit SAPI host
+  paths.
 - Main-process global audio processing can only cover speech audio that reaches
   NVDA's main `WavePlayer`.
-- The standard `sapi5_32` path cannot be processed through the main
-  `WavePlayer` hook because its audio is produced in the 32-bit host. Version
-  0.4.13 handles it through a bundled host wrapper instead.
-- The host wrapper is registered by patching
-  `sapi5_32.SynthDriver.synthDriver32Path` in memory while the add-on is
-  loaded. It does not modify NVDA files on disk.
+- The standard `sapi5_32` and `sapi4_32` paths cannot be processed through the
+  main `WavePlayer` hook because their audio is produced in the 32-bit host.
+  The add-on handles them through bundled host wrappers instead.
+- The host wrappers are registered by patching the relevant
+  `SynthDriver.synthDriver32Path` values in memory while the add-on is loaded.
+  They do not modify NVDA files on disk.
+- SAPI4 can be processed when NVDA uses its SAPI4 WASAPI path. The older SAPI4
+  `MMAudioDest` path bypasses NVDA's `WavePlayer` and is not processed.
 - The add-on does not patch the active synth's native `pitch` setting in
   version 0.4.1 and newer.
 - Runtime integration with the Voice dialog and synth settings ring is done by
@@ -40,6 +43,9 @@ Current add-on implications:
   `[globalSonicPitch] pitchBySynth`.
 - On 64-bit NVDA, standard SAPI5 uses the `sapi5_64` pitch key and standard
   32-bit SAPI5 uses the `sapi5_32` key.
+- Standard 32-bit SAPI4 uses the `sapi4_32` key.
+- Version 0.4.20 adds an optional extended Sonic pitch range of approximately
+  `-20..+20` semitones.
 - Voice dialog changes are transactional in version 0.4.13: OK/Apply commits
   the previewed value, while Escape/Cancel restores the captured value.
 - NVDA's normal `pitch` setting remains native synth pitch.
@@ -53,6 +59,7 @@ Private internals used:
 - `globalVars.settingsRing.updateSupportedSettings`
 - synth driver `supportedSettings`
 - `synthDrivers.sapi5_32.SynthDriver.synthDriver32Path`
+- `synthDrivers.sapi4_32.SynthDriver.synthDriver32Path`
 - `synthDrivers._sonic.SonicStream.pitch`
 - `nvwave.WavePlayer.feed`
 - `nvwave.WavePlayer.idle`

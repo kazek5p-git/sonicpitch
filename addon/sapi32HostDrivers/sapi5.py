@@ -18,10 +18,11 @@ except NameError:
 
 
 SONIC_PITCH_SETTING_ID = "sonicPitch"
+SONIC_PITCH_EXTENDED_RANGE_PARAM_ID = "_sonicPitchExtendedRange"
+SONIC_PITCH_HOST_SETTING_IDS = {SONIC_PITCH_SETTING_ID, SONIC_PITCH_EXTENDED_RANGE_PARAM_ID}
 NEUTRAL_PITCH = 50
-MAX_SEMITONES = 6.0
-MIN_SONIC_PITCH_RATIO = 0.70
-MAX_SONIC_PITCH_RATIO = 1.45
+STANDARD_MAX_SEMITONES = 6.0
+EXTENDED_MAX_SEMITONES = 20.0
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
@@ -36,11 +37,14 @@ def _clampPitch(value: int | float) -> int:
 	return int(_clamp(numericValue, 0.0, 100.0))
 
 
-def _pitchPercentToSonicRatio(pitchPercent: int | float) -> float:
+def _pitchPercentToSonicRatio(pitchPercent: int | float, extendedRange: bool = False) -> float:
 	pitchPercent = _clamp(float(pitchPercent), 0.0, 100.0)
-	semitones = ((pitchPercent - 50.0) / 50.0) * MAX_SEMITONES
+	maxSemitones = EXTENDED_MAX_SEMITONES if extendedRange else STANDARD_MAX_SEMITONES
+	semitones = ((pitchPercent - 50.0) / 50.0) * maxSemitones
 	ratio = 2.0 ** (semitones / 12.0)
-	return _clamp(ratio, MIN_SONIC_PITCH_RATIO, MAX_SONIC_PITCH_RATIO)
+	minRatio = 2.0 ** (-maxSemitones / 12.0)
+	maxRatio = 2.0 ** (maxSemitones / 12.0)
+	return _clamp(ratio, minRatio, maxRatio)
 
 
 def _logInfo(message: str) -> None:
@@ -175,6 +179,42 @@ def _createSonicPitchSetting():
 _SONIC_PITCH_SETTING = _createSonicPitchSetting()
 
 
+def _createSonicPitchExtendedRangeSetting():
+	if NumericDriverSetting is None:
+		return None
+	try:
+		return NumericDriverSetting(
+			SONIC_PITCH_EXTENDED_RANGE_PARAM_ID,
+			"Sonic pitch extended range",
+			availableInSettingsRing=False,
+			defaultVal=0,
+			minVal=0,
+			maxVal=1,
+			minStep=1,
+			normalStep=1,
+			largeStep=1,
+			displayName="Sonic pitch extended range",
+			useConfig=False,
+		)
+	except TypeError:
+		return NumericDriverSetting(
+			SONIC_PITCH_EXTENDED_RANGE_PARAM_ID,
+			"Sonic pitch extended range",
+			False,
+			0,
+			0,
+			1,
+			1,
+			1,
+			1,
+			"Sonic pitch extended range",
+			False,
+		)
+
+
+_SONIC_PITCH_EXTENDED_RANGE_SETTING = _createSonicPitchExtendedRangeSetting()
+
+
 class _LockedSonicStream:
 	def __init__(self, stream, lock, sampleRate: int | None = None, channels: int | None = None):
 		self._stream = stream
@@ -280,16 +320,21 @@ if getattr(_sapi5.SynthDriverAudioStream, "_globalSonicPitchRemoteWritePatched",
 
 
 class SynthDriver(_BaseSynthDriver):
-	if _SONIC_PITCH_SETTING is None:
-		supportedSettings = _BaseSynthDriver.supportedSettings
-	else:
-		supportedSettings = tuple(
-			setting for setting in _BaseSynthDriver.supportedSettings if getattr(setting, "id", "") != SONIC_PITCH_SETTING_ID
-		) + (_SONIC_PITCH_SETTING,)
+	_hostSettings = tuple(
+		setting
+		for setting in (_SONIC_PITCH_SETTING, _SONIC_PITCH_EXTENDED_RANGE_SETTING)
+		if setting is not None
+	)
+	supportedSettings = tuple(
+		setting
+		for setting in _BaseSynthDriver.supportedSettings
+		if getattr(setting, "id", "") not in SONIC_PITCH_HOST_SETTING_IDS
+	) + _hostSettings
 
 	def __init__(self, *args, **kwargs):
 		self._sonicPitchLock = threading.RLock()
 		self._sonicPitch = NEUTRAL_PITCH
+		self._sonicPitchExtendedRange = False
 		self._lastAppliedSonicPitch: int | None = None
 		self._sonicSampleRate: int | None = None
 		self._sonicChannels: int | None = None
@@ -305,6 +350,17 @@ class SynthDriver(_BaseSynthDriver):
 
 	def _set_sonicPitch(self, value: int | float) -> None:
 		self._sonicPitch = _clampPitch(value)
+		self._applySonicPitchIfSafe()
+
+	def _get_sonicPitchExtendedRange(self) -> bool:
+		return bool(getattr(self, "_sonicPitchExtendedRange", False))
+
+	def _set_sonicPitchExtendedRange(self, value) -> None:
+		enabled = bool(value)
+		if bool(getattr(self, "_sonicPitchExtendedRange", False)) == enabled:
+			return
+		self._sonicPitchExtendedRange = enabled
+		self._lastAppliedSonicPitch = None
 		self._applySonicPitchIfSafe()
 
 	def _isSonicPitchApplySafe(self) -> bool:
@@ -332,7 +388,7 @@ class SynthDriver(_BaseSynthDriver):
 		sonicPitch = _clampPitch(self._sonicPitch)
 		if self._lastAppliedSonicPitch == sonicPitch:
 			return True
-		ratio = _pitchPercentToSonicRatio(sonicPitch)
+		ratio = _pitchPercentToSonicRatio(sonicPitch, self._get_sonicPitchExtendedRange())
 		with self._sonicPitchLock:
 			if self._lastAppliedSonicPitch is not None:
 				return self._replaceSonicStream(sonicPitch, "pitch change")
@@ -340,7 +396,7 @@ class SynthDriver(_BaseSynthDriver):
 			self._lastAppliedSonicPitch = sonicPitch
 			_logInfo(
 				"globalSonicPitch sapi5_32 host: set Sonic pitch; "
-				f"sonicPitch={sonicPitch}; ratio={ratio:.4f}",
+				f"sonicPitch={sonicPitch}; ratio={ratio:.4f}; extendedRange={self._get_sonicPitchExtendedRange()}",
 			)
 		return True
 
@@ -369,7 +425,7 @@ class SynthDriver(_BaseSynthDriver):
 			except Exception:
 				return False
 		sonicPitch = _clampPitch(self._sonicPitch if sonicPitch is None else sonicPitch)
-		ratio = _pitchPercentToSonicRatio(sonicPitch)
+		ratio = _pitchPercentToSonicRatio(sonicPitch, self._get_sonicPitchExtendedRange())
 		oldStream = getattr(self, "sonicStream", None)
 		newStream = _LockedSonicStream(_sapi5.SonicStream(sampleRate, channels), self._sonicPitchLock, sampleRate, channels)
 		if getattr(self, "_rateBoost", False):
@@ -385,7 +441,8 @@ class SynthDriver(_BaseSynthDriver):
 		self._isFirstAudioChunk = True
 		_logInfo(
 			"globalSonicPitch sapi5_32 host: replaced Sonic stream; "
-			f"reason={reason}; sonicPitch={sonicPitch}; ratio={ratio:.4f}",
+			f"reason={reason}; sonicPitch={sonicPitch}; ratio={ratio:.4f}; "
+			f"extendedRange={self._get_sonicPitchExtendedRange()}",
 		)
 		return True
 

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Global Sonic Pitch 0.4.19\n"
+"Project-Id-Version: Global Sonic Pitch 0.4.20\n"
 "POT-Creation-Date: 2026-07-14 00:00+0200\n"
 "PO-Revision-Date: 2026-07-14 00:00+0200\n"
 "Last-Translator: Kazimierz Parzych\n"
@@ -27,6 +27,9 @@ msgstr "Global Sonic Pitch"
 
 msgid "Enable global Sonic pitch"
 msgstr "Povoliť globálny Sonic pitch"
+
+msgid "Increase Sonic pitch range to 20 semitones"
+msgstr "Zvýšiť rozsah Sonic pitch na 20 poltónov"
 
 msgid "Enable debug logging"
 msgstr "Povoliť ladiace záznamy"

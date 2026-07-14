@@ -20,8 +20,9 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 - Keeps NVDA's normal `Pitch` setting as the synthesizer's native pitch.
 - Stores `Sonic pitch` separately for each supported synthesizer and selected
   voice.
-- Supports main-process NVDA synth audio and standard `sapi5_32` on 64-bit
-  NVDA through a bundled 32-bit host wrapper.
+- Provides an optional extended range of approximately `-20..+20` semitones.
+- Supports main-process NVDA synth audio and standard `sapi5_32` / `sapi4_32`
+  on 64-bit NVDA through bundled 32-bit host wrappers.
 - Includes bundled 32-bit and 64-bit Sonic native libraries.
 - Provides English, Polish, and Slovak add-on help.
 - Provides Polish and Slovak interface translations.
@@ -37,6 +38,8 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 
 ## Changes
 
+- 0.4.20: Added optional 20-semitone range and standard `sapi4_32` host
+  support on 64-bit NVDA.
 - 0.4.19: Cleaned and reorganized public documentation for NVDA Add-on Store
   review. No audio behavior changes.
 - 0.4.18: Added per-voice `Sonic pitch` values and Polish/Slovak
@@ -53,6 +56,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 - Main plugin: [addon/globalPlugins/globalSonicPitch.py](addon/globalPlugins/globalSonicPitch.py)
 - 32-bit SAPI5 host wrapper: [addon/sapi32HostDrivers/sapi5.py](addon/sapi32HostDrivers/sapi5.py)
+- 32-bit SAPI4 host wrapper: [addon/sapi32HostDrivers/sapi4.py](addon/sapi32HostDrivers/sapi4.py)
 - Bundled Sonic library notes: [addon/globalPlugins/sonicPitchNative/README.txt](addon/globalPlugins/sonicPitchNative/README.txt)
 
 ## Install
@@ -64,7 +68,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 4. Restart NVDA when prompted.
 
 Latest packaged add-on:
-[globalSonicPitch-0.4.19.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-0.4.20.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## License
 

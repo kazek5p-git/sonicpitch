@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 0.4.19.
+Status: mostly ready after version 0.4.20.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version uses `major.minor.patch`: `0.4.19`.
+- Package version uses `major.minor.patch`: `0.4.20`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -19,10 +19,16 @@ Completed:
 - Bundled Sonic native binaries include Apache 2.0 license metadata.
 - The add-on does not patch NVDA files on disk.
 - The add-on does not write SAPI voice tokens to the registry.
-- Standard `sapi5_32` on 64-bit NVDA is supported through a bundled host
-  wrapper that is loaded at runtime and does not replace NVDA files.
+- Standard `sapi5_32` and `sapi4_32` on 64-bit NVDA are supported through
+  bundled host wrappers that are loaded at runtime and do not replace NVDA
+  files.
 - Rapid `sapi5_32` Sonic pitch changes on 64-bit NVDA are deferred to safe
   32-bit host speech boundaries.
+- Standard `sapi4_32` is processed through NVDA's SAPI4 WASAPI audio path; the
+  older SAPI4 `MMAudioDest` path is documented as unsupported because it
+  bypasses NVDA's `WavePlayer`.
+- The optional extended range is disabled by default and expands the slider to
+  approximately `-20..+20` semitones when enabled.
 - Voice dialog style `sapi5_32` stress on 64-bit NVDA is handled by replacing
   host Sonic streams on applied pitch changes.
 - Voice dialog Sonic pitch changes now follow normal settings behavior: OK or
@@ -50,18 +56,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "54710A32C840394B4D6B220F7E7EF3CB9238D6E8D83C7A183C8E663CF6328E5F",
-  "addonVersionName": "0.4.19",
+  "sha256": "64A4D0119E76A8998368CFD5311277B7453B196BCC8881B8997D7AEDFF195C6E",
+  "addonVersionName": "0.4.20",
   "channel": "stable",
   "publisher": "Kazimierz Parzych, DJ Graco",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.19/globalSonicPitch-0.4.19.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.20/globalSonicPitch-0.4.20.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.19"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.20"
 }
 ```
 
@@ -72,9 +78,9 @@ synthesizers. It changes pitch through Sonic audio processing while leaving
 NVDA's normal native `Pitch` setting unchanged.
 
 The add-on works as a global plugin. It processes speech audio that reaches
-NVDA's main `WavePlayer`, and it controls standard `sapi5_32` on 64-bit NVDA
-through a small 32-bit host wrapper instead of replacing SAPI5 or any other
-synthesizer driver.
+NVDA's main `WavePlayer`, and it controls standard `sapi5_32` and `sapi4_32`
+on 64-bit NVDA through small 32-bit host wrappers instead of replacing SAPI or
+any other synthesizer driver.
 
 Key points:
 
@@ -82,9 +88,11 @@ Key points:
   voice.
 - The normal NVDA `Pitch` setting remains the synth's own native pitch.
 - The `Sonic pitch` slider appears only while global processing is enabled.
+- The optional extended range expands Sonic pitch to approximately
+  `-20..+20` semitones and is disabled by default.
 - The add-on uses bundled 32-bit and 64-bit Sonic native libraries.
-- Standard `sapi5_32` on 64-bit NVDA uses a bundled 32-bit host wrapper and
-  remains the normal NVDA `sapi5_32` synthesizer.
+- Standard `sapi5_32` and `sapi4_32` on 64-bit NVDA use bundled 32-bit host
+  wrappers and remain normal NVDA synthesizers.
 - It avoids changing already-used native Sonic streams in place.
 - It does not modify NVDA files, write registry voice tokens, or add SAPI voice
   list entries.
@@ -98,12 +106,16 @@ Supported when speech audio reaches the main NVDA `WavePlayer` as 16-bit PCM:
 - OneCore in the NVDA main process.
 - 64-bit SAPI5 voices using NVDA's standard audio path.
 - Standard `sapi5_32` on 64-bit NVDA through the bundled 32-bit host wrapper.
+- Standard `sapi4_32` on 64-bit NVDA through the bundled 32-bit host wrapper
+  when NVDA's SAPI4 WASAPI path is active.
 
 Known limitation:
 
 - Third-party SAPI voices, including eSpeak-NG SAPI, must already be configured
   and visible to NVDA's standard SAPI voice list. The add-on does not add or
   repair SAPI voice registrations.
+- SAPI4 through the older `MMAudioDest` path is not processed, because that
+  path bypasses NVDA's `WavePlayer`.
 
 ## Release Safety Policy
 
@@ -121,7 +133,7 @@ Before each store-facing release:
 1. Run syntax check:
 
    ```powershell
-   python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\sapi32HostDrivers\sapi5.py addon\installTasks.py
+   python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\sapi32HostDrivers\sapi5.py addon\sapi32HostDrivers\sapi4.py addon\installTasks.py
    ```
 
 2. Build the package from the contents of `addon`.
@@ -131,6 +143,7 @@ Before each store-facing release:
    - `manifest.ini`
    - `globalPlugins/globalSonicPitch.py`
    - `sapi32HostDrivers/sapi5.py`
+   - `sapi32HostDrivers/sapi4.py`
    - `globalPlugins/sonicPitchNative/sonicPitchSonic32.dll`
    - `globalPlugins/sonicPitchNative/sonicPitchSonic64.dll`
    - `doc/en/readme.md`
@@ -142,9 +155,11 @@ Before each store-facing release:
 
    - Stable NVDA x64 smoke test with SAPI5.
    - Stable NVDA x64 smoke test with standard `sapi5_32`.
+   - Stable NVDA x64 smoke test with standard `sapi4_32`.
    - NVDA 2025.3.3 x86 portable crash-regression test with SAPI5 at rate 100.
    - Voice dialog Escape/Cancel rollback test for `Sonic pitch`.
    - Slider feedback test covering repeated PageUp/PageDown changes.
+   - Extended range smoke test at lowered and raised values.
 
 6. Confirm the log contains no Global Sonic Pitch exceptions:
 

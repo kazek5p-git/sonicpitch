@@ -12,8 +12,8 @@ synthesizer dialog.
 The add-on works in two paths:
 
 - main-process speech audio processed through `nvwave.WavePlayer`;
-- standard `sapi5_32` on 64-bit NVDA controlled through a bundled 32-bit host
-  wrapper.
+- standard `sapi5_32` and `sapi4_32` on 64-bit NVDA controlled through bundled
+  32-bit host wrappers.
 
 ## Configuration
 
@@ -24,12 +24,16 @@ Current config section:
 enabled = boolean(default=False)
 pitch = integer(default=50, min=0, max=100)
 pitchBySynth = string(default='{}')
+extendedPitchRange = boolean(default=False)
 debugLogging = boolean(default=False)
 ```
 
 `enabled` controls whether Sonic pitch processing is active.
 
 `debugLogging` enables detailed diagnostic logging.
+
+`extendedPitchRange` changes the pitch mapping from the standard 6-semitone
+range to the optional 20-semitone range. It is disabled by default.
 
 `pitchBySynth` stores current Sonic pitch values as JSON. Values are keyed by
 the supported synthesizer and, when available, the selected voice:
@@ -38,7 +42,8 @@ the supported synthesizer and, when available, the selected voice:
 {
   "RHVoice::voice::Magda": 45,
   "sapi5_64::voice::Paulina": 38,
-  "sapi5_32::voice::eSpeak-NG Polish": 44
+  "sapi5_32::voice::eSpeak-NG Polish": 44,
+  "sapi4_32::voice::{C0123C20-8BCC-11D2-9B00-C0E1DF000000}": 75
 }
 ```
 
@@ -50,14 +55,18 @@ New values are written to `pitchBySynth`.
 The add-on exposes `Sonic pitch` as a value from `0` to `100`, matching NVDA's
 usual pitch scale.
 
-`50` is neutral. The full range maps to approximately `-6..+6` semitones:
+`50` is neutral. By default, the full range maps to approximately `-6..+6`
+semitones:
 
 ```text
-semitones = ((pitchPercent - 50) / 50) * 6
+maxSemitones = 6
+semitones = ((pitchPercent - 50) / 50) * maxSemitones
 ratio = 2 ** (semitones / 12)
 ```
 
-The final Sonic pitch ratio is clamped to `0.70..1.45`.
+When `extendedPitchRange` is enabled, `maxSemitones` is `20`, giving
+approximately `-20..+20` semitones. The final Sonic pitch ratio is clamped to
+the mathematically matching range for the selected mode.
 
 ## Native Pitch And Sonic Pitch
 
@@ -110,6 +119,8 @@ The hook is intentionally narrow:
 - it avoids `SonicStream.flush()` in the middle of ordinary audio blocks;
 - it bypasses non-speech sounds;
 - it falls back to the original `WavePlayer.feed` call on any exception.
+- it ignores remote 32-bit SAPI synths in the main process because those paths
+  are processed in the 32-bit synth host.
 
 The continuous stream matters for audio quality. Flushing Sonic after every
 small audio block can create gaps because Sonic loses its internal analysis
@@ -126,14 +137,15 @@ The bundled libraries are documented in:
 - `addon/globalPlugins/sonicPitchNative/README.txt`
 - `addon/globalPlugins/sonicPitchNative/LICENSE-Sonic.txt`
 
-## Standard SAPI5 32-bit Host Path
+## Standard 32-bit SAPI Host Paths
 
-The 64-bit NVDA `sapi5_32` driver speaks in a separate 32-bit host process. The
-main-process WavePlayer hook cannot process that audio directly.
+The 64-bit NVDA `sapi5_32` and `sapi4_32` drivers speak in a separate 32-bit
+host process. The main-process WavePlayer hook cannot process that audio
+directly.
 
 To support this path without replacing NVDA's synth, the add-on temporarily
-points `sapi5_32.SynthDriver.synthDriver32Path` at
-`addon/sapi32HostDrivers` while the add-on is loaded.
+points the relevant `synthDriver32Path` values at `addon/sapi32HostDrivers`
+while the add-on is loaded.
 
 `addon/sapi32HostDrivers/sapi5.py` runs inside the 32-bit host. It:
 
@@ -146,7 +158,25 @@ points `sapi5_32.SynthDriver.synthDriver32Path` at
 - replaces the host Sonic stream when the applied pitch changes;
 - recovers from host Sonic write or flush failures by replacing the stream.
 
-The host wrapper does not enumerate voices, add registry tokens, or modify
+`addon/sapi32HostDrivers/sapi4.py` also runs inside the 32-bit host. It:
+
+- locates NVDA's original `_synthDrivers32` directory;
+- imports NVDA's original 32-bit SAPI4 implementation;
+- subclasses the original `SynthDriverAudio` WASAPI audio receiver;
+- adds host-side `sonicPitch` and `_sonicPitchExtendedRange` parameters;
+- processes 16-bit PCM blocks before they are fed to the host `WavePlayer`;
+- flushes the Sonic stream at the SAPI4 unclaim boundary;
+- leaves the original SAPI4 voice enumeration and COM driver selection intact.
+
+SAPI4 has two NVDA audio paths. When
+`config.conf["speech"]["useWASAPIForSAPI4"]` is true, SAPI4 audio goes through
+`SynthDriverAudio` and `nvwave.WavePlayer`, which the host wrapper can process.
+When that setting is false, NVDA uses SAPI4's older `MMAudioDest` path. That
+path sends audio directly through the Microsoft multimedia destination and
+bypasses NVDA's `WavePlayer`; SonicPitch cannot process that direct path
+without replacing substantially more of the SAPI4 COM audio implementation.
+
+The host wrappers do not enumerate voices, add registry tokens, or modify
 NVDA's installed files.
 
 ## Logs
@@ -164,9 +194,10 @@ Useful search terms:
 - `globalSonicPitch: added Sonic pitch voice setting`
 - `globalSonicPitch: captured Sonic pitch setting`
 - `globalSonicPitch: processed speech audio`
-- `globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch`
+- `globalSonicPitch: applied remote 32-bit Sonic pitch`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - `globalSonicPitch sapi5_32 host: replaced Sonic stream`
+- `globalSonicPitch sapi4_32 host: processed SAPI4 audio`
 - `globalSonicPitch: Sonic is unavailable`
 
 ## Maintenance Warnings
@@ -180,6 +211,7 @@ This add-on relies on NVDA runtime APIs and some private implementation details:
 - synth driver `supportedSettings`
 - synth driver `voice` properties where available
 - `synthDrivers.sapi5_32.SynthDriver.synthDriver32Path`
+- `synthDrivers.sapi4_32.SynthDriver.synthDriver32Path`
 - `synthDrivers._sonic.SonicStream` as a fallback Sonic path
 - `nvwave.WavePlayer.feed`
 - `nvwave.WavePlayer.idle`

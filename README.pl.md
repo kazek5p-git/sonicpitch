@@ -23,9 +23,10 @@ wysokością syntezatora.
 - Zostawia zwykłą `Wysokość` NVDA jako natywną wysokość syntezatora.
 - Zapisuje `Sonic pitch` osobno dla każdego obsługiwanego syntezatora i
   wybranego głosu.
+- Udostępnia opcjonalny rozszerzony zakres około `-20..+20` półtonów.
 - Obsługuje audio syntezatorów działających w głównym procesie NVDA oraz
-  standardowy `sapi5_32` na 64-bitowym NVDA przez dołączony wrapper hosta
-  32-bitowego.
+  standardowe `sapi5_32` / `sapi4_32` na 64-bitowym NVDA przez dołączone
+  wrappery hosta 32-bitowego.
 - Zawiera dołączone natywne biblioteki Sonic 32-bit i 64-bit.
 - Zawiera pomoc dodatku po angielsku, polsku i słowacku.
 - Zawiera polskie i słowackie tłumaczenie interfejsu.
@@ -41,6 +42,8 @@ wysokością syntezatora.
 
 ## Zmiany
 
+- 0.4.20: Dodano opcjonalny zakres 20 półtonów i obsługę standardowego
+  `sapi4_32` przez host 32-bitowy w 64-bitowym NVDA.
 - 0.4.19: Uporządkowana dokumentacja publiczna pod recenzję w NVDA Add-on
   Store. Bez zmian w działaniu audio.
 - 0.4.18: Dodano wartości `Sonic pitch` per głos oraz polską i słowacką
@@ -58,6 +61,7 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 
 - Główny plugin: [addon/globalPlugins/globalSonicPitch.py](addon/globalPlugins/globalSonicPitch.py)
 - Wrapper hosta SAPI5 32-bit: [addon/sapi32HostDrivers/sapi5.py](addon/sapi32HostDrivers/sapi5.py)
+- Wrapper hosta SAPI4 32-bit: [addon/sapi32HostDrivers/sapi4.py](addon/sapi32HostDrivers/sapi4.py)
 - Notatki o dołączonej bibliotece Sonic: [addon/globalPlugins/sonicPitchNative/README.txt](addon/globalPlugins/sonicPitchNative/README.txt)
 
 ## Instalacja
@@ -70,7 +74,7 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 4. Zrestartuj NVDA po komunikacie.
 
 Najnowszy pakiet:
-[globalSonicPitch-0.4.19.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-0.4.20.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencja
 

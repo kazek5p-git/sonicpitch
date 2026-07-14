@@ -9,9 +9,10 @@ leaving NVDA's normal native `Pitch` setting unchanged.
 - A `Global Sonic Pitch` settings panel.
 - A separate `Sonic pitch` voice setting while global processing is enabled.
 - Per-synthesizer and per-voice Sonic pitch values.
+- An optional extended range of approximately `-20..+20` semitones.
 - Processing for supported speech audio that reaches NVDA's main audio path.
-- Support for standard `sapi5_32` on 64-bit NVDA through a bundled 32-bit host
-  wrapper.
+- Support for standard `sapi5_32` and `sapi4_32` on 64-bit NVDA through
+  bundled 32-bit host wrappers.
 - Optional debug logging.
 - An optional support link.
 
@@ -21,7 +22,7 @@ and does not modify NVDA files on disk.
 ## Quick Start
 
 1. Select a normal NVDA synthesizer, such as RHVoice, eSpeak, OneCore,
-   64-bit SAPI5, or standard `sapi5_32`.
+   64-bit SAPI5, standard `sapi5_32`, or standard `sapi4_32`.
 2. Open NVDA Settings.
 3. Choose `Global Sonic Pitch`.
 4. Enable `Enable global Sonic pitch`.
@@ -34,6 +35,9 @@ Higher values raise speech through Sonic.
 ## Settings
 
 - `Enable global Sonic pitch` enables or disables Sonic pitch processing.
+- `Increase Sonic pitch range to 20 semitones` extends the `Sonic pitch`
+  control from the normal `-6..+6` semitone range to approximately
+  `-20..+20` semitones.
 - `Enable debug logging` writes detailed add-on entries to the NVDA log.
 - `Support the author` opens the external support page.
 
@@ -85,6 +89,8 @@ Expected supported paths:
 - OneCore in NVDA's main process.
 - 64-bit SAPI5 when it uses NVDA's normal audio path.
 - Standard `sapi5_32` on 64-bit NVDA through the bundled 32-bit host wrapper.
+- Standard `sapi4_32` on 64-bit NVDA through the bundled 32-bit host wrapper
+  when NVDA's SAPI4 WASAPI audio path is active.
 - Other synths that feed compatible speech audio through NVDA.
 
 Third-party eSpeak-NG SAPI voices must be configured in their own configuration
@@ -92,14 +98,17 @@ tool before they appear in SAPI5. This add-on does not patch SAPI voice
 enumeration, does not write registry voice tokens, and does not change the SAPI
 voice list.
 
-## Standard SAPI5 32-bit On 64-bit NVDA
+## Standard 32-bit SAPI On 64-bit NVDA
 
-Standard `sapi5_32` on 64-bit NVDA runs in a separate 32-bit synth host. Global
-Sonic Pitch loads a bundled wrapper in that host so the standard NVDA
-`sapi5_32` synth can receive the current `Sonic pitch` value.
+Standard `sapi5_32` and `sapi4_32` on 64-bit NVDA run in a separate 32-bit
+synth host. Global Sonic Pitch loads bundled wrappers in that host so the
+standard NVDA synth can receive the current `Sonic pitch` value.
 
-This keeps the normal NVDA `sapi5_32` synthesizer entry. It does not add a new
-synthesizer and does not replace NVDA files.
+This keeps the normal NVDA synthesizer entries. It does not add a new
+synthesizer and does not replace NVDA files. For SAPI4, Sonic processing is
+available only through NVDA's WASAPI SAPI4 path. If NVDA is configured to use
+the older SAPI4 `MMAudioDest` path, that audio bypasses NVDA's `WavePlayer` and
+cannot be processed by this add-on.
 
 ## Support Link
 
@@ -127,8 +136,8 @@ enabled and the value is not `50`.
 If switching synthesizers or voices appears to reset `Sonic pitch`, set a value
 for that synthesizer and voice. Values are stored independently.
 
-If standard `sapi5_32` on 64-bit NVDA does not expose `Sonic pitch`, restart
-NVDA or switch away from `sapi5_32` and back again.
+If standard `sapi5_32` or `sapi4_32` on 64-bit NVDA does not expose `Sonic
+pitch`, restart NVDA or switch away from that synthesizer and back again.
 
 If a third-party SAPI voice is missing, configure it in that voice package's own
 configuration tool first, then restart NVDA.
@@ -147,8 +156,9 @@ Useful search terms:
 - `added Sonic pitch voice setting`
 - `captured Sonic pitch setting`
 - `processed speech audio`
-- `applied remote SAPI5 32-bit Sonic pitch`
+- `applied remote 32-bit Sonic pitch`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
+- `globalSonicPitch sapi4_32 host: processed SAPI4 audio`
 
 ## License
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.20
+
+- Adds an optional extended Sonic pitch range of approximately `-20..+20`
+  semitones.
+- Adds Sonic pitch processing for standard `sapi4_32` on 64-bit NVDA through
+  the bundled 32-bit host wrapper when NVDA's SAPI4 WASAPI path is active.
+- Keeps remote 32-bit SAPI processing inside the 32-bit synth host to avoid
+  accidental processing of unrelated main-process speech-purpose audio.
+- Updates documentation and testing notes for the current SAPI4/SAPI5 host
+  paths.
+
 ## 0.4.19
 
 - Reorganizes public README files into a shorter add-on overview with links to

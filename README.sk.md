@@ -21,8 +21,9 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
   zapnuté.
 - Ponecháva bežné nastavenie NVDA `Výška` ako natívnu výšku syntetizéra.
 - Ukladá `Sonic pitch` osobitne pre každý podporovaný syntetizér a vybraný hlas.
-- Podporuje zvuk syntetizérov v hlavnom procese NVDA a štandardný `sapi5_32` v
-  64-bitovom NVDA cez pribalený wrapper 32-bitového hosta.
+- Ponúka voliteľný rozšírený rozsah približne `-20..+20` poltónov.
+- Podporuje zvuk syntetizérov v hlavnom procese NVDA a štandardné `sapi5_32` /
+  `sapi4_32` v 64-bitovom NVDA cez pribalené wrappery 32-bitového hosta.
 - Obsahuje pribalené 32-bitové a 64-bitové natívne knižnice Sonic.
 - Obsahuje pomoc doplnku v angličtine, poľštine a slovenčine.
 - Obsahuje poľský a slovenský preklad rozhrania.
@@ -38,6 +39,8 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 
 ## Zmeny
 
+- 0.4.20: Pridaný voliteľný rozsah 20 poltónov a podpora štandardného
+  `sapi4_32` cez 32-bitový host v 64-bitovom NVDA.
 - 0.4.19: Vyčistená a usporiadaná verejná dokumentácia pre recenziu v NVDA
   Add-on Store. Bez zmien v spracovaní zvuku.
 - 0.4.18: Pridané hodnoty `Sonic pitch` pre jednotlivé hlasy a poľská/slovenská
@@ -54,6 +57,7 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 
 - Hlavný plugin: [addon/globalPlugins/globalSonicPitch.py](addon/globalPlugins/globalSonicPitch.py)
 - Wrapper hosta SAPI5 32-bit: [addon/sapi32HostDrivers/sapi5.py](addon/sapi32HostDrivers/sapi5.py)
+- Wrapper hosta SAPI4 32-bit: [addon/sapi32HostDrivers/sapi4.py](addon/sapi32HostDrivers/sapi4.py)
 - Poznámky k pribalenému Sonic: [addon/globalPlugins/sonicPitchNative/README.txt](addon/globalPlugins/sonicPitchNative/README.txt)
 
 ## Inštalácia
@@ -66,7 +70,7 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 4. Po výzve reštartujte NVDA.
 
 Najnovší balík:
-[globalSonicPitch-0.4.19.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-0.4.20.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencia
 

@@ -3,7 +3,7 @@
 # This file is distributed under the same license as Global Sonic Pitch.
 msgid ""
 msgstr ""
-"Project-Id-Version: Global Sonic Pitch 0.4.19\n"
+"Project-Id-Version: Global Sonic Pitch 0.4.20\n"
 "POT-Creation-Date: 2026-07-14 17:00+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
@@ -44,6 +44,10 @@ msgstr ""
 
 #: addon/globalPlugins/globalSonicPitch.py:1699
 msgid "Enable global Sonic pitch"
+msgstr ""
+
+#: addon/globalPlugins/globalSonicPitch.py:1705
+msgid "Increase Sonic pitch range to 20 semitones"
 msgstr ""
 
 #: addon/globalPlugins/globalSonicPitch.py:1704

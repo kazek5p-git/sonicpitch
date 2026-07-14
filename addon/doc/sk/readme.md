@@ -10,9 +10,10 @@ NVDA `Výška` ponecháva ako natívnu výšku syntetizéra.
 - Samostatné nastavenie hlasu `Sonic pitch`, keď je globálne spracovanie
   zapnuté.
 - Hodnoty Sonic pitch osobitne pre syntetizér a hlas.
+- Voliteľný rozšírený rozsah približne `-20..+20` poltónov.
 - Spracovanie podporovaného zvuku reči v hlavnej zvukovej ceste NVDA.
-- Podporu štandardného `sapi5_32` v 64-bitovom NVDA cez pribalený wrapper
-  32-bitového hosta.
+- Podporu štandardných `sapi5_32` a `sapi4_32` v 64-bitovom NVDA cez
+  pribalené wrappery 32-bitového hosta.
 - Voliteľné ladiace logovanie.
 - Voliteľný odkaz na podporu autora.
 
@@ -22,7 +23,7 @@ súbory NVDA na disku.
 ## Rýchly Štart
 
 1. Vyberte bežný syntetizér NVDA, napríklad RHVoice, eSpeak, OneCore,
-   64-bitový SAPI5 alebo štandardný `sapi5_32`.
+   64-bitový SAPI5, štandardný `sapi5_32` alebo štandardný `sapi4_32`.
 2. Otvorte nastavenia NVDA.
 3. Vyberte `Global Sonic Pitch`.
 4. Zapnite `Enable global Sonic pitch`.
@@ -35,6 +36,9 @@ hodnoty ju zvyšujú.
 ## Nastavenia
 
 - `Enable global Sonic pitch` zapína alebo vypína spracovanie Sonic pitch.
+- `Increase Sonic pitch range to 20 semitones` rozširuje ovládanie
+  `Sonic pitch` z bežného rozsahu `-6..+6` poltónov na približne
+  `-20..+20` poltónov.
 - `Enable debug logging` zapisuje podrobné položky doplnku do logu NVDA.
 - `Support the author` otvorí externú stránku podpory.
 
@@ -86,20 +90,26 @@ Očakávané podporované cesty:
 - 64-bitový SAPI5, ak používa bežnú zvukovú cestu NVDA.
 - Štandardný `sapi5_32` v 64-bitovom NVDA cez pribalený wrapper 32-bitového
   hosta.
+- Štandardný `sapi4_32` v 64-bitovom NVDA cez pribalený wrapper 32-bitového
+  hosta, keď je aktívna zvuková cesta WASAPI pre SAPI4 v NVDA.
 - Iné syntetizéry, ktoré posielajú kompatibilný zvuk reči cez NVDA.
 
 Hlasy tretej strany eSpeak-NG SAPI treba najprv nakonfigurovať v ich vlastnom
 konfiguračnom nástroji. Doplnok neopravuje enumeráciu hlasov SAPI, nezapisuje
 tokeny hlasov do registra a nemení zoznam hlasov SAPI.
 
-## Štandardný SAPI5 32-bit V 64-bitovom NVDA
+## Štandardné SAPI 32-bit V 64-bitovom NVDA
 
-Štandardný `sapi5_32` v 64-bitovom NVDA beží v samostatnom 32-bitovom hoste
-syntetizérov. Global Sonic Pitch načíta v tomto hoste pribalený wrapper, aby
-štandardný syntetizér NVDA `sapi5_32` dostal aktuálnu hodnotu `Sonic pitch`.
+Štandardné `sapi5_32` a `sapi4_32` v 64-bitovom NVDA bežia v samostatnom
+32-bitovom hoste syntetizérov. Global Sonic Pitch v tomto hoste načíta
+pribalené wrappery, aby štandardný syntetizér NVDA dostal aktuálnu hodnotu
+`Sonic pitch`.
 
-Tým sa zachováva bežná položka syntetizéra NVDA `sapi5_32`. Doplnok nepridáva
-nový syntetizér a nenahrádza súbory NVDA.
+Tým sa zachovávajú bežné položky syntetizérov NVDA. Doplnok nepridáva nový
+syntetizér a nenahrádza súbory NVDA. Pri SAPI4 je spracovanie Sonic dostupné
+iba cez cestu WASAPI pre SAPI4 v NVDA. Ak NVDA používa staršiu cestu SAPI4
+`MMAudioDest`, zvuk obchádza `WavePlayer` NVDA a tento doplnok ho nemôže
+spracovať.
 
 ## Odkaz Na Podporu
 
@@ -127,8 +137,9 @@ spracovanie zapnuté a hodnota nie je `50`.
 Ak sa po prepnutí syntetizéra alebo hlasu zdá, že `Sonic pitch` je resetovaný,
 nastavte hodnotu pre tento syntetizér a hlas. Hodnoty sa ukladajú nezávisle.
 
-Ak štandardný `sapi5_32` v 64-bitovom NVDA nezobrazuje `Sonic pitch`,
-reštartujte NVDA alebo prepnite zo `sapi5_32` na iný syntetizér a späť.
+Ak štandardný `sapi5_32` alebo `sapi4_32` v 64-bitovom NVDA nezobrazuje
+`Sonic pitch`, reštartujte NVDA alebo prepnite z tohto syntetizéra na iný a
+späť.
 
 Ak chýba externý hlas SAPI, najprv ho nakonfigurujte v nástroji príslušného
 hlasového balíka a potom reštartujte NVDA.
@@ -147,8 +158,9 @@ Užitočné frázy:
 - `added Sonic pitch voice setting`
 - `captured Sonic pitch setting`
 - `processed speech audio`
-- `applied remote SAPI5 32-bit Sonic pitch`
+- `applied remote 32-bit Sonic pitch`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
+- `globalSonicPitch sapi4_32 host: processed SAPI4 audio`
 
 ## Licencia
 
