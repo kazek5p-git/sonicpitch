@@ -8,6 +8,7 @@ standardowy `sapi5_32` na 64-bitowym NVDA obsługuje przez mały wrapper
 32-bitowego hosta.
 
 Dokumentacja angielska: [README.md](README.md)
+Dokumentacja słowacka: [README.sk.md](README.sk.md)
 
 ## Najważniejsze Informacje
 
@@ -18,7 +19,8 @@ Dokumentacja angielska: [README.md](README.md)
   syntezatorów.
 - `Sonic pitch` jest osobną regulacją Sonic i nie zastępuje natywnej
   `Wysokości`.
-- `Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora.
+- `Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora i
+  wybranego głosu.
 - Audio mowy jest filtrowane przez Sonic w głównym `WavePlayer` NVDA, gdy dana
   ścieżka audio jest dostępna.
 - Standardowy `sapi5_32` na 64-bitowym NVDA jest obsługiwany przez dołączony
@@ -86,7 +88,7 @@ Cel zgodności dla sklepu:
 4. Zmieniaj natywną wysokość syntezatora normalnym ustawieniem `Wysokość`, jeśli
    chcesz używać obu regulacji równocześnie.
 5. Ustawienie `50` traktuj jako neutralne dla `Sonic pitch`. Każdy obsługiwany
-   syntezator ma własną wartość `Sonic pitch`.
+   syntezator i wybrany głos ma własną wartość `Sonic pitch`.
 6. Jeśli coś brzmi źle, wróć do `50` albo wyłącz globalny tryb w panelu dodatku.
 
 ## Ustawienia
@@ -100,7 +102,7 @@ Panel `Global Sonic Pitch` zawiera:
 
 Normalne ustawienie `Wysokość` w pierścieniu ustawień syntezatora pozostaje
 natywnym ustawieniem aktywnego syntezatora. `Sonic pitch` jest osobnym
-ustawieniem dodatku zapisywanym osobno dla obsługiwanego syntezatora.
+ustawieniem dodatku zapisywanym osobno dla obsługiwanego syntezatora i głosu.
 
 Panel dodatku jest zawsze dostępny w ustawieniach NVDA, żeby można było włączyć
 albo wyłączyć funkcję.
@@ -206,6 +208,11 @@ Wersja 0.4.17 aktualizuje metadane autorów dodatku i wydawcy w sklepie, aby
 zawierały Kazimierza Parzycha i DJ Graco. Działanie audio nie zmienia się
 względem wersji 0.4.16.
 
+Wersja 0.4.18 zapisuje wartości Sonic pitch osobno dla obsługiwanego
+syntezatora i wybranego głosu. W SAPI5 oznacza to, że Paulina i eSpeak-NG SAPI
+mogą mieć różne wartości Sonic pitch, mimo że oba głosy działają w tym samym
+syntezatorze SAPI5.
+
 ## Zgodność Syntezatorów
 
 | Syntezator | Oczekiwane działanie |
@@ -236,6 +243,12 @@ Wartości Sonic pitch są zapisywane pod kluczami zależnymi od architektury:
 - `sapi5_32` dla zwykłego `sapi5` w 32-bitowym NVDA oraz dla `sapi5_32` w
   64-bitowym NVDA.
 - `sapi5_64` dla standardowego `sapi5` w 64-bitowym NVDA.
+
+Od wersji 0.4.18 identyfikator wybranego głosu jest dopisywany do tego klucza
+bazowego. Istniejące wartości zapisane tylko pod `sapi5_32`, `sapi5_64` albo
+innym kluczem syntezatora są migrowane przy pierwszym użyciu do pierwszego
+wybranego głosu tego syntezatora. Nowe głosy zaczynają od neutralnej wartości
+Sonic pitch `50`, dopóki ich nie zmienisz.
 
 ## Migracja Ze Starego SAPI5 Sonic Pitch
 
@@ -303,9 +316,10 @@ Dla standardowego `sapi5_32` na 64-bitowym NVDA sprawdź `applied remote SAPI5
 32-bit Sonic pitch` w `%TEMP%\nvda.log` i `globalSonicPitch sapi5_32 host: set
 Sonic pitch` w `%TEMP%\nvda_synthDriverHost.*.log`.
 
-Jeśli po przełączeniu syntezatora `Sonic pitch` wraca do `50`, jest to
-oczekiwane, dopóki nie ustawisz wartości dla tego konkretnego syntezatora.
-Wartości są zapisywane osobno dla każdego obsługiwanego syntezatora.
+Jeśli po przełączeniu syntezatora albo głosu `Sonic pitch` wraca do `50`, jest
+to oczekiwane, dopóki nie ustawisz wartości dla tej konkretnej pary syntezatora
+i głosu. Wartości są zapisywane osobno dla każdego obsługiwanego syntezatora i
+wybranego głosu.
 
 ### Syntezator zmienia swoją natywną wysokość
 
@@ -426,7 +440,7 @@ bezpieczeństwa wydań i checklistę weryfikacji przed zgłoszeniem dodatku do N
 Add-on Store.
 
 Dla zgłoszenia do kanału stable manifest dodatku powinien wskazywać najnowszy
-stabilny cel API NVDA, nie wersję beta. Wersja 0.4.17 deklaruje:
+stabilny cel API NVDA, nie wersję beta. Wersja 0.4.18 deklaruje:
 
 ```ini
 minimumNVDAVersion = 2025.1.0
@@ -456,7 +470,7 @@ Przykład PowerShell:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.17.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.18.nvda-addon -Force
 ```
 
 Sprawdzenie składni:

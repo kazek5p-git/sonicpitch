@@ -16,7 +16,8 @@ NVDA obsługuje przez mały wrapper 32-bitowego hosta.
 - Zwykłe ustawienie `Wysokość` NVDA nadal steruje natywną wysokością
   syntezatora.
 - `Sonic pitch` jest osobną regulacją Sonic.
-- `Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora.
+- `Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora i
+  wybranego głosu.
 - Przetwarza audio mowy przez Sonic.
 - Obsługuje standardowy `sapi5_32` na 64-bitowym NVDA bez dodawania nowego
   syntezatora.
@@ -37,7 +38,7 @@ NVDA obsługuje przez mały wrapper 32-bitowego hosta.
 
 `Sonic pitch` `50` jest neutralny. Wartości poniżej `50` obniżają głos przez
 Sonic, a wartości powyżej `50` podwyższają głos przez Sonic. Każdy obsługiwany
-syntezator ma własną wartość `Sonic pitch`.
+syntezator i wybrany głos ma własną wartość `Sonic pitch`.
 
 ## Ustawienia
 
@@ -47,7 +48,7 @@ syntezator ma własną wartość `Sonic pitch`.
 
 Zwykła `Wysokość` w pierścieniu ustawień głosu NVDA pozostaje natywną
 wysokością syntezatora. `Sonic pitch` jest osobnym ustawieniem dodatku
-zapisywanym per obsługiwany syntezator.
+zapisywanym osobno dla obsługiwanego syntezatora i głosu.
 
 Panel dodatku jest zawsze dostępny. Osobny suwak `Sonic pitch` jest dodawany do
 dialogu `Głos` i pierścienia ustawień syntezatora tylko wtedy, gdy `Enable
@@ -62,7 +63,8 @@ obsługiwanego syntezatora.
 
 W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` można przypisać gesty
 do włączania, odczytu stanu, otwierania strony wsparcia, zwiększania,
-zmniejszania i resetowania Sonic pitch bieżącego obsługiwanego syntezatora.
+zmniejszania i resetowania Sonic pitch bieżącego obsługiwanego syntezatora i
+głosu.
 
 ## Wsparcie Autora
 
@@ -143,9 +145,10 @@ procesu sprawdź, czy w logu pojawia się `processed speech audio`. Dla
 i `globalSonicPitch sapi5_32 host: set Sonic pitch` w
 `%TEMP%\nvda_synthDriverHost.*.log`.
 
-Jeśli po przełączeniu syntezatora `Sonic pitch` wraca do `50`, jest to
-oczekiwane, dopóki nie ustawisz wartości dla tego konkretnego syntezatora.
-Wartości są zapisywane osobno dla każdego obsługiwanego syntezatora.
+Jeśli po przełączeniu syntezatora albo głosu `Sonic pitch` wraca do `50`, jest
+to oczekiwane, dopóki nie ustawisz wartości dla tej konkretnej pary syntezatora
+i głosu. Wartości są zapisywane osobno dla każdego obsługiwanego syntezatora i
+wybranego głosu.
 
 Jeśli słychać natywną zmianę wysokości syntezatora, to jest oczekiwane.
 `Wysokość` NVDA steruje natywną wysokością, a `Sonic pitch` steruje tylko
@@ -190,6 +193,10 @@ pozostawała wyciszona do czasu przeładowania syntezatora.
 Od wersji 0.4.17 metadane autorów dodatku i wydawcy w sklepie zawierają
 Kazimierza Parzycha i DJ Graco. Działanie audio nie zmienia się względem wersji
 0.4.16.
+
+Od wersji 0.4.18 wartości Sonic pitch są zapisywane osobno dla obsługiwanego
+syntezatora i wybranego głosu. W SAPI5 różne głosy w tym samym syntezatorze
+SAPI5 mogą mieć różne wartości Sonic pitch.
 
 ## Licencja
 

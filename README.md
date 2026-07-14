@@ -7,6 +7,7 @@ synthesizers whose speech audio is played through NVDA's main process, and also
 supports standard `sapi5_32` on 64-bit NVDA through a small 32-bit host wrapper.
 
 Polish documentation: [README.pl.md](README.pl.md)
+Slovak documentation: [README.sk.md](README.sk.md)
 
 ## Key Points
 
@@ -15,7 +16,7 @@ Polish documentation: [README.pl.md](README.pl.md)
 - When global mode is enabled, the add-on adds its own `Sonic pitch` setting to
   Voice settings and the synth settings ring for supported synthesizers.
 - `Sonic pitch` is a separate Sonic control and does not replace native `Pitch`.
-- `Sonic pitch` is stored separately for each supported synthesizer.
+- `Sonic pitch` is stored separately for each supported synthesizer and voice.
 - Speech audio is filtered through Sonic in NVDA's main `WavePlayer` when that
   audio path is available.
 - Standard `sapi5_32` on 64-bit NVDA is supported through a bundled 32-bit host
@@ -81,8 +82,8 @@ Store compatibility target:
    settings.
 4. Change native synth pitch with NVDA's normal `Pitch` setting if you want to
    use both controls together.
-5. Treat `Sonic pitch` value `50` as neutral. Each supported synthesizer keeps
-   its own `Sonic pitch` value.
+5. Treat `Sonic pitch` value `50` as neutral. Each supported synthesizer and
+   selected voice keeps its own `Sonic pitch` value.
 6. If the result sounds wrong, return to `50` or disable global mode.
 
 ## Settings
@@ -94,7 +95,8 @@ The `Global Sonic Pitch` panel contains:
 - `Support the author` - opens the external BuyCoffee support page.
 
 NVDA's normal `Pitch` setting remains the active synth's native pitch setting.
-`Sonic pitch` is a separate add-on setting stored per supported synthesizer.
+`Sonic pitch` is a separate add-on setting stored per supported synthesizer and
+voice.
 
 The add-on panel is always available in NVDA Settings so the feature can be
 enabled or disabled.
@@ -192,6 +194,10 @@ blocks instead of leaving `sapi5_32` silent.
 Version 0.4.17 updates the add-on author and store publisher metadata to list
 both Kazimierz Parzych and DJ Graco. Audio behavior is unchanged from 0.4.16.
 
+Version 0.4.18 stores Sonic pitch values per supported synthesizer and selected
+voice. Under SAPI5, this means Paulina and eSpeak-NG SAPI can use different
+Sonic pitch values even though both are voices inside the SAPI5 synth.
+
 ## Synth Compatibility
 
 | Synth | Expected behavior |
@@ -222,6 +228,11 @@ Sonic pitch values are stored with architecture-aware keys:
 - `sapi5_32` for 32-bit NVDA's normal `sapi5` and for `sapi5_32` on 64-bit
   NVDA.
 - `sapi5_64` for standard `sapi5` on 64-bit NVDA.
+
+Starting with version 0.4.18, the selected voice id is appended to that base
+key. Existing values stored only under `sapi5_32`, `sapi5_64`, or another synth
+key are migrated to the first selected voice for that synth on first use. New
+voices start at the neutral Sonic pitch value `50` until you change them.
 
 ## Migration From SAPI5 Sonic Pitch
 
@@ -288,9 +299,9 @@ For standard `sapi5_32` on 64-bit NVDA, check for `applied remote SAPI5 32-bit
 Sonic pitch` in `%TEMP%\nvda.log` and `globalSonicPitch sapi5_32 host: set
 Sonic pitch` in `%TEMP%\nvda_synthDriverHost.*.log`.
 
-If switching synthesizers seems to reset `Sonic pitch`, that is expected until
-you change it for that synthesizer. Values are stored separately for each
-supported synthesizer.
+If switching synthesizers or voices seems to reset `Sonic pitch`, that is
+expected until you change it for that specific synth and voice. Values are
+stored separately for each supported synthesizer and selected voice.
 
 ### The Synth Still Changes Its Native Pitch
 
@@ -407,7 +418,7 @@ release safety policy, and verification checklist for submitting this add-on to
 the NVDA Add-on Store.
 
 For stable store submission, the add-on manifest should point to the latest
-stable NVDA API target, not a beta target. Version 0.4.17 declares:
+stable NVDA API target, not a beta target. Version 0.4.18 declares:
 
 ```ini
 minimumNVDAVersion = 2025.1.0
@@ -437,7 +448,7 @@ PowerShell example:
 ```powershell
 New-Item -ItemType Directory -Path .\dist -Force | Out-Null
 Compress-Archive -Path .\addon\* -DestinationPath .\dist\globalSonicPitch.zip -Force
-Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.17.nvda-addon -Force
+Move-Item .\dist\globalSonicPitch.zip .\dist\globalSonicPitch-0.4.18.nvda-addon -Force
 ```
 
 Syntax check:

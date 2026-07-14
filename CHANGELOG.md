@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.18
+
+- Stores `Sonic pitch` separately for each supported synthesizer and selected
+  voice. For example, standard SAPI5 voices such as Paulina and eSpeak-NG SAPI
+  can now keep different Sonic pitch values under the same SAPI5 synth.
+- Migrates an existing per-synth Sonic pitch value to the first selected voice
+  for that synth on first use.
+- Refreshes the active runtime Sonic pitch after voice changes, including the
+  standard `sapi5_32` host path on 64-bit NVDA.
+- Adds Polish and Slovak UI translations, localized add-on manifest metadata,
+  and bundled Slovak help documentation.
+
 ## 0.4.17
 
 - Updates add-on author and store publisher metadata to use `Kazimierz Parzych`

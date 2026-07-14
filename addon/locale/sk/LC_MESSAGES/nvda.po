@@ -1,0 +1,83 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Global Sonic Pitch 0.4.18\n"
+"POT-Creation-Date: 2026-07-14 00:00+0200\n"
+"PO-Revision-Date: 2026-07-14 00:00+0200\n"
+"Last-Translator: Kazimierz Parzych\n"
+"Language-Team: Slovak\n"
+"Language: sk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Opening support page"
+msgstr "Otvára sa stránka podpory"
+
+msgid "Cannot open support page. Open this address manually: {url}"
+msgstr "Stránku podpory sa nepodarilo otvoriť. Otvorte túto adresu ručne: {url}"
+
+msgid "current synth"
+msgstr "aktuálny syntetizér"
+
+msgid "Sonic pitch"
+msgstr "Sonic pitch"
+
+msgid "Global Sonic Pitch"
+msgstr "Global Sonic Pitch"
+
+msgid "Enable global Sonic pitch"
+msgstr "Povoliť globálny Sonic pitch"
+
+msgid "Enable debug logging"
+msgstr "Povoliť ladiace záznamy"
+
+msgid "Support the author"
+msgstr "Podporiť autora"
+
+msgid "Toggle global Sonic pitch"
+msgstr "Prepnúť globálny Sonic pitch"
+
+msgid "Global Sonic pitch on"
+msgstr "Globálny Sonic pitch zapnutý"
+
+msgid "Global Sonic pitch off"
+msgstr "Globálny Sonic pitch vypnutý"
+
+msgid "Report global Sonic pitch status"
+msgstr "Oznámiť stav globálneho Sonic pitch"
+
+msgid "Global Sonic pitch on, {synth} Sonic pitch {pitch}"
+msgstr "Globálny Sonic pitch zapnutý, {synth}, Sonic pitch {pitch}"
+
+msgid "Global Sonic pitch on, Sonic pitch is unavailable for {synth}"
+msgstr "Globálny Sonic pitch zapnutý, Sonic pitch nie je dostupný pre {synth}"
+
+msgid "Open support page"
+msgstr "Otvoriť stránku podpory"
+
+msgid "Increase Sonic pitch for the current synthesizer"
+msgstr "Zvýšiť Sonic pitch pre aktuálny syntetizér"
+
+msgid "Sonic pitch is unavailable for {synth}"
+msgstr "Sonic pitch nie je dostupný pre {synth}"
+
+msgid "Sonic pitch {pitch}"
+msgstr "Sonic pitch {pitch}"
+
+msgid "Decrease Sonic pitch for the current synthesizer"
+msgstr "Znížiť Sonic pitch pre aktuálny syntetizér"
+
+msgid "Reset Sonic pitch for the current synthesizer"
+msgstr "Obnoviť Sonic pitch pre aktuálny syntetizér"
+
+msgid ""
+"If you like Sonic Pitch and want to support my work, you can buy me a coffee.\n"
+"\n"
+"Do you want to open the support page now?"
+msgstr ""
+"Ak sa vám Sonic Pitch páči a chcete podporiť moju prácu, môžete mi kúpiť kávu.\n"
+"\n"
+"Chcete teraz otvoriť stránku podpory?"
+
+msgid "Support Sonic Pitch"
+msgstr "Podpora Sonic Pitch"

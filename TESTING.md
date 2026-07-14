@@ -6,7 +6,7 @@
 2. NVDA 2026.1 or newer 64-bit.
 3. Windows 10 and Windows 11.
 4. Add-on install, disable, re-enable, and restart.
-5. Add-on help opens in English and Polish locales.
+5. Add-on help opens in English, Polish, and Slovak locales.
 6. Synthesizer dialog does not show any add-on-provided Sonic synth.
 7. Standard eSpeak loads with global Sonic disabled.
 8. Standard eSpeak loads with global Sonic enabled.
@@ -42,51 +42,54 @@
     or synth settings ring when it is exposed.
 28. Set different `Sonic pitch` values for two supported synths, switch between
     them, and confirm each synth restores its own value.
-29. While SAPI5 is speaking, quickly decrease `Sonic pitch` several steps and
+29. In one synth with more than one voice, such as SAPI5 Paulina and eSpeak-NG
+    SAPI, set different `Sonic pitch` values per voice and confirm switching
+    voices restores the correct value.
+30. While SAPI5 is speaking, quickly decrease `Sonic pitch` several steps and
     confirm NVDA does not crash or report repeated empty processed blocks.
-30. While any supported synth is speaking, change `Sonic pitch` and confirm the
+31. While any supported synth is speaking, change `Sonic pitch` and confirm the
     log reports that the change is deferred until the next utterance.
-31. Confirm the next utterance uses the newly selected `Sonic pitch`.
-32. In Voice settings or the synth settings ring, repeatedly change `Sonic
+32. Confirm the next utterance uses the newly selected `Sonic pitch`.
+33. In Voice settings or the synth settings ring, repeatedly change `Sonic
     pitch` with PageUp/PageDown and confirm each short feedback message uses
     the latest non-neutral value without needing extra slider movement.
-33. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
+34. With global Sonic disabled, confirm `Sonic pitch` is not exposed in the
     Voice dialog or synth settings ring.
-34. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
+35. With global Sonic enabled, confirm `Sonic pitch` is exposed in the Voice
     dialog or synth settings ring for supported synths.
-35. In the Voice dialog, change `Sonic pitch`, press Escape or Cancel, reopen
+36. In the Voice dialog, change `Sonic pitch`, press Escape or Cancel, reopen
     Voice settings, and confirm the previous value and spoken pitch are
     restored.
-36. In the Voice dialog, change `Sonic pitch`, press OK or Apply, reopen Voice
+37. In the Voice dialog, change `Sonic pitch`, press OK or Apply, reopen Voice
     settings, and confirm the new value is stored.
-37. On 64-bit NVDA, test standard `sapi5_32` with global Sonic enabled and
+38. On 64-bit NVDA, test standard `sapi5_32` with global Sonic enabled and
     confirm the Sonic pitch slider appears and changes the 32-bit host output.
-38. On 64-bit NVDA, with standard `sapi5_32` speaking, change `Sonic pitch`
+39. On 64-bit NVDA, with standard `sapi5_32` speaking, change `Sonic pitch`
     rapidly about every 40 ms and confirm speech continues. The 32-bit host log
     should show deferred updates during active speech and a final applied value
     at a speech boundary.
-39. On 64-bit NVDA, repeat a Voice dialog style stress pattern on standard
+40. On 64-bit NVDA, repeat a Voice dialog style stress pattern on standard
     `sapi5_32`: cancel current speech, change `sonicPitch`, and speak the new
     value every 150 to 200 ms. Confirm the test finishes and the 32-bit host log
     contains no `access violation`, `RemoteWrite` failure, or `error speaking`.
-40. On 64-bit NVDA, set different values for standard `sapi5`/SAPI64 and
+41. On 64-bit NVDA, set different values for standard `sapi5`/SAPI64 and
     `sapi5_32`/SAPI32, then confirm the config stores separate `sapi5_64` and
     `sapi5_32` entries.
-41. On 32-bit NVDA, test standard `sapi5` and confirm its value maps to the
+42. On 32-bit NVDA, test standard `sapi5` and confirm its value maps to the
     `sapi5_32` key.
-42. Input Gesture scripts for opening the support page, increasing,
+43. Input Gesture scripts for opening the support page, increasing,
     decreasing, and resetting Sonic pitch for the current synth appear in the
     `Global Sonic Pitch` category.
-43. During installation or update, the optional support prompt appears outside
+44. During installation or update, the optional support prompt appears outside
     minimal mode. `No` continues installation. `Yes` opens
     `https://buycoffee.to/kazimierz-parzych` in the default browser.
-44. Rate, volume, voice switching, and cancellation still behave normally.
-45. Say-all / continuous reading does not obviously regress.
-46. NVDA sound effects are not processed as speech audio.
-47. The repository contains root license documentation and third-party notices.
-48. `docs/addon-store-submission.md` has the current package version, download
+45. Rate, volume, voice switching, and cancellation still behave normally.
+46. Say-all / continuous reading does not obviously regress.
+47. NVDA sound effects are not processed as speech audio.
+48. The repository contains root license documentation and third-party notices.
+49. `docs/addon-store-submission.md` has the current package version, download
     URL, and SHA256 before submitting to the NVDA Add-on Store.
-49. Error log check after each scenario.
+50. Error log check after each scenario.
 
 ## Expected Results
 
@@ -113,6 +116,8 @@
   `globalSonicPitch: captured Sonic pitch setting` and changes the current
   supported synth's Sonic pitch value.
 - Different supported synths can keep different `Sonic pitch` values.
+- Different supported voices inside the same synth can keep different `Sonic
+  pitch` values.
 - Standard 64-bit SAPI5 and standard `sapi5_32` on 64-bit NVDA keep separate
   `sapi5_64` and `sapi5_32` values.
 - Changes made from the Voice dialog are previewed live; Escape or Cancel
@@ -149,8 +154,8 @@
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.17:
+Expected package name for version 0.4.18:
 
 ```text
-globalSonicPitch-0.4.17.nvda-addon
+globalSonicPitch-0.4.18.nvda-addon
 ```

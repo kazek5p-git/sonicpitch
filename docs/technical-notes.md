@@ -115,6 +115,12 @@ Version 0.4.17 updates only author and store publisher metadata, listing
 Kazimierz Parzych alongside DJ Graco. There are no audio processing changes from
 0.4.16.
 
+Version 0.4.18 changes `sonicPitch` storage from per supported synth to per
+supported synth and selected voice. Existing synth-only values are migrated to
+the first selected voice for that synth on first use. The active runtime Sonic
+pitch is refreshed after voice changes, including the remote `sapi5_32` host
+path.
+
 ## Config
 
 Current config section:
@@ -127,17 +133,22 @@ pitchBySynth = string(default='{}')
 debugLogging = boolean(default=False)
 ```
 
-`pitch` is kept as a legacy migration key. Current per-synth values are stored
-as JSON in `pitchBySynth`, for example:
+`pitch` is kept as a legacy migration key. Current per-synth and per-voice
+values are stored as JSON in `pitchBySynth`, for example:
 
 ```json
-{"RHVoice":45,"sapi5_64":38,"sapi5_32":44,"vocalizer":52}
+{"RHVoice::voice::magda":45,"sapi5_64::voice::HKEY_LOCAL_MACHINE\\...\\Paulina":38,"sapi5_32::voice::eSpeak-NG Polish":44}
 ```
 
 The plugin migrates values from the old `[sapi5SonicPitchGlobal]` section once
 at startup. If a legacy global `pitch` value exists and no per-synth values are
 stored yet, the value is moved lazily to the current supported synth and the
 legacy `pitch` key is reset to neutral `50`.
+
+If a value exists under a synth-only key such as `sapi5_64` or `RHVoice` and no
+value exists for the current voice key, version 0.4.18 migrates that value to
+the current voice key and removes the synth-only key. Other voices for the same
+synth start at neutral `50` until the user changes them.
 
 ## Sonic Pitch Mapping
 
@@ -160,7 +171,7 @@ The add-on intentionally does not patch the active synth instance's `_set_pitch`
 or `_get_pitch` methods in version 0.4.1 and newer.
 
 NVDA's normal `pitch` setting remains native synth pitch. The add-on's
-`sonicPitch` setting is a separate value stored per synth in
+`sonicPitch` setting is a separate value stored per synth and selected voice in
 `[globalSonicPitch] pitchBySynth`. If both are away from neutral `50`, the user
 hears the combined native synth pitch and Sonic processing.
 
@@ -176,6 +187,11 @@ For SAPI5, the add-on normalizes pitch storage keys by process architecture:
 This lets 64-bit NVDA keep separate Sonic pitch values for its standard SAPI5
 64-bit path and the standard `sapi5_32` remote-host path. Current versions do
 not add eSpeak-NG SAPI voices to `sapi5_32` or any other SAPI voice list.
+
+In version 0.4.18 and newer, the selected voice id is appended to the normalized
+synth key with `::voice::`. For example, two SAPI5 voices under the same
+`sapi5_64` synth produce two separate storage keys. The voice id is read from
+the synth's `voice` or `_voice` attribute when available.
 
 ## Dynamic Voice Setting
 
@@ -193,6 +209,13 @@ The setting is not stored in the synth's own config. At runtime, the plugin adds
 a class-level Python `property` named `sonicPitch` to the active synth class.
 That property reads and writes the active synth's entry in
 `[globalSonicPitch] pitchBySynth`.
+
+Version 0.4.18 also wraps the active synth class's `voice` property when it is
+available as a writable Python property. After NVDA changes the voice, the
+wrapper refreshes the current `sonicPitch` runtime value for the newly selected
+voice. If a synth does not expose such a property, speech processing still reads
+the current voice key at audio time, and the `sonicPitch` property getter also
+refreshes the remote `sapi5_32` runtime value when Voice settings are rebuilt.
 
 In version 0.4.9 and newer, writes to that property no longer call
 `_resetAllPlayerProcessors()`. The processor for the current utterance keeps its

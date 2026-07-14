@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 0.4.17.
+Status: mostly ready after version 0.4.18.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version uses `major.minor.patch`: `0.4.17`.
+- Package version uses `major.minor.patch`: `0.4.18`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -28,9 +28,10 @@ Completed:
   host Sonic streams on applied pitch changes.
 - Voice dialog Sonic pitch changes now follow normal settings behavior: OK or
   Apply commits, while Escape or Cancel restores the previous value.
-- Current GitHub Release contains one `.nvda-addon` asset.
+- Release packaging is documented and should publish one `.nvda-addon` asset
+  per GitHub Release.
 - Manifest author metadata lists `Kazimierz Parzych, DJ Graco`.
-- User documentation exists in English and Polish.
+- User documentation exists in English, Polish, and Slovak.
 - Store submission metadata draft is recorded below.
 
 Before submitting:
@@ -50,18 +51,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "DEDB792CED78157D6D3D38453CD7DC40FE88085724F2D51A2DB457DBA624876F",
-  "addonVersionName": "0.4.17",
+  "sha256": "ACBABCFEEFF4AF510083ECFAC014F4A5AEC46770DC8783024A3BE8DC38420754",
+  "addonVersionName": "0.4.18",
   "channel": "stable",
   "publisher": "Kazimierz Parzych, DJ Graco",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.17/globalSonicPitch-0.4.17.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.18/globalSonicPitch-0.4.18.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.17"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.18"
 }
 ```
 
@@ -78,7 +79,8 @@ synthesizer driver.
 
 Key points:
 
-- `Sonic pitch` is stored separately per supported synthesizer.
+- `Sonic pitch` is stored separately per supported synthesizer and selected
+  voice.
 - The normal NVDA `Pitch` setting remains the synth's own native pitch.
 - The `Sonic pitch` slider appears only while global processing is enabled.
 - The add-on uses bundled 32-bit and 64-bit Sonic native libraries.

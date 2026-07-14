@@ -65,6 +65,7 @@ SONIC_PITCH_SETTING_ID = "sonicPitch"
 SUPPORT_URL = "https://buycoffee.to/kazimierz-parzych"
 LEGACY_PITCH_CONFIG_KEY = "pitch"
 PITCH_BY_SYNTH_CONFIG_KEY = "pitchBySynth"
+VOICE_KEY_SEPARATOR = "::voice::"
 
 _ORIGINAL_FEED_ATTR = "_globalSonicPitchOriginalFeed"
 _ORIGINAL_IDLE_ATTR = "_globalSonicPitchOriginalIdle"
@@ -96,6 +97,7 @@ _sonicUnavailableReason: str | None = None
 _sonicPitchDriverSetting: Any | None = None
 _missingClassAttr = object()
 _sonicPitchClassPatches: dict[type, Any] = {}
+_voiceClassPatches: dict[type, Any] = {}
 _configMigrated = False
 _deferSynthPitchPatchDepth = 0
 _noDestroySonicStreamLogged = False
@@ -106,6 +108,7 @@ _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
 _sapi32HostReloading = False
 _sapi32HostReloadRequested = False
 _voiceDialogSessions: dict[int, dict[str, dict[str, int]]] = {}
+_runtimeSonicPitchByKey: dict[str, int] = {}
 
 
 class _SonicStreamP(ctypes.c_void_p):
@@ -238,6 +241,72 @@ def _getSynthPitchKey(synthName: str | None) -> str:
 	return key
 
 
+def _normalizePitchStorageKey(key: str | None) -> str:
+	key = str(key or "").strip()
+	if not key:
+		return ""
+	synthName, separator, voiceId = key.partition(VOICE_KEY_SEPARATOR)
+	synthKey = _getSynthPitchKey(synthName)
+	if not separator:
+		return synthKey
+	voiceId = str(voiceId or "").strip()
+	if not synthKey or not voiceId:
+		return synthKey
+	return f"{synthKey}{VOICE_KEY_SEPARATOR}{voiceId}"
+
+
+def _getBasePitchKeyFromStorageKey(key: str | None) -> str:
+	key = _normalizePitchStorageKey(key)
+	synthName, _, _voiceId = key.partition(VOICE_KEY_SEPARATOR)
+	return _getSynthPitchKey(synthName)
+
+
+def _stringifyVoiceIdentifier(value: Any) -> str:
+	if value is None:
+		return ""
+	if isinstance(value, bytes):
+		try:
+			value = value.decode("utf-8", errors="replace")
+		except Exception:
+			value = repr(value)
+	if not isinstance(value, str):
+		for attr in ("id", "ID", "name", "displayName"):
+			try:
+				attrValue = getattr(value, attr, None)
+			except Exception:
+				attrValue = None
+			if attrValue:
+				return str(attrValue).strip()
+	return str(value).strip()
+
+
+def _getSynthVoiceId(synth: Any | None) -> str:
+	if synth is None:
+		return ""
+	for attr in ("voice", "_voice"):
+		try:
+			voiceId = _stringifyVoiceIdentifier(getattr(synth, attr))
+		except Exception:
+			continue
+		if voiceId and voiceId.lower() != "none":
+			return voiceId
+	return ""
+
+
+def _getSonicPitchStorageKey(synthOrName: Any | None = None) -> str:
+	if synthOrName is None:
+		synthOrName = _getCurrentSynth()
+	if isinstance(synthOrName, str):
+		return _normalizePitchStorageKey(synthOrName)
+	synthKey = _getSynthPitchKey(_getSynthName(synthOrName))
+	if not synthKey:
+		return ""
+	voiceId = _getSynthVoiceId(synthOrName)
+	if not voiceId:
+		return synthKey
+	return _normalizePitchStorageKey(f"{synthKey}{VOICE_KEY_SEPARATOR}{voiceId}")
+
+
 def _isRemoteSapi32Synth(synthName: str | None) -> bool:
 	return not _is32BitProcess() and str(synthName or "").strip() == "sapi5_32"
 
@@ -351,9 +420,17 @@ def _setRemoteSapi32SonicPitch(synth: Any | None, pitch: int | float) -> bool:
 
 
 def _applyRuntimeSonicPitch(synth: Any | None, pitch: int | float) -> None:
-	if _isRemoteSapi32Synth(_getSynthName(synth)):
-		if not _setRemoteSapi32SonicPitch(synth, pitch):
-			_requestRemoteSapi32SynthReload()
+	if not _isRemoteSapi32Synth(_getSynthName(synth)):
+		return
+	key = _getSonicPitchStorageKey(synth) or _getSynthName(synth)
+	pitch = _clampPitch(pitch)
+	if key and _runtimeSonicPitchByKey.get(key) == pitch:
+		return
+	if _setRemoteSapi32SonicPitch(synth, pitch):
+		if key:
+			_runtimeSonicPitchByKey[key] = pitch
+	else:
+		_requestRemoteSapi32SynthReload()
 
 
 def _getActiveVoiceDialogSession() -> dict[str, dict[str, int]] | None:
@@ -373,13 +450,13 @@ def _getVoiceDialogPendingPitch(key: str) -> int | None:
 	return None
 
 
-def _captureVoiceDialogBaseline(session: dict[str, dict[str, int]], synthName: str | None) -> str:
-	key = _getSynthPitchKey(synthName)
+def _captureVoiceDialogBaseline(session: dict[str, dict[str, int]], synthOrName: Any | None) -> str:
+	key = _getSonicPitchStorageKey(synthOrName)
 	if not key:
 		return ""
 	snapshots = session.setdefault("snapshots", {})
 	if key not in snapshots:
-		snapshots[key] = _loadSynthPitchMap().get(key, NEUTRAL_PITCH)
+		snapshots[key] = _getStoredSonicPitchForKey(key)
 	return key
 
 
@@ -390,7 +467,7 @@ def _setVoiceDialogPendingSonicPitch(synth: Any | None, pitch: int | float) -> b
 	synthName = _getSynthName(synth)
 	if not _isGlobalAudioSupportedSynth(synthName):
 		return False
-	key = _captureVoiceDialogBaseline(session, synthName)
+	key = _captureVoiceDialogBaseline(session, synth)
 	if not key:
 		return False
 	pitch = _clampPitch(pitch)
@@ -415,14 +492,14 @@ def _commitVoiceDialogSession(panelId: int) -> None:
 	pending = dict(session.get("pending", {}))
 	session["pending"] = {}
 	for key, pitch in pending.items():
-		_setSonicPitchForSynth(key, pitch)
+		_setSonicPitchForKey(key, pitch)
 	currentSynth = _getCurrentSynth()
-	currentKey = _getSynthPitchKey(_getSynthName(currentSynth))
+	currentKey = _getSonicPitchStorageKey(currentSynth)
 	if currentKey in pending:
 		_applyRuntimeSonicPitch(currentSynth, pending[currentKey])
 	snapshots = session.setdefault("snapshots", {})
 	for key in set(snapshots) | set(pending):
-		snapshots[key] = _loadSynthPitchMap().get(key, NEUTRAL_PITCH)
+		snapshots[key] = _getStoredSonicPitchForKey(key)
 	if pending:
 		log.info(
 			"globalSonicPitch: committed Sonic pitch changes from Voice settings; "
@@ -441,9 +518,9 @@ def _restoreVoiceDialogSession(panelId: int) -> None:
 		return
 	_clearIdlePlayerUtterancePitches()
 	for key, pitch in snapshots.items():
-		_setSonicPitchForSynth(key, pitch)
+		_setSonicPitchForKey(key, pitch)
 	currentSynth = _getCurrentSynth()
-	currentKey = _getSynthPitchKey(_getSynthName(currentSynth))
+	currentKey = _getSonicPitchStorageKey(currentSynth)
 	if currentKey in snapshots:
 		_applyRuntimeSonicPitch(currentSynth, snapshots[currentKey])
 	log.info(
@@ -456,7 +533,7 @@ def _ensureVoiceDialogSession(panel: Any) -> None:
 	panelId = id(panel)
 	if panelId not in _voiceDialogSessions:
 		_voiceDialogSessions[panelId] = {"snapshots": {}, "pending": {}}
-	_captureVoiceDialogBaseline(_voiceDialogSessions[panelId], _getSynthName())
+	_captureVoiceDialogBaseline(_voiceDialogSessions[panelId], _getCurrentSynth())
 	if getattr(panel, "_globalSonicPitchVoiceSessionDestroyBound", False):
 		return
 
@@ -490,7 +567,7 @@ def _loadSynthPitchMap() -> dict[str, int]:
 		return {}
 	pitches: dict[str, int] = {}
 	for synthName, pitch in data.items():
-		key = _getSynthPitchKey(str(synthName))
+		key = _normalizePitchStorageKey(str(synthName))
 		if key:
 			pitches[key] = _clampPitch(pitch)
 	return pitches
@@ -498,9 +575,9 @@ def _loadSynthPitchMap() -> dict[str, int]:
 
 def _saveSynthPitchMap(pitches: dict[str, int]) -> None:
 	serializable = {
-		_getSynthPitchKey(synthName): _clampPitch(pitch)
+		_normalizePitchStorageKey(synthName): _clampPitch(pitch)
 		for synthName, pitch in pitches.items()
-		if _getSynthPitchKey(synthName)
+		if _normalizePitchStorageKey(synthName)
 	}
 	_setConfigValue(
 		PITCH_BY_SYNTH_CONFIG_KEY,
@@ -508,12 +585,33 @@ def _saveSynthPitchMap(pitches: dict[str, int]) -> None:
 	)
 
 
-def _migrateLegacyGlobalPitchToSynth(synthName: str) -> None:
+def _getStoredSonicPitchForKey(key: str | None) -> int:
+	key = _normalizePitchStorageKey(key)
+	if not key:
+		return NEUTRAL_PITCH
+	pitches = _loadSynthPitchMap()
+	if key in pitches:
+		return pitches[key]
+	baseKey = _getBasePitchKeyFromStorageKey(key)
+	if key != baseKey and baseKey in pitches:
+		pitch = pitches.pop(baseKey)
+		pitches[key] = pitch
+		_saveSynthPitchMap(pitches)
+		log.info(
+			"globalSonicPitch: migrated per-synth Sonic pitch to current voice; "
+			f"synth={baseKey}; key={key}; sonicPitch={pitch}",
+		)
+		return pitch
+	return NEUTRAL_PITCH
+
+
+def _migrateLegacyGlobalPitchToKey(key: str) -> None:
 	legacyPitch = _clampPitch(_getConfigValue(LEGACY_PITCH_CONFIG_KEY, NEUTRAL_PITCH))
 	if legacyPitch == NEUTRAL_PITCH:
 		return
-	key = _getSynthPitchKey(synthName)
-	if not key or not _isGlobalAudioSupportedSynth(key):
+	key = _normalizePitchStorageKey(key)
+	baseKey = _getBasePitchKeyFromStorageKey(key)
+	if not key or not _isGlobalAudioSupportedSynth(baseKey):
 		return
 	pitches = _loadSynthPitchMap()
 	if not pitches:
@@ -521,27 +619,15 @@ def _migrateLegacyGlobalPitchToSynth(synthName: str) -> None:
 		_saveSynthPitchMap(pitches)
 		log.info(
 			"globalSonicPitch: migrated global Sonic pitch to current synth; "
-			f"synth={key}; sonicPitch={legacyPitch}",
+			f"key={key}; sonicPitch={legacyPitch}",
 		)
 	_setConfigValue(LEGACY_PITCH_CONFIG_KEY, NEUTRAL_PITCH)
 
 
-def _getSonicPitchForSynth(synthName: str | None = None) -> int:
-	if synthName is None:
-		synthName = _getSynthName()
-	key = _getSynthPitchKey(synthName)
-	if not key:
-		return NEUTRAL_PITCH
-	pendingPitch = _getVoiceDialogPendingPitch(key)
-	if pendingPitch is not None:
-		return pendingPitch
-	_migrateLegacyGlobalPitchToSynth(key)
-	return _loadSynthPitchMap().get(key, NEUTRAL_PITCH)
-
-
-def _setSonicPitchForSynth(synthName: str | None, pitch: int | float) -> int | None:
-	key = _getSynthPitchKey(synthName)
-	if not key or not _isGlobalAudioSupportedSynth(key):
+def _setSonicPitchForKey(key: str | None, pitch: int | float) -> int | None:
+	key = _normalizePitchStorageKey(key)
+	baseKey = _getBasePitchKeyFromStorageKey(key)
+	if not key or not _isGlobalAudioSupportedSynth(baseKey):
 		return None
 	pitch = _clampPitch(pitch)
 	pitches = _loadSynthPitchMap()
@@ -553,23 +639,38 @@ def _setSonicPitchForSynth(synthName: str | None, pitch: int | float) -> int | N
 		_clearIdlePlayerUtterancePitches()
 		log.info(
 			"globalSonicPitch: stored Sonic pitch for next safe audio boundary; "
-			f"synth={key}; oldPitch={oldPitch}; pendingPitch={pitch}",
+			f"key={key}; oldPitch={oldPitch}; pendingPitch={pitch}",
 		)
 	return pitch
+
+
+def _getSonicPitchForSynth(synthOrName: Any | None = None) -> int:
+	key = _getSonicPitchStorageKey(synthOrName)
+	if not key:
+		return NEUTRAL_PITCH
+	pendingPitch = _getVoiceDialogPendingPitch(key)
+	if pendingPitch is not None:
+		return pendingPitch
+	_migrateLegacyGlobalPitchToKey(key)
+	return _getStoredSonicPitchForKey(key)
+
+
+def _setSonicPitchForSynth(synthOrName: Any | None, pitch: int | float) -> int | None:
+	return _setSonicPitchForKey(_getSonicPitchStorageKey(synthOrName), pitch)
 
 
 def _setCurrentSynthSonicPitch(pitch: int | float) -> int | None:
 	synth = _getCurrentSynth()
 	if _setVoiceDialogPendingSonicPitch(synth, pitch):
 		return _clampPitch(pitch)
-	pitch = _setSonicPitchForSynth(_getSynthName(synth), pitch)
+	pitch = _setSonicPitchForSynth(synth, pitch)
 	if pitch is not None:
 		_applyRuntimeSonicPitch(synth, pitch)
 	return pitch
 
 
 def _changeCurrentSynthSonicPitch(delta: int) -> int | None:
-	return _setCurrentSynthSonicPitch(_getSonicPitchForSynth() + delta)
+	return _setCurrentSynthSonicPitch(_getSonicPitchForSynth(_getCurrentSynth()) + delta)
 
 
 def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str, int] | None:
@@ -579,10 +680,11 @@ def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str,
 		return None
 	if not _isSpeechPlayer(player):
 		return None
-	synthName = _getSynthName()
+	synth = _getCurrentSynth()
+	synthName = _getSynthName(synth)
 	if not _isGlobalAudioSupportedSynth(synthName):
 		return None
-	pitch = _getSonicPitchForSynth(synthName)
+	pitch = _getSonicPitchForSynth(synth)
 	utterancePitch = _getOrCreatePlayerUtterancePitch(player, pitch)
 	if utterancePitch != pitch:
 		_logDeferredPitchOnce(synthName, utterancePitch, pitch)
@@ -1184,20 +1286,23 @@ def _stripSonicPitchSetting(synth: Any | None) -> None:
 
 
 def _patchedGetSonicPitchSetting(self):
-	return _getSonicPitchForSynth(_getSynthName(self))
+	pitch = _getSonicPitchForSynth(self)
+	if bool(_getConfigValue("enabled", False)):
+		_applyRuntimeSonicPitch(self, pitch)
+	return pitch
 
 
 def _patchedSetSonicPitchSetting(self, value):
 	synthName = _getSynthName(self)
 	if _setVoiceDialogPendingSonicPitch(self, value):
 		return None
-	pitch = _setSonicPitchForSynth(synthName, value)
+	pitch = _setSonicPitchForSynth(self, value)
 	if pitch is None:
 		return None
 	_applyRuntimeSonicPitch(self, pitch)
 	log.info(
 		"globalSonicPitch: captured Sonic pitch setting; "
-		f"synth={synthName}; sonicPitch={pitch}",
+		f"synth={synthName}; key={_getSonicPitchStorageKey(self)}; sonicPitch={pitch}",
 	)
 	return None
 
@@ -1211,6 +1316,69 @@ def _patchSonicPitchClassProperty(synth: Any) -> None:
 		SONIC_PITCH_SETTING_ID,
 		property(_patchedGetSonicPitchSetting, _patchedSetSonicPitchSetting),
 	)
+
+
+def _refreshSonicPitchAfterVoiceChange(synth: Any | None) -> None:
+	if synth is None or not bool(_getConfigValue("enabled", False)):
+		return
+	synthName = _getSynthName(synth)
+	if not _isGlobalAudioSupportedSynth(synthName):
+		return
+	try:
+		pitch = _getSonicPitchForSynth(synth)
+		_clearIdlePlayerUtterancePitches()
+		_applyRuntimeSonicPitch(synth, pitch)
+		log.info(
+			"globalSonicPitch: refreshed Sonic pitch after voice change; "
+			f"synth={synthName}; key={_getSonicPitchStorageKey(synth)}; sonicPitch={pitch}",
+		)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to refresh Sonic pitch after voice change", exc_info=True)
+
+
+def _patchSynthVoiceProperty(synth: Any) -> None:
+	synthClass = synth.__class__
+	if synthClass in _voiceClassPatches:
+		return
+	originalValue = getattr(synthClass, "voice", _missingClassAttr)
+	if not isinstance(originalValue, property) or originalValue.fset is None:
+		return
+
+	def _getVoice(instance):
+		if originalValue.fget is None:
+			raise AttributeError("voice")
+		return originalValue.fget(instance)
+
+	def _setVoice(instance, value):
+		originalValue.fset(instance, value)
+		_refreshSonicPitchAfterVoiceChange(instance)
+
+	_voiceClassPatches[synthClass] = originalValue
+	setattr(
+		synthClass,
+		"voice",
+		property(
+			_getVoice,
+			_setVoice,
+			originalValue.fdel,
+			originalValue.__doc__,
+		),
+	)
+
+
+def _restoreSynthVoiceProperty(synthClass: type) -> None:
+	if synthClass not in _voiceClassPatches:
+		return
+	originalValue = _voiceClassPatches.pop(synthClass)
+	try:
+		setattr(synthClass, "voice", originalValue)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to restore synth voice class property", exc_info=True)
+
+
+def _restoreAllSynthVoiceProperties() -> None:
+	for synthClass in list(_voiceClassPatches):
+		_restoreSynthVoiceProperty(synthClass)
 
 
 def _restoreSonicPitchClassProperty(synthClass: type) -> None:
@@ -1271,13 +1439,16 @@ def _getReadableSonicPitchSettingValue(synth: Any) -> int | None:
 		return None
 
 
-def _logVoiceSettingOnce(synthName: str, value: int | None = None) -> None:
-	if synthName in _voiceSettingLogKeys and not _isDebugLoggingEnabled():
+def _logVoiceSettingOnce(synth: Any, value: int | None = None) -> None:
+	synthName = _getSynthName(synth)
+	key = _getSonicPitchStorageKey(synth) or synthName
+	if key in _voiceSettingLogKeys and not _isDebugLoggingEnabled():
 		return
-	_voiceSettingLogKeys.add(synthName)
+	_voiceSettingLogKeys.add(key)
 	log.info(
 		"globalSonicPitch: added Sonic pitch voice setting; "
 		f"synth={synthName or 'unknown'}"
+		+ (f"; key={key}" if key else "")
 		+ (f"; value={value}" if value is not None else ""),
 	)
 
@@ -1302,6 +1473,7 @@ def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 		return
 	try:
 		_patchSonicPitchClassProperty(synth)
+		_patchSynthVoiceProperty(synth)
 		supportedSettings = _withoutSonicPitchSettings(tuple(getattr(synth, "supportedSettings", ())))
 		if not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
 			setattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, supportedSettings)
@@ -1316,7 +1488,7 @@ def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 		_applyRuntimeSonicPitch(synth, settingValue)
 		_ensureSynthRingSettingsSelectorIncludesSonicPitch()
 		_updateSynthSettingsRing(synth)
-		_logVoiceSettingOnce(synthName, settingValue)
+		_logVoiceSettingOnce(synth, settingValue)
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed to add Sonic pitch voice setting", exc_info=True)
 
@@ -1341,6 +1513,7 @@ def _unpatchSynthSonicPitchSetting(synth: Any | None) -> None:
 			except Exception:
 				pass
 		_restoreSonicPitchClassProperty(synth.__class__)
+		_restoreSynthVoiceProperty(synth.__class__)
 		_updateSynthSettingsRing(synth)
 		log.info(f"globalSonicPitch: removed Sonic pitch voice setting; synth={_getSynthName(synth)}")
 	except Exception:
@@ -1354,6 +1527,7 @@ def _patchCurrentSynthPitch() -> None:
 	else:
 		_unpatchSynthSonicPitchSetting(synth)
 		_restoreAllSonicPitchClassProperties()
+		_restoreAllSynthVoiceProperties()
 
 
 def _safePatchCurrentSynthPitch() -> None:
@@ -1373,6 +1547,7 @@ def _schedulePatchCurrentSynthPitch() -> None:
 def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
 	result = originalSetSynth(*args, **kwargs)
 	_resetAllPlayerProcessors()
+	_runtimeSonicPitchByKey.clear()
 	if not _deferSynthPitchPatchDepth:
 		_safePatchCurrentSynthPitch()
 	return result
@@ -1487,7 +1662,9 @@ def uninstallSynthPitchHook() -> None:
 	if synthDriverHandler is None:
 		return
 	_unpatchSynthSonicPitchSetting(_getCurrentSynth())
+	_runtimeSonicPitchByKey.clear()
 	_restoreAllSonicPitchClassProperties()
+	_restoreAllSynthVoiceProperties()
 	if getattr(settingsDialogs, _SETTINGS_SET_SYNTH_PATCHED_ATTR, False):
 		originalSettingsSetSynth = getattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR, None)
 		if originalSettingsSetSynth is not None and settingsDialogs.setSynth is _patchedSettingsSetSynth:
@@ -1593,9 +1770,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	)
 	def script_reportGlobalSonicPitch(self, gesture):
 		enabled = bool(_getConfigValue("enabled", False))
-		synthName = _getSynthName()
+		synth = _getCurrentSynth()
+		synthName = _getSynthName(synth)
 		if enabled and _isGlobalAudioSupportedSynth(synthName):
-			pitch = _getSonicPitchForSynth(synthName)
+			pitch = _getSonicPitchForSynth(synth)
 			# Translators: Spoken status. {synth} is a synthesizer name, {pitch} is a number from 0 to 100.
 			message = _("Global Sonic pitch on, {synth} Sonic pitch {pitch}").format(
 				synth=synthName or _getCurrentSynthDisplayName(),

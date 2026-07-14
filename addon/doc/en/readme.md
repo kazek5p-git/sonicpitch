@@ -15,7 +15,7 @@ a small 32-bit host wrapper.
   supported.
 - NVDA's normal `Pitch` setting continues to control the synth's native pitch.
 - `Sonic pitch` is a separate Sonic control.
-- `Sonic pitch` is stored separately for each supported synthesizer.
+- `Sonic pitch` is stored separately for each supported synthesizer and voice.
 - Processes speech audio through Sonic.
 - Supports standard `sapi5_32` on 64-bit NVDA without adding a new synthesizer.
 - Includes an optional external support link.
@@ -35,7 +35,7 @@ a small 32-bit host wrapper.
 
 `Sonic pitch` `50` is neutral. Values below `50` lower speech through Sonic,
 and values above `50` raise speech through Sonic. Each supported synthesizer
-keeps its own `Sonic pitch` value.
+and selected voice keeps its own `Sonic pitch` value.
 
 ## Settings
 
@@ -44,7 +44,7 @@ keeps its own `Sonic pitch` value.
 - `Support the author` - opens the external BuyCoffee support page.
 
 NVDA's normal `Pitch` setting remains the synth's native pitch. `Sonic pitch`
-is a separate add-on setting stored per supported synthesizer.
+is a separate add-on setting stored per supported synthesizer and voice.
 
 The add-on panel is always available. The separate `Sonic pitch` slider is added
 to NVDA's Voice dialog and synth settings ring only while `Enable global Sonic
@@ -59,7 +59,8 @@ the current supported synthesizer.
 
 In Input Gestures, the `Global Sonic Pitch` category lets you assign gestures
 for toggling, reporting status, opening the support page, increasing,
-decreasing, and resetting Sonic pitch for the current supported synthesizer.
+decreasing, and resetting Sonic pitch for the current supported synthesizer and
+voice.
 
 ## Support
 
@@ -139,9 +140,9 @@ audio` appears in the log. For `sapi5_32`, check for `applied remote SAPI5
 32-bit Sonic pitch` in `%TEMP%\nvda.log` and `globalSonicPitch sapi5_32 host:
 set Sonic pitch` in `%TEMP%\nvda_synthDriverHost.*.log`.
 
-If switching synthesizers seems to reset `Sonic pitch`, that is expected until
-you change it for that synthesizer. Values are stored separately for each
-supported synthesizer.
+If switching synthesizers or voices seems to reset `Sonic pitch`, that is
+expected until you change it for that specific synth and voice. Values are
+stored separately for each supported synthesizer and selected voice.
 
 If you hear the synth's native pitch change, that is expected. NVDA's normal
 `Pitch` setting controls native pitch, while `Sonic pitch` controls only Sonic
@@ -184,6 +185,10 @@ speech does not stay silent until the synth is reloaded.
 
 Since version 0.4.17, the add-on author and store publisher metadata list both
 Kazimierz Parzych and DJ Graco. Audio behavior is unchanged from version 0.4.16.
+
+Since version 0.4.18, Sonic pitch values are stored separately for each
+supported synthesizer and selected voice. Under SAPI5, different voices inside
+the same SAPI5 synth can keep different Sonic pitch values.
 
 ## License
 
