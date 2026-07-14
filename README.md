@@ -468,6 +468,9 @@ python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\sapi32HostDri
   synth host.
 - `addon/doc/en/readme.md` - English add-on help.
 - `addon/doc/pl/readme.md` - Polish add-on help.
+- `addon/doc/sk/readme.md` - Slovak add-on help.
+- `addon/locale/nvda.pot` - gettext translation template for the add-on UI.
+- `addon/locale/pl/` and `addon/locale/sk/` - localized UI and manifest files.
 - `docs/technical-notes.md` - maintenance notes.
 - `TESTING.md` - test matrix.
 - `CHANGELOG.md` - release history.

@@ -490,6 +490,9 @@ python -m py_compile addon\globalPlugins\globalSonicPitch.py addon\sapi32HostDri
   SAPI5 w NVDA.
 - `addon/doc/en/readme.md` - angielska pomoc dodatku.
 - `addon/doc/pl/readme.md` - polska pomoc dodatku.
+- `addon/doc/sk/readme.md` - słowacka pomoc dodatku.
+- `addon/locale/nvda.pot` - szablon gettext do tłumaczenia interfejsu dodatku.
+- `addon/locale/pl/` i `addon/locale/sk/` - zlokalizowany interfejs i manifest.
 - `docs/technical-notes.md` - notatki techniczne dla utrzymania.
 - `TESTING.md` - macierz testów.
 - `CHANGELOG.md` - historia zmian.
