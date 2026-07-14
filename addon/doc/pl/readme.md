@@ -1,211 +1,159 @@
 # Global Sonic Pitch
 
-Global Sonic Pitch dodaje osobną regulację `Sonic pitch` i stosuje ją przez
-Sonic. Zwykła `Wysokość` NVDA pozostaje natywnym ustawieniem aktywnego
-syntezatora. Dodatek działa globalnie dla syntezatorów, których audio mowy
-przechodzi przez główny proces NVDA, a standardowy `sapi5_32` na 64-bitowym
-NVDA obsługuje przez mały wrapper 32-bitowego hosta.
+Global Sonic Pitch dodaje osobną regulację `Sonic pitch` dla obsługiwanych
+syntezatorów NVDA. Zmienia wysokość mowy przez przetwarzanie Sonic, a zwykłe
+ustawienie NVDA `Wysokość` pozostaje natywną wysokością syntezatora.
 
-## Co Robi Dodatek
+## Co Dodaje
 
-- Dodaje panel ustawień `Global Sonic Pitch`.
-- Nie dodaje nowych syntezatorów do okna wyboru syntezatora.
-- Dodaje ustawienie `Sonic pitch` do standardowych ustawień głosu i pierścienia
-  ustawień syntezatora, gdy globalny Sonic pitch jest włączony i aktywny
-  syntezator jest obsługiwany.
-- Zwykłe ustawienie `Wysokość` NVDA nadal steruje natywną wysokością
-  syntezatora.
-- `Sonic pitch` jest osobną regulacją Sonic.
-- `Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora i
-  wybranego głosu.
-- Przetwarza audio mowy przez Sonic.
-- Obsługuje standardowy `sapi5_32` na 64-bitowym NVDA bez dodawania nowego
-  syntezatora.
-- Zawiera opcjonalny zewnętrzny link wsparcia autora.
-- Może zapytać podczas instalacji, czy otworzyć stronę wsparcia.
+- Panel ustawień `Global Sonic Pitch`.
+- Osobne ustawienie głosu `Sonic pitch`, gdy globalne przetwarzanie jest
+  włączone.
+- Wartości Sonic pitch osobne dla syntezatora i głosu.
+- Przetwarzanie obsługiwanego audio mowy w głównej ścieżce audio NVDA.
+- Obsługę standardowego `sapi5_32` na 64-bitowym NVDA przez dołączony wrapper
+  hosta 32-bitowego.
+- Opcjonalne logowanie debugowania.
+- Opcjonalny link wsparcia autora.
+
+Dodatek nie dodaje zastępczego syntezatora do okna wyboru syntezatora i nie
+modyfikuje plików NVDA na dysku.
 
 ## Szybki Start
 
 1. Wybierz normalny syntezator NVDA, na przykład RHVoice, eSpeak, OneCore,
    SAPI5 64-bit albo standardowy `sapi5_32`.
 2. Otwórz ustawienia NVDA.
-3. Wybierz kategorię `Global Sonic Pitch`.
+3. Wybierz `Global Sonic Pitch`.
 4. Włącz `Enable global Sonic pitch`.
-5. Zmieniaj przetwarzanie Sonic ustawieniem głosu `Sonic pitch`, pierścieniem
-   ustawień syntezatora albo przypisanym gestem wejścia.
-6. Zmieniaj natywną wysokość normalnym ustawieniem `Wysokość`, jeśli chcesz
-   używać obu regulacji równocześnie.
+5. Otwórz ponownie ustawienia głosu albo użyj pierścienia ustawień syntezatora.
+6. Ustaw `Sonic pitch`.
 
-`Sonic pitch` `50` jest neutralny. Wartości poniżej `50` obniżają głos przez
-Sonic, a wartości powyżej `50` podwyższają głos przez Sonic. Każdy obsługiwany
-syntezator i wybrany głos ma własną wartość `Sonic pitch`.
+Wartość `50` jest neutralna. Niższe wartości obniżają mowę przez Sonic, a
+wyższe wartości ją podwyższają.
 
 ## Ustawienia
 
-- `Enable global Sonic pitch` - włącza globalne przetwarzanie Sonic pitch.
-- `Enable debug logging` - zapisuje szczegółowe wpisy do logu NVDA.
-- `Support the author` - otwiera zewnętrzną stronę wsparcia BuyCoffee.
+- `Enable global Sonic pitch` włącza albo wyłącza przetwarzanie Sonic pitch.
+- `Enable debug logging` zapisuje szczegółowe wpisy dodatku do logu NVDA.
+- `Support the author` otwiera zewnętrzną stronę wsparcia.
 
-Zwykła `Wysokość` w pierścieniu ustawień głosu NVDA pozostaje natywną
-wysokością syntezatora. `Sonic pitch` jest osobnym ustawieniem dodatku
-zapisywanym osobno dla obsługiwanego syntezatora i głosu.
+Panel dodatku steruje tylko globalnym przetwarzaniem i diagnostyką. Wartość
+`Sonic pitch` zmienia się w ustawieniach głosu, pierścieniu ustawień
+syntezatora albo przypisanymi gestami wejścia.
 
-Panel dodatku jest zawsze dostępny. Osobny suwak `Sonic pitch` jest dodawany do
-dialogu `Głos` i pierścienia ustawień syntezatora tylko wtedy, gdy `Enable
-global Sonic pitch` jest włączone. Gdy globalny Sonic pitch jest wyłączony,
-ustawienie znika z tych kontrolek głosu. Jeśli używasz dodatku `Synth ring
-settings selector`, `sonicPitch` jest dopisywane do jego listy ustawień.
+Gdy globalne przetwarzanie jest wyłączone, ustawienie `Sonic pitch` znika z
+ustawień głosu i pierścienia ustawień syntezatora.
 
-W globalnym panelu dodatku celowo nie ma suwaka `Sonic pitch`. Panel globalny
-włącza procesor audio, a wartość `Sonic pitch` zmienia się z poziomu ustawień
-głosu, pierścienia ustawień syntezatora albo przypisanych gestów dla bieżącego
-obsługiwanego syntezatora.
+## Natywna Wysokość I Sonic Pitch
 
-W `Zdarzeniach wejścia` w kategorii `Global Sonic Pitch` można przypisać gesty
-do włączania, odczytu stanu, otwierania strony wsparcia, zwiększania,
-zmniejszania i resetowania Sonic pitch bieżącego obsługiwanego syntezatora i
-głosu.
+Zwykłe ustawienie NVDA `Wysokość` pozostaje natywną wysokością syntezatora.
+`Sonic pitch` jest dodatkową wartością przetwarzania należącą do tego dodatku.
 
-## Wsparcie Autora
+Jeśli obie regulacje są poza `50`, słychać wynik łączony:
 
-Przycisk `Support the author` i komenda `Open support page` w `Zdarzeniach
-wejścia` otwierają:
+- natywną wysokość syntezatora z normalnego ustawienia `Wysokość`;
+- przetwarzanie Sonic z ustawienia `Sonic pitch`.
+
+## Wartości Per Głos
+
+`Sonic pitch` jest zapisywany osobno dla każdego obsługiwanego syntezatora i
+wybranego głosu. Na przykład dwa głosy w SAPI5 mogą mieć różne wartości Sonic
+pitch.
+
+Nowe głosy zaczynają od `50`, dopóki ich nie zmienisz. Powrót do głosu
+przywraca wartość zapisaną dla tego głosu.
+
+## Gesty Wejścia
+
+Kategoria `Global Sonic Pitch` w zdarzeniach wejścia zawiera komendy do:
+
+- włączania i wyłączania globalnego Sonic pitch;
+- odczytu bieżącego stanu;
+- otwierania strony wsparcia;
+- zwiększania Sonic pitch dla bieżącego syntezatora i głosu;
+- zmniejszania Sonic pitch dla bieżącego syntezatora i głosu;
+- resetowania Sonic pitch dla bieżącego syntezatora i głosu.
+
+Gesty nie są przypisane domyślnie.
+
+## Zgodność
+
+Oczekiwane obsługiwane ścieżki:
+
+- RHVoice, jeśli audio mowy trafia do głównego `WavePlayer` NVDA.
+- eSpeak NG w głównym procesie NVDA.
+- OneCore w głównym procesie NVDA.
+- SAPI5 64-bit, jeśli używa normalnej ścieżki audio NVDA.
+- Standardowy `sapi5_32` na 64-bitowym NVDA przez dołączony wrapper hosta
+  32-bitowego.
+- Inne syntezatory, które wysyłają zgodne audio mowy przez NVDA.
+
+Zewnętrzne głosy eSpeak-NG SAPI trzeba najpierw skonfigurować w ich własnym
+narzędziu konfiguracyjnym. Dodatek nie patchuje enumeracji głosów SAPI, nie
+zapisuje tokenów głosów w rejestrze i nie zmienia listy głosów SAPI.
+
+## Standardowy SAPI5 32-bit Na 64-bitowym NVDA
+
+Standardowy `sapi5_32` na 64-bitowym NVDA działa w osobnym 32-bitowym hoście
+syntezatorów. Global Sonic Pitch ładuje w tym hoście dołączony wrapper, aby
+standardowy syntezator NVDA `sapi5_32` otrzymał bieżącą wartość `Sonic pitch`.
+
+To zachowuje normalną pozycję syntezatora NVDA `sapi5_32`. Dodatek nie dodaje
+nowego syntezatora i nie podmienia plików NVDA.
+
+## Link Wsparcia
+
+Przycisk `Support the author` i komenda `Open support page` otwierają:
 
 ```text
 https://buycoffee.to/kazimierz-parzych
 ```
 
-To dobrowolne zewnętrzne wsparcie. Dodatek nie obsługuje płatności, nie zapisuje
-danych płatniczych i nie odblokowuje funkcji po wsparciu.
+Wsparcie jest dobrowolne. Dodatek nie obsługuje płatności, nie zapisuje danych
+płatniczych i nie odblokowuje funkcji po wsparciu.
 
-Podczas instalacji albo aktualizacji Sonic Pitch może pokazać mały opcjonalny
+Podczas instalacji albo aktualizacji dodatek może pokazać mały opcjonalny
 komunikat wsparcia. `Yes` otwiera tę samą stronę w domyślnej przeglądarce.
-`No` kontynuuje instalację i nie zmienia działania dodatku.
-
-## Zgodność
-
-Dodatek powinien działać z RHVoice, eSpeak, OneCore, SAPI5 64-bit,
-standardowym `sapi5_32` na 64-bitowym NVDA, eSpeak-NG SAPI przez SAPI5 i
-podobnymi syntezatorami, jeśli ich 16-bitowe PCM mowy trafia do głównego
-`WavePlayer` NVDA albo do 32-bitowego hosta SAPI5 NVDA.
-
-Zewnętrzne głosy eSpeak-NG SAPI trzeba najpierw skonfigurować w konfiguratorze
-eSpeak-NG SAPI. Aktualne wersje dodatku nie patchują enumeracji głosów SAPI,
-nie modyfikują plików NVDA i nie zapisują tokenów głosów w rejestrze.
-
-Standardowy `sapi5_32` na 64-bitowym NVDA działa w osobnym 32-bitowym hoście
-syntezatorów. Aktualne wersje ładują w tym hoście dołączony wrapper, dzięki
-czemu standardowy syntezator NVDA `sapi5_32` dostaje tę samą wartość `Sonic
-pitch`. Nie modyfikuje to plików NVDA, nie zmienia listy głosów SAPI i nie
-dodaje osobnego syntezatora.
-
-## Migracja Ze Starej Wersji
-
-Stary dodatek `sapi5SonicPitch` dodawał osobne syntezatory SAPI5 Sonic Pitch.
-Aktualny dodatek `globalSonicPitch` nie dodaje syntezatorów. Jeśli nadal widzisz
-`SAPI5 32-bit Sonic Pitch` albo `SAPI5 64-bit Sonic Pitch` w wyborze
-syntezatora, usuń stary dodatek `sapi5SonicPitch` i zrestartuj NVDA.
-
-## Sprawdzanie Działania
-
-Włącz `Enable debug logging`, zrestartuj NVDA i sprawdź `%TEMP%\nvda.log`.
-
-Przydatne wpisy:
-
-- `globalSonicPitch: installed WavePlayer speech feed hook`
-- `globalSonicPitch: installed synth Sonic pitch setting hook`
-- `globalSonicPitch: added Sonic pitch voice setting`
-- `globalSonicPitch: captured Sonic pitch setting`
-- `globalSonicPitch: loaded bundled Sonic library`
-- `globalSonicPitch: processed speech audio`
-
-Dla standardowego `sapi5_32` oczekiwany jest wpis:
-
-```text
-Loaded synthDriver sapi5_32
-globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch
-```
-
-W logu hosta `%TEMP%\nvda_synthDriverHost.*.log` powinien też pojawić się wpis:
-
-```text
-globalSonicPitch sapi5_32 host: set Sonic pitch
-```
+`No` kontynuuje instalację bez zmiany działania dodatku.
 
 ## Rozwiązywanie Problemów
 
 Jeśli `Sonic pitch` nie ma w ustawieniach głosu, włącz `Enable global Sonic
-pitch` w panelu `Global Sonic Pitch`, a potem otwórz ustawienia głosu ponownie
-albo przełącz syntezator.
+pitch`, a potem otwórz ustawienia głosu ponownie albo przełącz syntezator.
 
-Jeśli `Sonic pitch` się nie zmienia, upewnij się, że globalny tryb jest
-włączony, a wartość `Sonic pitch` nie wynosi `50`. Dla syntezatorów z głównego
-procesu sprawdź, czy w logu pojawia się `processed speech audio`. Dla
-`sapi5_32` sprawdź `applied remote SAPI5 32-bit Sonic pitch` w `%TEMP%\nvda.log`
-i `globalSonicPitch sapi5_32 host: set Sonic pitch` w
-`%TEMP%\nvda_synthDriverHost.*.log`.
+Jeśli zmiana `Sonic pitch` nie daje słyszalnego efektu, upewnij się, że globalne
+przetwarzanie jest włączone, a wartość nie wynosi `50`.
 
-Jeśli po przełączeniu syntezatora albo głosu `Sonic pitch` wraca do `50`, jest
-to oczekiwane, dopóki nie ustawisz wartości dla tej konkretnej pary syntezatora
-i głosu. Wartości są zapisywane osobno dla każdego obsługiwanego syntezatora i
-wybranego głosu.
+Jeśli po przełączeniu syntezatora albo głosu `Sonic pitch` wygląda jak
+zresetowany, ustaw wartość dla tego syntezatora i głosu. Wartości są zapisywane
+niezależnie.
 
-Jeśli słychać natywną zmianę wysokości syntezatora, to jest oczekiwane.
-`Wysokość` NVDA steruje natywną wysokością, a `Sonic pitch` steruje tylko
-przetwarzaniem Sonic.
+Jeśli standardowy `sapi5_32` na 64-bitowym NVDA nie pokazuje `Sonic pitch`,
+zrestartuj NVDA albo przełącz się z `sapi5_32` na inny syntezator i wróć.
 
-Jeśli słychać drobne przerwy, sprawdź obciążenie CPU, mniej skrajne wartości
-`Sonic pitch` i porównaj kilka syntezatorów. Od wersji 0.3.1 dodatek używa
-ponownie ciągłego strumienia Sonic, dopóki format audio i wybrany pitch pozostają
-takie same. Aktualne wersje nie przestrajają już użytego strumienia Sonic w
-locie; zmiany podczas aktywnej mowy są stosowane od następnej bezpiecznej
-granicy wypowiedzi z użyciem świeżego strumienia. To omija zawieszenia widziane
-z niektórymi głosami SAPI5 przy szybkim obniżaniu wysokości. Od wersji 0.4.5
-dodatek zmniejsza też blokowanie między wątkami podczas przetwarzania szybkich
-głosów SAPI5, takich jak eSpeak-NG SAPI przy prędkości 100.
+Jeśli brakuje zewnętrznego głosu SAPI, skonfiguruj go najpierw w narzędziu tego
+pakietu głosowego, a potem zrestartuj NVDA.
 
-Od wersji 0.4.10 dodatek używa dołączonych natywnych bibliotek Sonic 32-bit i
-64-bit. W 32-bitowych procesach NVDA strumienie Sonic są utrzymywane przy życiu
-zamiast przekazywania ich do natywnego `sonicDestroyStream`, co omija
-odtworzony natywny crash sterty na NVDA 2025.3.3 x86 z SAPI5.
+## Logi
 
-Od wersji 0.4.11 krótkie komunikaty po powtarzanych zmianach PageUp/PageDown
-pewniej używają najnowszej wartości `Sonic pitch`.
+Przydatne pliki logów:
 
-Od wersji 0.4.12 dokumentacja repozytorium zawiera pliki licencji, notatki o
-zewnętrznych bibliotekach Sonic i notatki do zgłoszenia w NVDA Add-on Store.
+- Aktualny log NVDA: `%TEMP%\nvda.log`
+- Poprzedni log NVDA: `%TEMP%\nvda-old.log`
+- Logi hosta 32-bitowego: `%TEMP%\nvda_synthDriverHost.*.log`
 
-Od wersji 0.4.13 standardowy `sapi5_32` na 64-bitowym NVDA jest sterowany przez
-dołączony wrapper 32-bitowego hosta. Ta sama wersja poprawia zachowanie dialogu
-`Głos`: OK albo Zastosuj zapisuje podglądaną wartość `Sonic pitch`, a Escape
-albo Anuluj przywraca poprzednią wartość.
+Przydatne frazy:
 
-Od wersji 0.4.14 szybkie zmiany `Sonic pitch` dla standardowego `sapi5_32` na
-64-bitowym NVDA są stosowane na bezpiecznych granicach mowy w hoście 32-bitowym.
-Host serializuje też operacje strumienia Sonic, co zapobiega wyciszaniu zdalnej
-ścieżki SAPI przy szybkim ruszaniu suwakiem.
-
-Od wersji 0.4.15 host `sapi5_32` lepiej odwzorowuje stresowe zachowanie dialogu
-`Głos` w NVDA. Blokuje cały callback audio SAPI, wymienia strumień Sonic przy
-zmianie pitch i odzyskuje działanie po uszkodzonych blokach Sonic, aby mowa nie
-pozostawała wyciszona do czasu przeładowania syntezatora.
-
-Od wersji 0.4.17 metadane autorów dodatku i wydawcy w sklepie zawierają
-Kazimierza Parzycha i DJ Graco. Działanie audio nie zmienia się względem wersji
-0.4.16.
-
-Od wersji 0.4.18 wartości Sonic pitch są zapisywane osobno dla obsługiwanego
-syntezatora i wybranego głosu. W SAPI5 różne głosy w tym samym syntezatorze
-SAPI5 mogą mieć różne wartości Sonic pitch.
+- `globalSonicPitch`
+- `added Sonic pitch voice setting`
+- `captured Sonic pitch setting`
+- `processed speech audio`
+- `applied remote SAPI5 32-bit Sonic pitch`
+- `globalSonicPitch sapi5_32 host: set Sonic pitch`
 
 ## Licencja
 
 Kod źródłowy Global Sonic Pitch jest licencjonowany na GNU GPL w wersji 2 lub
 nowszej. Dołączone natywne biblioteki Sonic są zewnętrznymi komponentami na
 licencji Apache 2.0.
-
-## Logi
-
-- Aktualny log: `%TEMP%\nvda.log`
-- Poprzedni log: `%TEMP%\nvda-old.log`
-- Host 32-bit: `%TEMP%\nvda_synthDriverHost.*.log`

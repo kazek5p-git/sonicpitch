@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 0.4.18.
+Status: mostly ready after version 0.4.19.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version uses `major.minor.patch`: `0.4.18`.
+- Package version uses `major.minor.patch`: `0.4.19`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -19,7 +19,6 @@ Completed:
 - Bundled Sonic native binaries include Apache 2.0 license metadata.
 - The add-on does not patch NVDA files on disk.
 - The add-on does not write SAPI voice tokens to the registry.
-- Old SAPI voice-enumeration experiments were removed.
 - Standard `sapi5_32` on 64-bit NVDA is supported through a bundled host
   wrapper that is loaded at runtime and does not replace NVDA files.
 - Rapid `sapi5_32` Sonic pitch changes on 64-bit NVDA are deferred to safe
@@ -51,18 +50,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "ACBABCFEEFF4AF510083ECFAC014F4A5AEC46770DC8783024A3BE8DC38420754",
-  "addonVersionName": "0.4.18",
+  "sha256": "54710A32C840394B4D6B220F7E7EF3CB9238D6E8D83C7A183C8E663CF6328E5F",
+  "addonVersionName": "0.4.19",
   "channel": "stable",
   "publisher": "Kazimierz Parzych, DJ Graco",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.18/globalSonicPitch-0.4.18.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v0.4.19/globalSonicPitch-0.4.19.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.18"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v0.4.19"
 }
 ```
 

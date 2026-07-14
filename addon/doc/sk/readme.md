@@ -1,174 +1,157 @@
 # Global Sonic Pitch
 
-Global Sonic Pitch pridáva samostatné nastavenie `Sonic pitch` a používa ho
-cez spracovanie zvuku Sonic. Bežné nastavenie NVDA `Výška` zostáva natívnym
-nastavením výšky aktívneho syntetizéra. Doplnok pracuje globálne so
-syntetizérmi, ktorých zvuk reči prechádza hlavným procesom NVDA, a podporuje
-štandardný `sapi5_32` v 64-bitovom NVDA cez malý wrapper 32-bitového hosta.
+Global Sonic Pitch pridáva samostatné nastavenie `Sonic pitch` pre podporované
+syntetizéry NVDA. Mení výšku reči cez spracovanie Sonic a bežné nastavenie
+NVDA `Výška` ponecháva ako natívnu výšku syntetizéra.
 
-## Čo Doplnok Robí
+## Čo Pridáva
 
-- Pridáva panel nastavení `Global Sonic Pitch`.
-- Nepridáva nové syntetizéry do dialógu výberu syntetizéra.
-- Pridáva nastavenie `Sonic pitch` do štandardných nastavení hlasu a kruhu
-  nastavení syntetizéra, keď je globálny Sonic pitch zapnutý a aktívny
-  syntetizér je podporovaný.
-- Bežné nastavenie NVDA `Výška` naďalej ovláda natívnu výšku syntetizéra.
-- `Sonic pitch` je samostatné nastavenie Sonic.
-- `Sonic pitch` sa ukladá osobitne pre každý podporovaný syntetizér a vybraný
-  hlas.
-- Spracúva zvuk reči cez Sonic.
-- Podporuje štandardný `sapi5_32` v 64-bitovom NVDA bez pridania nového
-  syntetizéra.
-- Obsahuje voliteľný externý odkaz na podporu autora.
-- Počas inštalácie sa môže opýtať, či chcete otvoriť stránku podpory.
+- Panel nastavení `Global Sonic Pitch`.
+- Samostatné nastavenie hlasu `Sonic pitch`, keď je globálne spracovanie
+  zapnuté.
+- Hodnoty Sonic pitch osobitne pre syntetizér a hlas.
+- Spracovanie podporovaného zvuku reči v hlavnej zvukovej ceste NVDA.
+- Podporu štandardného `sapi5_32` v 64-bitovom NVDA cez pribalený wrapper
+  32-bitového hosta.
+- Voliteľné ladiace logovanie.
+- Voliteľný odkaz na podporu autora.
+
+Doplnok nepridáva náhradný syntetizér do dialógu výberu syntetizéra a nemení
+súbory NVDA na disku.
 
 ## Rýchly Štart
 
 1. Vyberte bežný syntetizér NVDA, napríklad RHVoice, eSpeak, OneCore,
    64-bitový SAPI5 alebo štandardný `sapi5_32`.
 2. Otvorte nastavenia NVDA.
-3. Vyberte kategóriu `Global Sonic Pitch`.
+3. Vyberte `Global Sonic Pitch`.
 4. Zapnite `Enable global Sonic pitch`.
-5. Meníte spracovanie Sonic pomocou nastavenia hlasu `Sonic pitch`, kruhu
-   nastavení syntetizéra alebo priradeného vstupného gesta.
-6. Natívnu výšku hlasu meníte bežným nastavením NVDA `Výška`, ak chcete používať
-   obe nastavenia naraz.
+5. Znovu otvorte nastavenia hlasu alebo použite kruh nastavení syntetizéra.
+6. Nastavte `Sonic pitch`.
 
-Hodnota `Sonic pitch` `50` je neutrálna. Hodnoty pod `50` znižujú reč cez
-Sonic a hodnoty nad `50` ju zvyšujú. Každý podporovaný syntetizér a vybraný
-hlas má vlastnú hodnotu `Sonic pitch`.
+Hodnota `50` je neutrálna. Nižšie hodnoty znižujú reč cez Sonic a vyššie
+hodnoty ju zvyšujú.
 
 ## Nastavenia
 
-- `Enable global Sonic pitch` - zapína globálne spracovanie Sonic pitch.
-- `Enable debug logging` - zapisuje podrobné položky do logu NVDA.
-- `Support the author` - otvorí externú stránku podpory BuyCoffee.
+- `Enable global Sonic pitch` zapína alebo vypína spracovanie Sonic pitch.
+- `Enable debug logging` zapisuje podrobné položky doplnku do logu NVDA.
+- `Support the author` otvorí externú stránku podpory.
+
+Panel doplnku ovláda iba globálne spracovanie a diagnostiku. Hodnota `Sonic
+pitch` sa mení v nastaveniach hlasu, v kruhu nastavení syntetizéra alebo
+priradenými vstupnými gestami.
+
+Keď je globálne spracovanie vypnuté, nastavenie `Sonic pitch` sa odstráni z
+nastavení hlasu a kruhu nastavení syntetizéra.
+
+## Natívna Výška A Sonic Pitch
 
 Bežné nastavenie NVDA `Výška` zostáva natívnou výškou syntetizéra. `Sonic
-pitch` je samostatné nastavenie doplnku uložené pre podporovaný syntetizér a
-hlas.
+pitch` je dodatočná hodnota spracovania patriaca tomuto doplnku.
 
-Panel doplnku je dostupný vždy. Samostatný posuvník `Sonic pitch` sa pridáva do
-dialógu hlasu a kruhu nastavení syntetizéra iba vtedy, keď je zapnuté `Enable
-global Sonic pitch`. Keď je globálny Sonic pitch vypnutý, nastavenie sa z týchto
-ovládacích prvkov odstráni. Ak používate doplnok `Synth ring settings
-selector`, `sonicPitch` sa pridá do jeho zoznamu nastavení.
+Ak sú obe nastavenia mimo `50`, počujete kombinovaný výsledok:
 
-V globálnom paneli doplnku úmyselne nie je posuvník `Sonic pitch`. Globálny
-panel zapína zvukový procesor; hodnota `Sonic pitch` sa mení v nastaveniach
-hlasu, v kruhu nastavení syntetizéra alebo priradenými gestami pre aktuálny
-podporovaný syntetizér a hlas.
+- natívnu výšku syntetizéra z bežného nastavenia `Výška`;
+- spracovanie Sonic z nastavenia `Sonic pitch`.
 
-V časti Vstupné gestá kategória `Global Sonic Pitch` umožňuje priradiť gestá na
-zapnutie, oznámenie stavu, otvorenie stránky podpory, zvýšenie, zníženie a
-obnovenie Sonic pitch pre aktuálny podporovaný syntetizér a hlas.
+## Hodnoty Pre Jednotlivé Hlasy
 
-## Podpora Autora
+`Sonic pitch` sa ukladá osobitne pre každý podporovaný syntetizér a vybraný
+hlas. Napríklad dva hlasy v SAPI5 môžu mať rozdielne hodnoty Sonic pitch.
 
-Tlačidlo `Support the author` a príkaz `Open support page` vo vstupných gestách
-otvárajú:
+Nové hlasy začínajú na `50`, kým ich nezmeníte. Návrat k hlasu obnoví hodnotu
+uloženú pre tento hlas.
+
+## Vstupné Gestá
+
+Kategória `Global Sonic Pitch` vo vstupných gestách obsahuje príkazy na:
+
+- zapnutie a vypnutie globálneho Sonic pitch;
+- oznámenie aktuálneho stavu;
+- otvorenie stránky podpory;
+- zvýšenie Sonic pitch pre aktuálny syntetizér a hlas;
+- zníženie Sonic pitch pre aktuálny syntetizér a hlas;
+- obnovenie Sonic pitch pre aktuálny syntetizér a hlas.
+
+Gestá nie sú predvolene priradené.
+
+## Kompatibilita
+
+Očakávané podporované cesty:
+
+- RHVoice, ak zvuk reči prechádza do hlavného `WavePlayer` NVDA.
+- eSpeak NG v hlavnom procese NVDA.
+- OneCore v hlavnom procese NVDA.
+- 64-bitový SAPI5, ak používa bežnú zvukovú cestu NVDA.
+- Štandardný `sapi5_32` v 64-bitovom NVDA cez pribalený wrapper 32-bitového
+  hosta.
+- Iné syntetizéry, ktoré posielajú kompatibilný zvuk reči cez NVDA.
+
+Hlasy tretej strany eSpeak-NG SAPI treba najprv nakonfigurovať v ich vlastnom
+konfiguračnom nástroji. Doplnok neopravuje enumeráciu hlasov SAPI, nezapisuje
+tokeny hlasov do registra a nemení zoznam hlasov SAPI.
+
+## Štandardný SAPI5 32-bit V 64-bitovom NVDA
+
+Štandardný `sapi5_32` v 64-bitovom NVDA beží v samostatnom 32-bitovom hoste
+syntetizérov. Global Sonic Pitch načíta v tomto hoste pribalený wrapper, aby
+štandardný syntetizér NVDA `sapi5_32` dostal aktuálnu hodnotu `Sonic pitch`.
+
+Tým sa zachováva bežná položka syntetizéra NVDA `sapi5_32`. Doplnok nepridáva
+nový syntetizér a nenahrádza súbory NVDA.
+
+## Odkaz Na Podporu
+
+Tlačidlo `Support the author` a príkaz `Open support page` otvárajú:
 
 ```text
 https://buycoffee.to/kazimierz-parzych
 ```
 
-Ide o dobrovoľnú externú podporu. Doplnok nespracúva platby, neukladá platobné
-údaje a neodomyká funkcie na základe podpory.
+Podpora je dobrovoľná. Doplnok nespracúva platby, neukladá platobné údaje a
+neodomyká funkcie na základe podpory.
 
-Počas inštalácie alebo aktualizácie môže Sonic Pitch zobraziť malú voliteľnú
-správu podpory. `Áno` otvorí rovnakú stránku v predvolenom prehliadači. `Nie`
-pokračuje v inštalácii bez zmeny správania doplnku.
-
-## Kompatibilita
-
-Doplnok by mal fungovať s RHVoice, eSpeak, OneCore, 64-bitovým SAPI5,
-štandardným `sapi5_32` v 64-bitovom NVDA, eSpeak-NG SAPI cez SAPI5 a podobnými
-syntetizérmi, keď ich 16-bitový PCM zvuk reči prechádza hlavným `WavePlayer`
-NVDA alebo 32-bitovým hostom SAPI5 NVDA.
-
-Hlasy tretej strany eSpeak-NG SAPI je najprv potrebné nakonfigurovať v
-konfiguračnom nástroji eSpeak-NG SAPI. Aktuálne verzie doplnku neopravujú
-enumeráciu hlasov SAPI, nemenia súbory NVDA a nezapisujú tokeny hlasov do
-registra.
-
-Štandardný `sapi5_32` v 64-bitovom NVDA beží v samostatnom 32-bitovom hoste
-syntetizérov. Aktuálne verzie načítajú do tohto hosta pribalený wrapper, takže
-štandardný syntetizér NVDA `sapi5_32` dostane rovnakú hodnotu `Sonic pitch`.
-Tým sa nemenia súbory NVDA, zoznam hlasov SAPI ani sa nepridáva samostatný
-syntetizér.
-
-## Migrácia Zo Starého Doplnku
-
-Starý doplnok `sapi5SonicPitch` pridával samostatné syntetizéry SAPI5 Sonic
-Pitch. Aktuálny doplnok `globalSonicPitch` syntetizéry nepridáva. Ak sa v
-dialógu syntetizéra stále zobrazuje `SAPI5 32-bit Sonic Pitch` alebo `SAPI5
-64-bit Sonic Pitch`, odstráňte starý doplnok `sapi5SonicPitch` a reštartujte
-NVDA.
-
-## Overenie Správania
-
-Zapnite `Enable debug logging`, reštartujte NVDA a skontrolujte `%TEMP%\nvda.log`.
-
-Užitočné položky:
-
-- `globalSonicPitch: installed WavePlayer speech feed hook`
-- `globalSonicPitch: installed synth Sonic pitch setting hook`
-- `globalSonicPitch: added Sonic pitch voice setting`
-- `globalSonicPitch: captured Sonic pitch setting`
-- `globalSonicPitch: loaded bundled Sonic library`
-- `globalSonicPitch: processed speech audio`
-
-Pre štandardný `sapi5_32` je očakávaná položka:
-
-```text
-Loaded synthDriver sapi5_32
-globalSonicPitch: applied remote SAPI5 32-bit Sonic pitch
-```
-
-Log hosta `%TEMP%\nvda_synthDriverHost.*.log` by mal obsahovať aj:
-
-```text
-globalSonicPitch sapi5_32 host: set Sonic pitch
-```
+Počas inštalácie alebo aktualizácie môže doplnok zobraziť malú voliteľnú správu
+podpory. `Yes` otvorí rovnakú stránku v predvolenom prehliadači. `No` pokračuje
+v inštalácii bez zmeny správania doplnku.
 
 ## Riešenie Problémov
 
 Ak `Sonic pitch` nie je v nastaveniach hlasu, zapnite `Enable global Sonic
-pitch` v paneli `Global Sonic Pitch`, potom znovu otvorte nastavenia hlasu
-alebo prepnite syntetizér.
+pitch`, potom znovu otvorte nastavenia hlasu alebo prepnite syntetizér.
 
-Ak sa `Sonic pitch` nemení, skontrolujte, či je globálny režim zapnutý a hodnota
-`Sonic pitch` nie je `50`. Pri syntetizéroch v hlavnom procese skontrolujte, či
-sa v logu zobrazuje `processed speech audio`. Pri `sapi5_32` hľadajte `applied
-remote SAPI5 32-bit Sonic pitch` v `%TEMP%\nvda.log` a `globalSonicPitch
-sapi5_32 host: set Sonic pitch` v `%TEMP%\nvda_synthDriverHost.*.log`.
+Ak zmena `Sonic pitch` nemá počuteľný efekt, skontrolujte, či je globálne
+spracovanie zapnuté a hodnota nie je `50`.
 
-Ak sa pri prepnutí syntetizéra alebo hlasu zdá, že sa `Sonic pitch` vracia na
-`50`, je to očakávané, kým nenastavíte hodnotu pre konkrétny syntetizér a hlas.
-Hodnoty sa ukladajú osobitne pre každý podporovaný syntetizér a vybraný hlas.
+Ak sa po prepnutí syntetizéra alebo hlasu zdá, že `Sonic pitch` je resetovaný,
+nastavte hodnotu pre tento syntetizér a hlas. Hodnoty sa ukladajú nezávisle.
 
-Ak počujete zmenu natívnej výšky syntetizéra, je to očakávané. Nastavenie NVDA
-`Výška` ovláda natívnu výšku, zatiaľ čo `Sonic pitch` ovláda iba spracovanie
-Sonic.
+Ak štandardný `sapi5_32` v 64-bitovom NVDA nezobrazuje `Sonic pitch`,
+reštartujte NVDA alebo prepnite zo `sapi5_32` na iný syntetizér a späť.
 
-Ak zostávajú malé medzery vo zvuku, skontrolujte záťaž CPU, menej extrémne
-hodnoty `Sonic pitch` a viac ako jeden syntetizér. Aktuálne verzie nemenia už
-použitý stream Sonic priamo; zmeny počas aktívnej reči sa použijú na najbližšej
-bezpečnej hranici výpovede s novým streamom.
+Ak chýba externý hlas SAPI, najprv ho nakonfigurujte v nástroji príslušného
+hlasového balíka a potom reštartujte NVDA.
 
-Od verzie 0.4.18 sa hodnoty Sonic pitch ukladajú osobitne pre podporovaný
-syntetizér a vybraný hlas. V SAPI5 môžu rôzne hlasy v tom istom syntetizéri
-SAPI5 používať rôzne hodnoty Sonic pitch.
+## Logy
+
+Užitočné logy:
+
+- Aktuálny log NVDA: `%TEMP%\nvda.log`
+- Predchádzajúci log NVDA: `%TEMP%\nvda-old.log`
+- Logy 32-bitového hosta: `%TEMP%\nvda_synthDriverHost.*.log`
+
+Užitočné frázy:
+
+- `globalSonicPitch`
+- `added Sonic pitch voice setting`
+- `captured Sonic pitch setting`
+- `processed speech audio`
+- `applied remote SAPI5 32-bit Sonic pitch`
+- `globalSonicPitch sapi5_32 host: set Sonic pitch`
 
 ## Licencia
 
 Zdrojový kód Global Sonic Pitch je licencovaný pod GNU GPL verzie 2 alebo
-novšej. Pribalené natívne binárne súbory Sonic sú externé komponenty pod
-licenciou Apache 2.0.
-
-## Logy
-
-- Aktuálny log: `%TEMP%\nvda.log`
-- Predchádzajúci log: `%TEMP%\nvda-old.log`
-- 32-bitový host: `%TEMP%\nvda_synthDriverHost.*.log`
+novšej. Pribalené natívne knižnice Sonic sú externé komponenty pod licenciou
+Apache 2.0.
