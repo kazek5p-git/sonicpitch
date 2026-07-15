@@ -42,9 +42,6 @@ wysokością syntezatora.
 
 ## Zmiany
 
-- 1.0: Pierwsze stabilne wydanie. Naprawiono odświeżanie ustawień głosu po
-  przełączeniu na SAPI4 w NVDA 2025.3.3 oraz poprawiono bardzo krótkie
-  wypowiedzi przetwarzane przez Sonic, np. pojedyncze samogłoski w Syntalku.
 - 0.4.20: Dodano opcjonalny zakres 20 półtonów i obsługę standardowego
   `sapi4_32` przez host 32-bitowy w 64-bitowym NVDA.
 - 0.4.19: Uporządkowana dokumentacja publiczna pod recenzję w NVDA Add-on
@@ -77,7 +74,7 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 4. Zrestartuj NVDA po komunikacie.
 
 Najnowszy pakiet:
-[globalSonicPitch-1.0.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-0.4.20.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencja
 
