@@ -38,6 +38,9 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 
 ## Changes
 
+- 1.0: First stable release. Fixed SAPI4 Voice settings refresh on NVDA
+  2025.3.3 and improved very short Sonic-processed utterances such as single
+  vowels in Syntalk.
 - 0.4.20: Added optional 20-semitone range and standard `sapi4_32` host
   support on 64-bit NVDA.
 - 0.4.19: Cleaned and reorganized public documentation for NVDA Add-on Store
@@ -68,7 +71,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 4. Restart NVDA when prompted.
 
 Latest packaged add-on:
-[globalSonicPitch-0.4.20.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.0.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## License
 

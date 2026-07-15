@@ -106,6 +106,7 @@ _deferSynthPitchPatchDepth = 0
 _noDestroySonicStreamLogged = False
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
 _playerUtterancePitches: dict[int, int] = {}
+_playerFlushTimers: dict[int, Any] = {}
 _playerProcessorsLock = threading.RLock()
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
 _sapi32HostReloading = False
@@ -577,8 +578,12 @@ def _ensureVoiceDialogSession(panel: Any) -> None:
 	def _onDestroy(evt):
 		try:
 			if evt.GetEventObject() is panel:
-				_restoreVoiceDialogSession(panelId)
-				_voiceDialogSessions.pop(panelId, None)
+				try:
+					_restoreVoiceDialogSession(panelId)
+				except Exception:
+					log.debugWarning("globalSonicPitch: failed to restore Voice settings on destroy", exc_info=True)
+				finally:
+					_voiceDialogSessions.pop(panelId, None)
 		finally:
 			evt.Skip()
 
@@ -878,6 +883,29 @@ def _ctypesArrayToBytes(value: Any) -> bytes:
 		return bytes(value)
 
 
+def _safeCallOnDone(callback: Callable[..., Any] | None) -> None:
+	if not callable(callback):
+		return
+	try:
+		callback()
+	except Exception:
+		log.debugWarning("globalSonicPitch: WavePlayer onDone callback failed", exc_info=True)
+
+
+def _combineOnDoneCallbacks(callbacks: list[Callable[..., Any]]) -> Callable[[], None] | None:
+	callbacks = [callback for callback in callbacks if callable(callback)]
+	if not callbacks:
+		return None
+	if len(callbacks) == 1:
+		return callbacks[0]
+
+	def _runCallbacks():
+		for callback in callbacks:
+			_safeCallOnDone(callback)
+
+	return _runCallbacks
+
+
 def _is32BitProcess() -> bool:
 	return ctypes.sizeof(ctypes.c_void_p) == 4
 
@@ -952,6 +980,7 @@ class _SonicStreamProcessor:
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
 		self.isFirstAudioChunk = True
 		self.isActive = False
+		self._pendingOnDoneCallbacks: list[Callable[..., Any]] = []
 		self._lock = threading.RLock()
 
 	def formatMatches(self, channels: int, sampleRate: int) -> bool:
@@ -970,6 +999,25 @@ class _SonicStreamProcessor:
 		if self.stream.samplesAvailable <= 0:
 			return b""
 		return _ctypesArrayToBytes(self.stream.readShort())
+
+	def deferOnDone(self, callback: Callable[..., Any] | None) -> None:
+		if not callable(callback):
+			return
+		with self._lock:
+			self._pendingOnDoneCallbacks.append(callback)
+
+	def takeOnDone(self, callback: Callable[..., Any] | None = None) -> Callable[[], None] | None:
+		with self._lock:
+			callbacks = self._pendingOnDoneCallbacks
+			self._pendingOnDoneCallbacks = []
+		if callable(callback):
+			callbacks.append(callback)
+		return _combineOnDoneCallbacks(callbacks)
+
+	def completePendingOnDone(self) -> None:
+		callback = self.takeOnDone()
+		if callback is not None:
+			_safeCallOnDone(callback)
 
 	def process(self, raw: bytes, flush: bool = False) -> bytes:
 		with self._lock:
@@ -1012,26 +1060,76 @@ def _finishProcessorSafely(processor: "_SonicStreamProcessor" | None) -> bytes:
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed to finish retired Sonic stream", exc_info=True)
 		return b""
+	finally:
+		processor.completePendingOnDone()
 
 
-def _finishPlayerProcessor(player: nvwave.WavePlayer) -> bytes:
+def _finishPlayerProcessor(player: nvwave.WavePlayer) -> tuple[bytes, Callable[[], None] | None]:
 	with _playerProcessorsLock:
 		processor = _playerProcessors.get(_getPlayerProcessorKey(player))
-	return _finishProcessorSafely(processor)
+	if processor is None:
+		return b"", None
+	try:
+		tail = processor.finish()
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to finish Sonic stream", exc_info=True)
+		tail = b""
+	return tail, processor.takeOnDone()
+
+
+def _cancelPlayerFlushTimer(player: nvwave.WavePlayer) -> None:
+	with _playerProcessorsLock:
+		timer = _playerFlushTimers.pop(_getPlayerProcessorKey(player), None)
+	if timer is None:
+		return
+	try:
+		if timer.IsRunning():
+			timer.Stop()
+	except Exception:
+		pass
+
+
+def _schedulePlayerFlush(player: nvwave.WavePlayer) -> None:
+	processorKey = _getPlayerProcessorKey(player)
+
+	def _flushPlayer():
+		with _playerProcessorsLock:
+			if _playerFlushTimers.get(processorKey) is not timer:
+				return
+			_playerFlushTimers.pop(processorKey, None)
+		_feedProcessorTail(player)
+
+	with _playerProcessorsLock:
+		timer = _playerFlushTimers.get(processorKey)
+		if timer is not None:
+			return
+		timer = wx.CallLater(_FIRST_AUDIO_CHUNK_MIN_DURATION_MS, _flushPlayer)
+		_playerFlushTimers[processorKey] = timer
 
 
 def _resetPlayerProcessor(player: nvwave.WavePlayer) -> None:
+	_cancelPlayerFlushTimer(player)
 	with _playerProcessorsLock:
 		processorKey = _getPlayerProcessorKey(player)
-		_playerProcessors.pop(processorKey, None)
+		processor = _playerProcessors.pop(processorKey, None)
 		_playerUtterancePitches.pop(processorKey, None)
+	if processor is not None:
+		processor.completePendingOnDone()
 
 
 def _resetAllPlayerProcessors() -> None:
 	with _playerProcessorsLock:
 		processors = list(_playerProcessors.values())
+		timers = list(_playerFlushTimers.values())
 		_playerProcessors.clear()
 		_playerUtterancePitches.clear()
+		_playerFlushTimers.clear()
+	for timer in timers:
+		try:
+			if timer.IsRunning():
+				timer.Stop()
+		except Exception:
+			pass
 	for processor in processors:
 		_finishProcessorSafely(processor)
 
@@ -1074,18 +1172,29 @@ def _getOrCreatePlayerProcessor(
 	sampleRate: int,
 	pitchPercent: int,
 ) -> tuple[_SonicStreamProcessor | None, bytes]:
+	retiredProcessor = None
 	with _playerProcessorsLock:
 		processorKey = _getPlayerProcessorKey(player)
 		processor = _playerProcessors.get(processorKey)
 		if processor is not None:
 			if processor.formatMatches(channels, sampleRate) and processor.pitchPercent == _clampPitch(pitchPercent):
 				return processor, b""
-			_playerProcessors.pop(processorKey, None)
+			retiredProcessor = _playerProcessors.pop(processorKey, None)
+			timer = _playerFlushTimers.pop(processorKey, None)
+			if timer is not None:
+				try:
+					if timer.IsRunning():
+						timer.Stop()
+				except Exception:
+					pass
 		sonic = _getSonicModule()
 		if sonic is None:
 			return None, b""
 		processor = _SonicStreamProcessor(sonic, channels, sampleRate, pitchPercent)
 		_playerProcessors[processorKey] = processor
+	if retiredProcessor is not None:
+		tail = _finishProcessorSafely(retiredProcessor)
+		return processor, tail
 	return processor, b""
 
 
@@ -1095,15 +1204,15 @@ def _processPcm16Block(
 	channels: int,
 	sampleRate: int,
 	pitchPercent: int,
-) -> bytes | None:
+) -> tuple[bytes, _SonicStreamProcessor] | None:
 	frameSize = channels * 2
 	if len(raw) < frameSize or len(raw) % frameSize:
 		return None
 	processor, tail = _getOrCreatePlayerProcessor(player, channels, sampleRate, pitchPercent)
 	if processor is None:
-		return tail or None
+		return None
 	processed = processor.process(raw)
-	return (tail + processed) or b""
+	return (tail + processed) or b"", processor
 
 
 def _logProcessedOnce(synthName: str, channels: int, sampleRate: int, pitch: int, inSize: int, outSize: int) -> None:
@@ -1126,9 +1235,14 @@ def _patchedFeed(self, data, size=None, onDone=None):
 	raw = _getRawBytes(data, size)
 	try:
 		if raw is not None and len(raw) == 0:
-			tail = _finishPlayerProcessor(self)
+			_cancelPlayerFlushTimer(self)
+			tail, pendingOnDone = _finishPlayerProcessor(self)
 			if tail:
-				originalFeed(self, tail, len(tail), None)
+				originalFeed(self, tail, len(tail), _combineOnDoneCallbacks([pendingOnDone, onDone]))
+				onDone = None
+			elif pendingOnDone is not None:
+				originalFeed(self, None, 0, _combineOnDoneCallbacks([pendingOnDone, onDone]))
+				onDone = None
 			_clearPlayerUtterancePitch(self)
 			return originalFeed(self, data, size, onDone)
 		processingContext = _getProcessingContext(self, len(raw)) if raw is not None else None
@@ -1138,8 +1252,9 @@ def _patchedFeed(self, data, size=None, onDone=None):
 			if waveFormat is not None:
 				channels, sampleRate, bitsPerSample = waveFormat
 				if bitsPerSample == 16:
-					processed = _processPcm16Block(self, raw, channels, sampleRate, pitch)
-					if processed is not None:
+					processedResult = _processPcm16Block(self, raw, channels, sampleRate, pitch)
+					if processedResult is not None:
+						processed, processor = processedResult
 						_logProcessedOnce(
 							synthName,
 							channels,
@@ -1149,9 +1264,11 @@ def _patchedFeed(self, data, size=None, onDone=None):
 							len(processed),
 						)
 						if processed:
-							return originalFeed(self, processed, len(processed), onDone)
+							_cancelPlayerFlushTimer(self)
+							return originalFeed(self, processed, len(processed), processor.takeOnDone(onDone))
 						if onDone is not None:
-							return originalFeed(self, None, 0, onDone)
+							processor.deferOnDone(onDone)
+						_schedulePlayerFlush(self)
 						return None
 				elif _isDebugLoggingEnabled():
 					log.debug(f"globalSonicPitch: bypassing non-16-bit audio: {bitsPerSample}")
@@ -1166,9 +1283,12 @@ def _patchedFeed(self, data, size=None, onDone=None):
 def _feedProcessorTail(player: nvwave.WavePlayer) -> None:
 	originalFeed = getattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR)
 	try:
-		tail = _finishPlayerProcessor(player)
+		_cancelPlayerFlushTimer(player)
+		tail, onDone = _finishPlayerProcessor(player)
 		if tail:
-			originalFeed(player, tail, len(tail), None)
+			originalFeed(player, tail, len(tail), onDone)
+		elif onDone is not None:
+			originalFeed(player, None, 0, onDone)
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed to flush Sonic stream tail", exc_info=True)
 		_resetPlayerProcessor(player)
@@ -1606,7 +1726,7 @@ def _patchedSettingsSetSynth(*args, **kwargs):
 	finally:
 		_deferSynthPitchPatchDepth = max(0, _deferSynthPitchPatchDepth - 1)
 		if not _deferSynthPitchPatchDepth:
-			_schedulePatchCurrentSynthPitch()
+			_safePatchCurrentSynthPitch()
 
 
 def _patchedVoicePanelMakeSettings(self, *args, **kwargs):
@@ -1618,7 +1738,13 @@ def _patchedVoicePanelMakeSettings(self, *args, **kwargs):
 def _patchedVoicePanelOnSave(self, *args, **kwargs):
 	originalOnSave = getattr(settingsDialogs.VoiceSettingsPanel, _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR)
 	result = originalOnSave(self, *args, **kwargs)
-	_commitVoiceDialogSession(id(self))
+	panelId = id(self)
+	try:
+		_commitVoiceDialogSession(panelId)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to commit Voice settings Sonic pitch transaction", exc_info=True)
+	finally:
+		_voiceDialogSessions.pop(panelId, None)
 	return result
 
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0
+
+- Marks the add-on as the first stable release.
+- Fixes Voice settings refresh after switching to SAPI4 on NVDA 2025.3.3, so
+  OK closes the dialog normally and the `Sonic pitch` control is present before
+  the panel saves settings.
+- Improves very short processed utterances, such as single vowels in Syntalk,
+  by preserving delayed `WavePlayer` completion callbacks until processed
+  Sonic audio is actually flushed or played.
+- Keeps the previous safeguards for rapid `Sonic pitch` slider changes.
+
 ## 0.4.20
 
 - Adds an optional extended Sonic pitch range of approximately `-20..+20`
