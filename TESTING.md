@@ -94,10 +94,10 @@ Expected useful entries when debug logging is enabled:
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 0.4.20:
+Expected package name for version 1.0:
 
 ```text
-globalSonicPitch-0.4.20.nvda-addon
+globalSonicPitch-1.0.nvda-addon
 ```
 
 Before release:

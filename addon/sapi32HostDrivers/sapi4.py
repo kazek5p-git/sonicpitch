@@ -27,6 +27,7 @@ NEUTRAL_PITCH = 50
 STANDARD_MAX_SEMITONES = 6.0
 EXTENDED_MAX_SEMITONES = 20.0
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
+_SHORT_AUDIO_CHUNK_MAX_DURATION_MS = 35
 
 _processingLogKeys: set[tuple[Any, ...]] = set()
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
@@ -292,6 +293,7 @@ class _SonicStreamProcessor:
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent, self.extendedRange)
 		self.isFirstAudioChunk = True
 		self.pendingInputBytes = 0
+		self.pendingInputFrames = 0
 		self._lock = threading.RLock()
 
 	def matches(self, channels: int, sampleRate: int, pitchPercent: int, extendedRange: bool) -> bool:
@@ -313,6 +315,7 @@ class _SonicStreamProcessor:
 			if raw:
 				self.pendingInputBytes += len(raw)
 				frameCount = len(raw) // frameSize
+				self.pendingInputFrames += frameCount
 				sampleCount = frameCount * self.channels
 				inputSamples = (ctypes.c_short * sampleCount).from_buffer_copy(raw)
 				self.stream.writeShort(inputSamples, frameCount)
@@ -322,6 +325,7 @@ class _SonicStreamProcessor:
 			elif (
 				self.isFirstAudioChunk
 				and self.stream.samplesAvailable < self.sampleRate * _FIRST_AUDIO_CHUNK_MIN_DURATION_MS // 1000
+				and self.pendingInputFrames > self.sampleRate * _SHORT_AUDIO_CHUNK_MAX_DURATION_MS // 1000
 			):
 				return b"", 0
 			self.isFirstAudioChunk = False
@@ -330,6 +334,7 @@ class _SonicStreamProcessor:
 				return b"", 0
 			doneBytes = self.pendingInputBytes
 			self.pendingInputBytes = 0
+			self.pendingInputFrames = 0
 			return processed, doneBytes
 
 	def finish(self) -> tuple[bytes, int]:
@@ -338,6 +343,7 @@ class _SonicStreamProcessor:
 			if self.pendingInputBytes:
 				doneBytes += self.pendingInputBytes
 				self.pendingInputBytes = 0
+				self.pendingInputFrames = 0
 			self.isFirstAudioChunk = True
 			return processed, doneBytes
 

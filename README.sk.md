@@ -39,6 +39,9 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 
 ## Zmeny
 
+- 1.0: Stabilné vydanie nahrádzajúce stiahnuté zostavenie 1.0. Zlepšuje
+  spracovanie krátkych blokov zvuku a spevňuje čistenie dialógu nastavení
+  hlasu.
 - 0.4.20: Pridaný voliteľný rozsah 20 poltónov a podpora štandardného
   `sapi4_32` cez 32-bitový host v 64-bitovom NVDA.
 - 0.4.19: Vyčistená a usporiadaná verejná dokumentácia pre recenziu v NVDA
@@ -70,7 +73,7 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 4. Po výzve reštartujte NVDA.
 
 Najnovší balík:
-[globalSonicPitch-0.4.20.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.0.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencia
 
