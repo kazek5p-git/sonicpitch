@@ -1941,16 +1941,16 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 		)
 		self.extendedRangeCheckbox.SetValue(bool(conf[EXTENDED_PITCH_RANGE_CONFIG_KEY]))
 		self.qualityCheckbox = helper.addItem(
-			# Translators: Checkbox enabling Sonic's higher-quality analysis mode.
-			wx.CheckBox(self, label=_("Use higher-quality Sonic analysis")),
+			# Translators: Checkbox enabling Sonic's better-quality processing mode.
+			wx.CheckBox(self, label=_("Use better-quality Sonic processing")),
 		)
 		self.qualityCheckbox.SetValue(_getSonicQuality() == 1)
 		self.qualityDescription = helper.addItem(
 			wx.StaticText(
 				self,
-				# Translators: Help text for Sonic's higher-quality analysis mode.
+				# Translators: Help text for Sonic's better-quality processing mode.
 				label=_(
-					"Higher quality may improve pitch detection for some voices, but can use more CPU. "
+					"Better quality may improve Sonic pitch processing for some voices, but can use more CPU. "
 					"It does not change the pitch range."
 				),
 			),

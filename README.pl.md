@@ -24,7 +24,7 @@ wysokością syntezatora.
 - Zapisuje `Sonic pitch` osobno dla każdego obsługiwanego syntezatora i
   wybranego głosu.
 - Udostępnia opcjonalny rozszerzony zakres około `-20..+20` półtonów.
-- Udostępnia opcjonalną dokładniejszą analizę Sonic. Tryb szybki pozostaje
+- Udostępnia opcjonalne przetwarzanie Sonic w lepszej jakości. Tryb szybki pozostaje
   domyślny.
 - Obsługuje audio syntezatorów działających w głównym procesie NVDA oraz
   standardowe `sapi5_32` / `sapi4_32` na 64-bitowym NVDA przez dołączone
@@ -44,7 +44,7 @@ wysokością syntezatora.
 
 ## Zmiany
 
-- 1.1: Dodano opcjonalną dokładniejszą analizę Sonic dla obsługiwanych ścieżek
+- 1.1: Dodano opcjonalne przetwarzanie Sonic w lepszej jakości dla obsługiwanych ścieżek
   przetwarzania. Tryb szybki pozostaje domyślny.
 - 1.0: Stabilne wydanie zastępujące wycofaną kompilację 1.0. Poprawia
   obsługę krótkich bloków audio i wzmacnia sprzątanie okna ustawień głosu.

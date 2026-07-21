@@ -31,14 +31,14 @@ msgstr "Povoliť globálny Sonic pitch"
 msgid "Increase Sonic pitch range to 20 semitones"
 msgstr "Zvýšiť rozsah Sonic pitch na 20 poltónov"
 
-msgid "Use higher-quality Sonic analysis"
-msgstr "Použiť presnejšiu analýzu Sonic"
+msgid "Use better-quality Sonic processing"
+msgstr "Použiť kvalitnejšie spracovanie Sonic"
 
 msgid ""
-"Higher quality may improve pitch detection for some voices, but can use more CPU. "
+"Better quality may improve Sonic pitch processing for some voices, but can use more CPU. "
 "It does not change the pitch range."
 msgstr ""
-"Vyššia kvalita môže zlepšiť rozpoznanie výšky pri niektorých hlasoch, ale môže použiť viac CPU. "
+"Kvalitnejšie spracovanie môže zlepšiť úpravu výšky Sonic pri niektorých hlasoch, ale môže použiť viac CPU. "
 "Nemení rozsah výšky."
 
 msgid "Enable debug logging"

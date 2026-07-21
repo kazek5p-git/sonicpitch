@@ -2,7 +2,7 @@
 
 ## 1.1
 
-- Adds optional higher-quality Sonic analysis. Fast mode remains the default
+- Adds optional better-quality Sonic processing. Fast mode remains the default
   and preserves previous behavior.
 - Applies the selected Sonic quality to newly created streams in the main
   `WavePlayer` path and in the bundled `sapi5_32` / `sapi4_32` host wrappers.

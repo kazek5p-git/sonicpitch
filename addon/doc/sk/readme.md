@@ -11,7 +11,7 @@ NVDA `Výška` ponecháva ako natívnu výšku syntetizéra.
   zapnuté.
 - Hodnoty Sonic pitch osobitne pre syntetizér a hlas.
 - Voliteľný rozšírený rozsah približne `-20..+20` poltónov.
-- Voliteľnú presnejšiu analýzu Sonic. Rýchly režim je predvolený.
+- Voliteľné kvalitnejšie spracovanie Sonic. Rýchly režim je predvolený.
 - Spracovanie podporovaného zvuku reči v hlavnej zvukovej ceste NVDA.
 - Podporu štandardných `sapi5_32` a `sapi4_32` v 64-bitovom NVDA cez
   pribalené wrappery 32-bitového hosta.
@@ -40,8 +40,8 @@ hodnoty ju zvyšujú.
 - `Increase Sonic pitch range to 20 semitones` rozširuje ovládanie
   `Sonic pitch` z bežného rozsahu `-6..+6` poltónov na približne
   `-20..+20` poltónov.
-- `Use higher-quality Sonic analysis` zapína presnejšiu analýzu výškového
-  obdobia v knižnici Sonic. Pri niektorých hlasoch môže pomôcť, ale môže použiť
+- `Použiť kvalitnejšie spracovanie Sonic` zapína kvalitnejšie spracovanie
+  výšky v knižnici Sonic. Pri niektorých hlasoch môže pomôcť, ale môže použiť
   viac CPU. Nemení rozsah ani mapovanie posuvníka a rozdiel môže byť malý pri
   čistých TTS hlasoch alebo malých zmenách výšky.
 - `Enable debug logging` zapisuje podrobné položky doplnku do logu NVDA.

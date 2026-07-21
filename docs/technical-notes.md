@@ -36,8 +36,8 @@ debugLogging = boolean(default=False)
 `extendedPitchRange` changes the pitch mapping from the standard 6-semitone
 range to the optional 20-semitone range. It is disabled by default.
 
-`sonicQuality` controls Sonic's native analysis quality. `0` is Sonic's fast
-default mode and `1` enables Sonic's higher-quality analysis. The value is
+`sonicQuality` controls Sonic's native processing quality. `0` is Sonic's fast
+default mode and `1` enables Sonic's better-quality processing. The value is
 clamped to `0` or `1`; no migration is needed for older configs because the
 default remains `0`.
 

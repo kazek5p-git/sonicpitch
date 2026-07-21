@@ -20,9 +20,9 @@ This checklist focuses on the current Global Sonic Pitch add-on.
 13. With extended range disabled, the audible range is the normal range.
 14. With `Increase Sonic pitch range to 20 semitones` enabled, the same slider
     covers the extended range and remains neutral at `50`.
-15. With higher-quality Sonic analysis disabled, behavior matches fast/default
+15. With better-quality Sonic processing disabled, behavior matches fast/default
     mode.
-16. With higher-quality Sonic analysis enabled, pitch processing still works and
+16. With better-quality Sonic processing enabled, pitch processing still works and
     the slider mapping is unchanged.
 17. Different supported synthesizers keep different `Sonic pitch` values.
 18. Different voices inside the same supported synth keep different
@@ -55,7 +55,7 @@ This checklist focuses on the current Global Sonic Pitch add-on.
 3. Repeat rapid downward changes with eSpeak-NG SAPI at high rate.
 4. On 64-bit NVDA, repeat rapid changes with standard `sapi5_32`.
 5. On 64-bit NVDA, repeat rapid changes with standard `sapi4_32`.
-6. Repeat the same stress with higher-quality Sonic analysis disabled and
+6. Repeat the same stress with better-quality Sonic processing disabled and
    enabled.
 7. Confirm speech continues and NVDA does not freeze.
 8. Confirm the 32-bit host log does not show access violations.

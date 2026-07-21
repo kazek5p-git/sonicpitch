@@ -10,7 +10,7 @@ leaving NVDA's normal native `Pitch` setting unchanged.
 - A separate `Sonic pitch` voice setting while global processing is enabled.
 - Per-synthesizer and per-voice Sonic pitch values.
 - An optional extended range of approximately `-20..+20` semitones.
-- Optional higher-quality Sonic analysis. Fast mode is the default.
+- Optional better-quality Sonic processing. Fast mode is the default.
 - Processing for supported speech audio that reaches NVDA's main audio path.
 - Support for standard `sapi5_32` and `sapi4_32` on 64-bit NVDA through
   bundled 32-bit host wrappers.
@@ -39,10 +39,10 @@ Higher values raise speech through Sonic.
 - `Increase Sonic pitch range to 20 semitones` extends the `Sonic pitch`
   control from the normal `-6..+6` semitone range to approximately
   `-20..+20` semitones.
-- `Use higher-quality Sonic analysis` makes Sonic use its more accurate
-  pitch-period analysis. It may improve some voices, but can use more CPU. It
-  does not change the pitch range or slider mapping, and the audible difference
-  may be small for clean TTS voices or small pitch changes.
+- `Use better-quality Sonic processing` makes Sonic use better-quality pitch
+  processing. It may improve some voices, but can use more CPU. It does not
+  change the pitch range or slider mapping, and the audible difference may be
+  small for clean TTS voices or small pitch changes.
 - `Enable debug logging` writes detailed add-on entries to the NVDA log.
 - `Support the author` opens the external support page.
 
