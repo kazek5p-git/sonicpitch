@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1
+
+- Adds optional higher-quality Sonic analysis. Fast mode remains the default
+  and preserves previous behavior.
+- Applies the selected Sonic quality to newly created streams in the main
+  `WavePlayer` path and in the bundled `sapi5_32` / `sapi4_32` host wrappers.
+- Reuses existing safe processor recreation, stream replacement, locking, and
+  retirement behavior instead of mutating active Sonic streams unsafely.
+
 ## 1.0
 
 - Replaces the withdrawn 1.0 GitHub release with the tested stable build.

@@ -22,7 +22,8 @@ except NameError:
 
 SONIC_PITCH_SETTING_ID = "sonicPitch"
 SONIC_PITCH_EXTENDED_RANGE_PARAM_ID = "_sonicPitchExtendedRange"
-SONIC_PITCH_HOST_SETTING_IDS = {SONIC_PITCH_SETTING_ID, SONIC_PITCH_EXTENDED_RANGE_PARAM_ID}
+SONIC_QUALITY_PARAM_ID = "_sonicQuality"
+SONIC_PITCH_HOST_SETTING_IDS = {SONIC_PITCH_SETTING_ID, SONIC_PITCH_EXTENDED_RANGE_PARAM_ID, SONIC_QUALITY_PARAM_ID}
 NEUTRAL_PITCH = 50
 STANDARD_MAX_SEMITONES = 6.0
 EXTENDED_MAX_SEMITONES = 20.0
@@ -36,6 +37,7 @@ _retiredProcessors: list["_SonicStreamProcessor"] = []
 _activePitchLock = threading.RLock()
 _activeSonicPitch = NEUTRAL_PITCH
 _activeExtendedRange = False
+_activeSonicQuality = 0
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
@@ -48,6 +50,17 @@ def _clampPitch(value: int | float) -> int:
 	except Exception:
 		numericValue = float(NEUTRAL_PITCH)
 	return int(_clamp(numericValue, 0.0, 100.0))
+
+
+def _clampQuality(value: Any) -> int:
+	try:
+		return 1 if int(value) == 1 else 0
+	except Exception:
+		return 0
+
+
+def _getQualityLabel(quality: int) -> str:
+	return "higher quality" if _clampQuality(quality) == 1 else "fast"
 
 
 def _pitchPercentToSonicRatio(pitchPercent: int | float, extendedRange: bool = False) -> float:
@@ -239,6 +252,42 @@ def _createSonicPitchExtendedRangeSetting():
 _SONIC_PITCH_EXTENDED_RANGE_SETTING = _createSonicPitchExtendedRangeSetting()
 
 
+def _createSonicQualitySetting():
+	if NumericDriverSetting is None:
+		return None
+	try:
+		return NumericDriverSetting(
+			SONIC_QUALITY_PARAM_ID,
+			"Sonic processing quality",
+			availableInSettingsRing=False,
+			defaultVal=0,
+			minVal=0,
+			maxVal=1,
+			minStep=1,
+			normalStep=1,
+			largeStep=1,
+			displayName="Sonic processing quality",
+			useConfig=False,
+		)
+	except TypeError:
+		return NumericDriverSetting(
+			SONIC_QUALITY_PARAM_ID,
+			"Sonic processing quality",
+			False,
+			0,
+			0,
+			1,
+			1,
+			1,
+			1,
+			"Sonic processing quality",
+			False,
+		)
+
+
+_SONIC_QUALITY_SETTING = _createSonicQualitySetting()
+
+
 def _setActiveSonicPitch(pitch: int | float) -> None:
 	global _activeSonicPitch
 	with _activePitchLock:
@@ -265,6 +314,22 @@ def _getActiveExtendedRange() -> bool:
 		return bool(_activeExtendedRange)
 
 
+def _setActiveSonicQuality(quality: Any) -> None:
+	global _activeSonicQuality
+	with _activePitchLock:
+		quality = _clampQuality(quality)
+		if _activeSonicQuality == quality:
+			return
+		_activeSonicQuality = quality
+	_logInfo(f"globalSonicPitch sapi4_32 host: received Sonic quality={quality} ({_getQualityLabel(quality)})")
+	_resetAllPlayerProcessors()
+
+
+def _getActiveSonicQuality() -> int:
+	with _activePitchLock:
+		return _clampQuality(_activeSonicQuality)
+
+
 def _ctypesArrayToBytes(value: Any) -> bytes:
 	try:
 		if not value:
@@ -283,25 +348,43 @@ def _ensureSonicInitialized() -> bool:
 		return False
 
 
+def _applySonicQualityToStream(stream: Any, quality: int, sampleRate: int, channels: int) -> int:
+	quality = _clampQuality(quality)
+	try:
+		stream.quality = quality
+	except Exception:
+		_logWarning(
+			"globalSonicPitch sapi4_32 host: failed to set Sonic quality; using stream default fast mode"
+		)
+		return quality
+	_logInfo(
+		"globalSonicPitch sapi4_32 host: applied Sonic quality to new stream; "
+		f"quality={quality} ({_getQualityLabel(quality)}); sampleRate={sampleRate}; channels={channels}"
+	)
+	return quality
+
+
 class _SonicStreamProcessor:
-	def __init__(self, channels: int, sampleRate: int, pitchPercent: int, extendedRange: bool):
+	def __init__(self, channels: int, sampleRate: int, pitchPercent: int, extendedRange: bool, quality: int):
 		self.channels = channels
 		self.sampleRate = sampleRate
 		self.pitchPercent = _clampPitch(pitchPercent)
 		self.extendedRange = bool(extendedRange)
 		self.stream = _sonic.SonicStream(sampleRate, channels)
+		self.quality = _applySonicQualityToStream(self.stream, quality, sampleRate, channels)
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent, self.extendedRange)
 		self.isFirstAudioChunk = True
 		self.pendingInputBytes = 0
 		self.pendingInputFrames = 0
 		self._lock = threading.RLock()
 
-	def matches(self, channels: int, sampleRate: int, pitchPercent: int, extendedRange: bool) -> bool:
+	def matches(self, channels: int, sampleRate: int, pitchPercent: int, extendedRange: bool, quality: int) -> bool:
 		return (
 			self.channels == channels
 			and self.sampleRate == sampleRate
 			and self.pitchPercent == _clampPitch(pitchPercent)
 			and self.extendedRange == bool(extendedRange)
+			and self.quality == _clampQuality(quality)
 		)
 
 	def _readAvailable(self) -> bytes:
@@ -391,30 +474,45 @@ def _getOrCreatePlayerProcessor(
 	sampleRate: int,
 	pitchPercent: int,
 	extendedRange: bool,
+	quality: int,
 ) -> _SonicStreamProcessor | None:
 	with _playerProcessorsLock:
 		processorKey = _getPlayerProcessorKey(player)
 		processor = _playerProcessors.get(processorKey)
 		if processor is not None:
-			if processor.matches(channels, sampleRate, pitchPercent, extendedRange):
+			if processor.matches(channels, sampleRate, pitchPercent, extendedRange, quality):
 				return processor
 			_playerProcessors.pop(processorKey, None)
 			_retireProcessor(processor)
+			_logInfo(
+				"globalSonicPitch sapi4_32 host: recreating Sonic processor for new parameters; "
+				f"sonicPitch={_clampPitch(pitchPercent)}; extendedRange={bool(extendedRange)}; "
+				f"quality={_clampQuality(quality)} ({_getQualityLabel(quality)})"
+			)
 		if not _ensureSonicInitialized():
 			return None
-		processor = _SonicStreamProcessor(channels, sampleRate, pitchPercent, extendedRange)
+		processor = _SonicStreamProcessor(channels, sampleRate, pitchPercent, extendedRange, quality)
 		_playerProcessors[processorKey] = processor
 		return processor
 
 
-def _logProcessedOnce(channels: int, sampleRate: int, pitch: int, extendedRange: bool, inSize: int, outSize: int) -> None:
-	key = (channels, sampleRate, pitch, extendedRange)
+def _logProcessedOnce(
+	channels: int,
+	sampleRate: int,
+	pitch: int,
+	extendedRange: bool,
+	quality: int,
+	inSize: int,
+	outSize: int,
+) -> None:
+	key = (channels, sampleRate, pitch, extendedRange, quality)
 	if key in _processingLogKeys:
 		return
 	_processingLogKeys.add(key)
 	_logInfo(
 		"globalSonicPitch sapi4_32 host: processed SAPI4 audio; "
 		f"sonicPitch={pitch}; extendedRange={extendedRange}; "
+		f"quality={quality} ({_getQualityLabel(quality)}); "
 		f"channels={channels}; sampleRate={sampleRate}; bytes={inSize}->{outSize}",
 	)
 
@@ -425,15 +523,16 @@ def _processPcm16Block(audio: Any, raw: bytes, channels: int, sampleRate: int) -
 		_resetPlayerProcessor(audio._player)
 		return None, 0
 	extendedRange = _getActiveExtendedRange()
+	quality = _getActiveSonicQuality()
 	frameSize = channels * 2
 	if len(raw) < frameSize or len(raw) % frameSize:
 		return None, 0
-	processor = _getOrCreatePlayerProcessor(audio._player, channels, sampleRate, pitch, extendedRange)
+	processor = _getOrCreatePlayerProcessor(audio._player, channels, sampleRate, pitch, extendedRange, quality)
 	if processor is None:
 		return None, 0
 	processed, doneBytes = processor.process(raw)
 	if processed is not None:
-		_logProcessedOnce(channels, sampleRate, pitch, extendedRange, len(raw), len(processed))
+		_logProcessedOnce(channels, sampleRate, pitch, extendedRange, quality, len(raw), len(processed))
 	return processed, doneBytes
 
 
@@ -512,8 +611,10 @@ class SynthDriver(_BaseSynthDriver):
 	def __init__(self, *args, **kwargs):
 		self._sonicPitch = NEUTRAL_PITCH
 		self._sonicPitchExtendedRange = False
+		self._sonicQuality = 0
 		_setActiveSonicPitch(self._sonicPitch)
 		_setActiveExtendedRange(self._sonicPitchExtendedRange)
+		_setActiveSonicQuality(self._sonicQuality)
 		super().__init__(*args, **kwargs)
 		self._ensureSonicPitchSetting()
 		_logInfo(
@@ -533,7 +634,7 @@ class SynthDriver(_BaseSynthDriver):
 		]
 		settings.extend(
 			setting
-			for setting in (_SONIC_PITCH_SETTING, _SONIC_PITCH_EXTENDED_RANGE_SETTING)
+			for setting in (_SONIC_PITCH_SETTING, _SONIC_PITCH_EXTENDED_RANGE_SETTING, _SONIC_QUALITY_SETTING)
 			if setting is not None
 		)
 		self.supportedSettings = settings
@@ -556,6 +657,13 @@ class SynthDriver(_BaseSynthDriver):
 	def _set_sonicPitchExtendedRange(self, value) -> None:
 		self._sonicPitchExtendedRange = bool(value)
 		_setActiveExtendedRange(self._sonicPitchExtendedRange)
+
+	def _get_sonicQuality(self) -> int:
+		return _clampQuality(getattr(self, "_sonicQuality", 0))
+
+	def _set_sonicQuality(self, value) -> None:
+		self._sonicQuality = _clampQuality(value)
+		_setActiveSonicQuality(self._sonicQuality)
 
 
 __all__ = ["SynthDriver"]

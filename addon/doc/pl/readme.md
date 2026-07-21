@@ -11,6 +11,7 @@ ustawienie NVDA `Wysokość` pozostaje natywną wysokością syntezatora.
   włączone.
 - Wartości Sonic pitch osobne dla syntezatora i głosu.
 - Opcjonalny rozszerzony zakres około `-20..+20` półtonów.
+- Opcjonalną dokładniejszą analizę Sonic. Tryb szybki jest domyślny.
 - Przetwarzanie obsługiwanego audio mowy w głównej ścieżce audio NVDA.
 - Obsługę standardowych `sapi5_32` i `sapi4_32` na 64-bitowym NVDA przez
   dołączone wrappery hosta 32-bitowego.
@@ -39,6 +40,11 @@ wyższe wartości ją podwyższają.
 - `Increase Sonic pitch range to 20 semitones` rozszerza regulację
   `Sonic pitch` z normalnego zakresu `-6..+6` półtonów do około
   `-20..+20` półtonów.
+- `Use higher-quality Sonic analysis` włącza dokładniejszą analizę okresu
+  wysokości w bibliotece Sonic. Może poprawić działanie z niektórymi głosami,
+  ale może używać więcej CPU. Nie zmienia zakresu ani mapowania suwaka, a
+  różnica może być mała przy czystych głosach TTS albo niewielkich zmianach
+  wysokości.
 - `Enable debug logging` zapisuje szczegółowe wpisy dodatku do logu NVDA.
 - `Support the author` otwiera zewnętrzną stronę wsparcia.
 
@@ -105,6 +111,7 @@ Standardowe `sapi5_32` i `sapi4_32` na 64-bitowym NVDA działają w osobnym
 32-bitowym hoście syntezatorów. Global Sonic Pitch ładuje w tym hoście
 dołączone wrappery, aby standardowy syntezator NVDA otrzymał bieżącą wartość
 `Sonic pitch`.
+Tym samym kanałem host otrzymuje też wybrany tryb jakości Sonic.
 
 To zachowuje normalne pozycje syntezatorów NVDA. Dodatek nie dodaje nowego
 syntezatora i nie podmienia plików NVDA. W przypadku SAPI4 przetwarzanie Sonic
@@ -161,6 +168,7 @@ Przydatne frazy:
 - `captured Sonic pitch setting`
 - `processed speech audio`
 - `applied remote 32-bit Sonic pitch`
+- `applied Sonic quality`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - `globalSonicPitch sapi4_32 host: processed SAPI4 audio`
 

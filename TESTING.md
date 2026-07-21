@@ -20,15 +20,19 @@ This checklist focuses on the current Global Sonic Pitch add-on.
 13. With extended range disabled, the audible range is the normal range.
 14. With `Increase Sonic pitch range to 20 semitones` enabled, the same slider
     covers the extended range and remains neutral at `50`.
-15. Different supported synthesizers keep different `Sonic pitch` values.
-16. Different voices inside the same supported synth keep different
+15. With higher-quality Sonic analysis disabled, behavior matches fast/default
+    mode.
+16. With higher-quality Sonic analysis enabled, pitch processing still works and
+    the slider mapping is unchanged.
+17. Different supported synthesizers keep different `Sonic pitch` values.
+18. Different voices inside the same supported synth keep different
     `Sonic pitch` values.
-17. Switching back to a voice restores that voice's stored value.
-18. Changes made in Voice settings are previewed live.
-19. Escape or Cancel restores the previous Voice settings value.
-20. OK or Apply commits the new Voice settings value.
-21. Changes made through the synth settings ring are committed immediately.
-22. Input Gesture scripts appear in the `Global Sonic Pitch` category.
+19. Switching back to a voice restores that voice's stored value.
+20. Changes made in Voice settings are previewed live.
+21. Escape or Cancel restores the previous Voice settings value.
+22. OK or Apply commits the new Voice settings value.
+23. Changes made through the synth settings ring are committed immediately.
+24. Input Gesture scripts appear in the `Global Sonic Pitch` category.
 
 ## Synth Paths
 
@@ -51,10 +55,12 @@ This checklist focuses on the current Global Sonic Pitch add-on.
 3. Repeat rapid downward changes with eSpeak-NG SAPI at high rate.
 4. On 64-bit NVDA, repeat rapid changes with standard `sapi5_32`.
 5. On 64-bit NVDA, repeat rapid changes with standard `sapi4_32`.
-6. Confirm speech continues and NVDA does not freeze.
-7. Confirm the 32-bit host log does not show access violations.
-8. Confirm the next utterance uses the latest selected `Sonic pitch`.
-9. Confirm say-all or continuous reading does not obviously regress.
+6. Repeat the same stress with higher-quality Sonic analysis disabled and
+   enabled.
+7. Confirm speech continues and NVDA does not freeze.
+8. Confirm the 32-bit host log does not show access violations.
+9. Confirm the next utterance uses the latest selected `Sonic pitch`.
+10. Confirm say-all or continuous reading does not obviously regress.
 
 ## Localization
 
@@ -94,10 +100,10 @@ Expected useful entries when debug logging is enabled:
 Zip the contents of the `addon` directory, not the outer project directory, and
 use the `.nvda-addon` extension.
 
-Expected package name for version 1.0:
+Expected package name for version 1.1:
 
 ```text
-globalSonicPitch-1.0.nvda-addon
+globalSonicPitch-1.1.nvda-addon
 ```
 
 Before release:

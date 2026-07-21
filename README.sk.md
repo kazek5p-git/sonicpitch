@@ -22,6 +22,7 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 - Ponecháva bežné nastavenie NVDA `Výška` ako natívnu výšku syntetizéra.
 - Ukladá `Sonic pitch` osobitne pre každý podporovaný syntetizér a vybraný hlas.
 - Ponúka voliteľný rozšírený rozsah približne `-20..+20` poltónov.
+- Ponúka voliteľnú presnejšiu analýzu Sonic. Rýchly režim zostáva predvolený.
 - Podporuje zvuk syntetizérov v hlavnom procese NVDA a štandardné `sapi5_32` /
   `sapi4_32` v 64-bitovom NVDA cez pribalené wrappery 32-bitového hosta.
 - Obsahuje pribalené 32-bitové a 64-bitové natívne knižnice Sonic.
@@ -39,6 +40,8 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 
 ## Zmeny
 
+- 1.1: Pridaná voliteľná presnejšia analýza Sonic pre podporované cesty
+  spracovania. Rýchly režim zostáva predvolený.
 - 1.0: Stabilné vydanie nahrádzajúce stiahnuté zostavenie 1.0. Zlepšuje
   spracovanie krátkych blokov zvuku a spevňuje čistenie dialógu nastavení
   hlasu.
@@ -73,7 +76,7 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 4. Po výzve reštartujte NVDA.
 
 Najnovší balík:
-[globalSonicPitch-1.0.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencia
 

@@ -21,6 +21,8 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 - Stores `Sonic pitch` separately for each supported synthesizer and selected
   voice.
 - Provides an optional extended range of approximately `-20..+20` semitones.
+- Provides optional higher-quality Sonic analysis. Fast mode remains the
+  default.
 - Supports main-process NVDA synth audio and standard `sapi5_32` / `sapi4_32`
   on 64-bit NVDA through bundled 32-bit host wrappers.
 - Includes bundled 32-bit and 64-bit Sonic native libraries.
@@ -38,6 +40,8 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 
 ## Changes
 
+- 1.1: Added optional higher-quality Sonic analysis for supported processing
+  paths. Fast mode remains the default.
 - 1.0: Stable release replacing the withdrawn 1.0 build. Improves short audio
   block handling and hardens Voice settings dialog cleanup.
 - 0.4.20: Added optional 20-semitone range and standard `sapi4_32` host
@@ -70,7 +74,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 4. Restart NVDA when prompted.
 
 Latest packaged add-on:
-[globalSonicPitch-1.0.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## License
 

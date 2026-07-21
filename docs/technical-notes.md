@@ -25,6 +25,7 @@ enabled = boolean(default=False)
 pitch = integer(default=50, min=0, max=100)
 pitchBySynth = string(default='{}')
 extendedPitchRange = boolean(default=False)
+sonicQuality = integer(default=0, min=0, max=1)
 debugLogging = boolean(default=False)
 ```
 
@@ -34,6 +35,11 @@ debugLogging = boolean(default=False)
 
 `extendedPitchRange` changes the pitch mapping from the standard 6-semitone
 range to the optional 20-semitone range. It is disabled by default.
+
+`sonicQuality` controls Sonic's native analysis quality. `0` is Sonic's fast
+default mode and `1` enables Sonic's higher-quality analysis. The value is
+clamped to `0` or `1`; no migration is needed for older configs because the
+default remains `0`.
 
 `pitchBySynth` stores current Sonic pitch values as JSON. Values are keyed by
 the supported synthesizer and, when available, the selected voice:
@@ -111,10 +117,11 @@ The hook is intentionally narrow:
   `nvwave.AudioPurpose.SPEECH`;
 - it only processes compatible speech audio blocks;
 - it keeps one Sonic stream per speech `WavePlayer` while speech is active;
-- it captures `Sonic pitch` at the start of an utterance and keeps that value
-  until the utterance ends;
-- it recreates the stream when the audio format or captured pitch changes at a
-  safe boundary;
+- it captures `Sonic pitch` and Sonic quality at the start of an utterance and
+  keeps those values until the utterance ends;
+- it recreates the stream when the audio format, captured pitch, or captured
+  quality changes at a safe boundary;
+- it applies Sonic quality to newly created streams before processing PCM;
 - it buffers the first chunk until enough processed audio is available;
 - it avoids `SonicStream.flush()` in the middle of ordinary audio blocks;
 - it bypasses non-speech sounds;
@@ -151,11 +158,14 @@ while the add-on is loaded.
 
 - locates NVDA's original `_synthDrivers32` directory;
 - imports NVDA's original 32-bit SAPI5 implementation;
-- adds a host-side `sonicPitch` parameter;
+- adds host-side `sonicPitch`, `_sonicPitchExtendedRange`, and `_sonicQuality`
+  parameters;
 - maps `0..100` to the same Sonic pitch ratio as the main plugin;
-- applies pitch changes at safe speech boundaries;
-- serializes the full SAPI audio callback with pitch changes;
-- replaces the host Sonic stream when the applied pitch changes;
+- applies Sonic quality before pitch on new or replaced Sonic streams;
+- applies pitch and quality changes at safe speech boundaries;
+- serializes the full SAPI audio callback with parameter changes;
+- replaces the host Sonic stream when the applied pitch, range, or quality
+  changes;
 - recovers from host Sonic write or flush failures by replacing the stream.
 
 `addon/sapi32HostDrivers/sapi4.py` also runs inside the 32-bit host. It:
@@ -163,7 +173,9 @@ while the add-on is loaded.
 - locates NVDA's original `_synthDrivers32` directory;
 - imports NVDA's original 32-bit SAPI4 implementation;
 - subclasses the original `SynthDriverAudio` WASAPI audio receiver;
-- adds host-side `sonicPitch` and `_sonicPitchExtendedRange` parameters;
+- adds host-side `sonicPitch`, `_sonicPitchExtendedRange`, and `_sonicQuality`
+  parameters;
+- applies Sonic quality to newly created SAPI4 processing streams;
 - processes 16-bit PCM blocks before they are fed to the host `WavePlayer`;
 - flushes the Sonic stream at the SAPI4 unclaim boundary;
 - leaves the original SAPI4 voice enumeration and COM driver selection intact.
@@ -193,10 +205,13 @@ Useful search terms:
 - `globalSonicPitch: installed synth Sonic pitch setting hook`
 - `globalSonicPitch: added Sonic pitch voice setting`
 - `globalSonicPitch: captured Sonic pitch setting`
+- `globalSonicPitch: applied Sonic quality`
 - `globalSonicPitch: processed speech audio`
 - `globalSonicPitch: applied remote 32-bit Sonic pitch`
+- `globalSonicPitch sapi5_32 host: applied Sonic quality`
 - `globalSonicPitch sapi5_32 host: set Sonic pitch`
 - `globalSonicPitch sapi5_32 host: replaced Sonic stream`
+- `globalSonicPitch sapi4_32 host: applied Sonic quality`
 - `globalSonicPitch sapi4_32 host: processed SAPI4 audio`
 - `globalSonicPitch: Sonic is unavailable`
 

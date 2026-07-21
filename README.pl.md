@@ -24,6 +24,8 @@ wysokością syntezatora.
 - Zapisuje `Sonic pitch` osobno dla każdego obsługiwanego syntezatora i
   wybranego głosu.
 - Udostępnia opcjonalny rozszerzony zakres około `-20..+20` półtonów.
+- Udostępnia opcjonalną dokładniejszą analizę Sonic. Tryb szybki pozostaje
+  domyślny.
 - Obsługuje audio syntezatorów działających w głównym procesie NVDA oraz
   standardowe `sapi5_32` / `sapi4_32` na 64-bitowym NVDA przez dołączone
   wrappery hosta 32-bitowego.
@@ -42,6 +44,8 @@ wysokością syntezatora.
 
 ## Zmiany
 
+- 1.1: Dodano opcjonalną dokładniejszą analizę Sonic dla obsługiwanych ścieżek
+  przetwarzania. Tryb szybki pozostaje domyślny.
 - 1.0: Stabilne wydanie zastępujące wycofaną kompilację 1.0. Poprawia
   obsługę krótkich bloków audio i wzmacnia sprzątanie okna ustawień głosu.
 - 0.4.20: Dodano opcjonalny zakres 20 półtonów i obsługę standardowego
@@ -76,7 +80,7 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 4. Zrestartuj NVDA po komunikacie.
 
 Najnowszy pakiet:
-[globalSonicPitch-1.0.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencja
 

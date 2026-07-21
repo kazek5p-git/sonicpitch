@@ -55,6 +55,7 @@ CONFIG_SPEC = {
 	"pitch": "integer(default=50, min=0, max=100)",
 	"pitchBySynth": "string(default='{}')",
 	"extendedPitchRange": "boolean(default=False)",
+	"sonicQuality": "integer(default=0, min=0, max=1)",
 	"debugLogging": "boolean(default=False)",
 }
 
@@ -63,11 +64,13 @@ STANDARD_MAX_SEMITONES = 6.0
 EXTENDED_MAX_SEMITONES = 20.0
 SONIC_PITCH_SETTING_ID = "sonicPitch"
 SONIC_PITCH_EXTENDED_RANGE_PARAM_ID = "_sonicPitchExtendedRange"
-SONIC_PITCH_HOST_SETTING_IDS = {SONIC_PITCH_SETTING_ID, SONIC_PITCH_EXTENDED_RANGE_PARAM_ID}
+SONIC_QUALITY_PARAM_ID = "_sonicQuality"
+SONIC_PITCH_HOST_SETTING_IDS = {SONIC_PITCH_SETTING_ID, SONIC_PITCH_EXTENDED_RANGE_PARAM_ID, SONIC_QUALITY_PARAM_ID}
 SUPPORT_URL = "https://buycoffee.to/kazimierz-parzych"
 LEGACY_PITCH_CONFIG_KEY = "pitch"
 PITCH_BY_SYNTH_CONFIG_KEY = "pitchBySynth"
 EXTENDED_PITCH_RANGE_CONFIG_KEY = "extendedPitchRange"
+SONIC_QUALITY_CONFIG_KEY = "sonicQuality"
 VOICE_KEY_SEPARATOR = "::voice::"
 
 _ORIGINAL_FEED_ATTR = "_globalSonicPitchOriginalFeed"
@@ -106,13 +109,15 @@ _deferSynthPitchPatchDepth = 0
 _noDestroySonicStreamLogged = False
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
 _playerUtterancePitches: dict[int, int] = {}
+_playerUtteranceQualities: dict[int, int] = {}
 _playerProcessorsLock = threading.RLock()
 _FIRST_AUDIO_CHUNK_MIN_DURATION_MS = 50
 _SHORT_AUDIO_CHUNK_MAX_DURATION_MS = 35
 _sapi32HostReloading = False
 _sapi32HostReloadRequested = False
 _voiceDialogSessions: dict[int, dict[str, dict[str, int]]] = {}
-_runtimeSonicPitchByKey: dict[str, int] = {}
+_runtimeSonicPitchByKey: dict[str, tuple[int, bool, int]] = {}
+_qualityLogKeys: set[tuple[Any, ...]] = set()
 
 
 class _SonicStreamP(ctypes.c_void_p):
@@ -212,6 +217,33 @@ def _clampPitch(value: int | float) -> int:
 	except Exception:
 		numericValue = float(NEUTRAL_PITCH)
 	return int(_clamp(numericValue, 0.0, 100.0))
+
+
+def _clampQuality(value: Any) -> int:
+	try:
+		return 1 if int(value) == 1 else 0
+	except Exception:
+		return 0
+
+
+def _getSonicQuality() -> int:
+	return _clampQuality(_getConfigValue(SONIC_QUALITY_CONFIG_KEY, 0))
+
+
+def _setSonicQuality(value: Any) -> None:
+	quality = _clampQuality(value)
+	oldQuality = _getSonicQuality()
+	_setConfigValue(SONIC_QUALITY_CONFIG_KEY, quality)
+	if oldQuality == quality:
+		return
+	_resetAllPlayerProcessors()
+	_runtimeSonicPitchByKey.clear()
+	_patchCurrentSynthPitch()
+	log.info(f"globalSonicPitch: Sonic processing quality set to {quality} ({_getQualityLabel(quality)})")
+
+
+def _getQualityLabel(quality: int) -> str:
+	return "higher quality" if _clampQuality(quality) == 1 else "fast"
 
 
 def _pitchPercentToSonicRatio(pitchPercent: int | float) -> float:
@@ -438,6 +470,7 @@ def _setRemoteSapi32SonicPitch(synth: Any | None, pitch: int | float) -> bool:
 	if service is None:
 		return False
 	pitch = _clampPitch(pitch)
+	quality = _getSonicQuality()
 	try:
 		service.setParam(SONIC_PITCH_EXTENDED_RANGE_PARAM_ID, 1 if _isExtendedPitchRangeEnabled() else 0)
 	except Exception:
@@ -446,10 +479,18 @@ def _setRemoteSapi32SonicPitch(synth: Any | None, pitch: int | float) -> bool:
 			exc_info=True,
 		)
 	try:
+		service.setParam(SONIC_QUALITY_PARAM_ID, quality)
+	except Exception:
+		log.debugWarning(
+			"globalSonicPitch: failed to apply remote 32-bit Sonic quality; remote host will use fast mode",
+			exc_info=True,
+		)
+	try:
 		service.setParam(SONIC_PITCH_SETTING_ID, pitch)
 		log.info(
 			"globalSonicPitch: applied remote 32-bit Sonic pitch; "
-			f"synth={_getSynthName(synth)}; sonicPitch={pitch}; extendedRange={_isExtendedPitchRangeEnabled()}",
+			f"synth={_getSynthName(synth)}; sonicPitch={pitch}; "
+			f"extendedRange={_isExtendedPitchRangeEnabled()}; quality={quality} ({_getQualityLabel(quality)})",
 		)
 		return True
 	except Exception:
@@ -462,11 +503,12 @@ def _applyRuntimeSonicPitch(synth: Any | None, pitch: int | float) -> None:
 		return
 	key = _getSonicPitchStorageKey(synth) or _getSynthName(synth)
 	pitch = _clampPitch(pitch)
-	if key and _runtimeSonicPitchByKey.get(key) == pitch:
+	state = (pitch, _isExtendedPitchRangeEnabled(), _getSonicQuality())
+	if key and _runtimeSonicPitchByKey.get(key) == state:
 		return
 	if _setRemoteSapi32SonicPitch(synth, pitch):
 		if key:
-			_runtimeSonicPitchByKey[key] = pitch
+			_runtimeSonicPitchByKey[key] = state
 	else:
 		_requestRemoteSapi32SynthReload()
 
@@ -715,7 +757,7 @@ def _changeCurrentSynthSonicPitch(delta: int) -> int | None:
 	return _setCurrentSynthSonicPitch(_getSonicPitchForSynth(_getCurrentSynth()) + delta)
 
 
-def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str, int] | None:
+def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str, int, int] | None:
 	if rawSize <= 0:
 		return None
 	if not bool(_getConfigValue("enabled", False)):
@@ -730,12 +772,16 @@ def _getProcessingContext(player: nvwave.WavePlayer, rawSize: int) -> tuple[str,
 		return None
 	pitch = _getSonicPitchForSynth(synth)
 	utterancePitch = _getOrCreatePlayerUtterancePitch(player, pitch)
+	quality = _getSonicQuality()
+	utteranceQuality = _getOrCreatePlayerUtteranceQuality(player, quality)
 	if utterancePitch != pitch:
 		_logDeferredPitchOnce(synthName, utterancePitch, pitch)
+	if utteranceQuality != quality:
+		_logDeferredQualityOnce(synthName, utteranceQuality, quality)
 	if utterancePitch == NEUTRAL_PITCH:
 		_clearPlayerUtterancePitch(player)
 		return None
-	return synthName, utterancePitch
+	return synthName, utterancePitch, utteranceQuality
 
 
 def _isSpeechPlayer(player: nvwave.WavePlayer) -> bool:
@@ -923,6 +969,14 @@ class _NoDestroySonicStream:
 	def pitch(self, value: float) -> None:
 		self._sonicModule.sonicLib.sonicSetPitch(self.stream, value)
 
+	@property
+	def quality(self) -> int:
+		return self._sonicModule.sonicLib.sonicGetQuality(self.stream)
+
+	@quality.setter
+	def quality(self, value: int) -> None:
+		self._sonicModule.sonicLib.sonicSetQuality(self.stream, _clampQuality(value))
+
 
 class _DestroySonicStream(_NoDestroySonicStream):
 	def __del__(self):
@@ -948,12 +1002,38 @@ def _createSonicStream(sonicModule: Any, sampleRate: int, channels: int) -> Any:
 	return sonicModule.SonicStream(sampleRate, channels)
 
 
+def _applySonicQualityToStream(stream: Any, quality: int, source: str, sampleRate: int, channels: int) -> int:
+	quality = _clampQuality(quality)
+	try:
+		stream.quality = quality
+	except Exception:
+		key = (source, "fallback", quality)
+		if key not in _qualityLogKeys:
+			_qualityLogKeys.add(key)
+			log.debugWarning(
+				"globalSonicPitch: failed to set Sonic quality; using stream default fast mode; "
+				f"source={source}; requestedQuality={quality}",
+				exc_info=True,
+			)
+		return quality
+	key = (source, sampleRate, channels, quality)
+	if key not in _qualityLogKeys or _isDebugLoggingEnabled():
+		_qualityLogKeys.add(key)
+		log.info(
+			"globalSonicPitch: applied Sonic quality to new stream; "
+			f"source={source}; quality={quality} ({_getQualityLabel(quality)}); "
+			f"sampleRate={sampleRate}; channels={channels}",
+		)
+	return quality
+
+
 class _SonicStreamProcessor:
-	def __init__(self, sonicModule: Any, channels: int, sampleRate: int, pitchPercent: int):
+	def __init__(self, sonicModule: Any, channels: int, sampleRate: int, pitchPercent: int, quality: int):
 		self.channels = channels
 		self.sampleRate = sampleRate
 		self.stream = _createSonicStream(sonicModule, sampleRate, channels)
 		self.pitchPercent = _clampPitch(pitchPercent)
+		self.quality = _applySonicQualityToStream(self.stream, quality, "main", sampleRate, channels)
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
 		self.isFirstAudioChunk = True
 		self.isActive = False
@@ -961,8 +1041,8 @@ class _SonicStreamProcessor:
 		self._pendingOnDoneCallbacks: list[Callable[..., Any]] = []
 		self._lock = threading.RLock()
 
-	def formatMatches(self, channels: int, sampleRate: int) -> bool:
-		return self.channels == channels and self.sampleRate == sampleRate
+	def formatMatches(self, channels: int, sampleRate: int, quality: int) -> bool:
+		return self.channels == channels and self.sampleRate == sampleRate and self.quality == _clampQuality(quality)
 
 	def isIdleForPitchChange(self) -> bool:
 		with self._lock:
@@ -1069,6 +1149,7 @@ def _resetPlayerProcessor(player: nvwave.WavePlayer) -> None:
 		processorKey = _getPlayerProcessorKey(player)
 		processor = _playerProcessors.pop(processorKey, None)
 		_playerUtterancePitches.pop(processorKey, None)
+		_playerUtteranceQualities.pop(processorKey, None)
 	if processor is not None:
 		processor.completePendingOnDone()
 
@@ -1078,6 +1159,7 @@ def _resetAllPlayerProcessors() -> None:
 		processors = list(_playerProcessors.values())
 		_playerProcessors.clear()
 		_playerUtterancePitches.clear()
+		_playerUtteranceQualities.clear()
 	for processor in processors:
 		_finishProcessorSafely(processor)
 		processor.completePendingOnDone()
@@ -1091,9 +1173,19 @@ def _getOrCreatePlayerUtterancePitch(player: nvwave.WavePlayer, pitch: int) -> i
 		return _playerUtterancePitches[processorKey]
 
 
+def _getOrCreatePlayerUtteranceQuality(player: nvwave.WavePlayer, quality: int) -> int:
+	with _playerProcessorsLock:
+		processorKey = _getPlayerProcessorKey(player)
+		if processorKey not in _playerUtteranceQualities:
+			_playerUtteranceQualities[processorKey] = _clampQuality(quality)
+		return _playerUtteranceQualities[processorKey]
+
+
 def _clearPlayerUtterancePitch(player: nvwave.WavePlayer) -> None:
 	with _playerProcessorsLock:
-		_playerUtterancePitches.pop(_getPlayerProcessorKey(player), None)
+		processorKey = _getPlayerProcessorKey(player)
+		_playerUtterancePitches.pop(processorKey, None)
+		_playerUtteranceQualities.pop(processorKey, None)
 
 
 def _clearIdlePlayerUtterancePitches() -> None:
@@ -1102,6 +1194,10 @@ def _clearIdlePlayerUtterancePitches() -> None:
 			processor = _playerProcessors.get(processorKey)
 			if processor is None or processor.isIdleForPitchChange():
 				_playerUtterancePitches.pop(processorKey, None)
+				_playerUtteranceQualities.pop(processorKey, None)
+		for processorKey in list(_playerUtteranceQualities):
+			if processorKey not in _playerUtterancePitches:
+				_playerUtteranceQualities.pop(processorKey, None)
 
 
 def _logDeferredPitchOnce(synthName: str, activePitch: int, pendingPitch: int) -> None:
@@ -1115,24 +1211,44 @@ def _logDeferredPitchOnce(synthName: str, activePitch: int, pendingPitch: int) -
 	)
 
 
+def _logDeferredQualityOnce(synthName: str, activeQuality: int, pendingQuality: int) -> None:
+	key = ("quality", synthName, activeQuality, pendingQuality)
+	if key in _deferredPitchLogKeys and not _isDebugLoggingEnabled():
+		return
+	_deferredPitchLogKeys.add(key)
+	log.info(
+		"globalSonicPitch: deferring Sonic quality change until next utterance; "
+		f"synth={synthName or 'unknown'}; activeQuality={activeQuality} ({_getQualityLabel(activeQuality)}); "
+		f"pendingQuality={pendingQuality} ({_getQualityLabel(pendingQuality)})",
+	)
+
+
 def _getOrCreatePlayerProcessor(
 	player: nvwave.WavePlayer,
 	channels: int,
 	sampleRate: int,
 	pitchPercent: int,
+	quality: int,
 ) -> tuple[_SonicStreamProcessor | None, bytes]:
 	retiredProcessor = None
 	with _playerProcessorsLock:
 		processorKey = _getPlayerProcessorKey(player)
 		processor = _playerProcessors.get(processorKey)
 		if processor is not None:
-			if processor.formatMatches(channels, sampleRate) and processor.pitchPercent == _clampPitch(pitchPercent):
+			if (
+				processor.formatMatches(channels, sampleRate, quality)
+				and processor.pitchPercent == _clampPitch(pitchPercent)
+			):
 				return processor, b""
 			retiredProcessor = _playerProcessors.pop(processorKey, None)
+			log.info(
+				"globalSonicPitch: recreating Sonic processor for new parameters; "
+				f"pitch={_clampPitch(pitchPercent)}; quality={_clampQuality(quality)} ({_getQualityLabel(quality)})",
+			)
 		sonic = _getSonicModule()
 		if sonic is None:
 			return None, b""
-		processor = _SonicStreamProcessor(sonic, channels, sampleRate, pitchPercent)
+		processor = _SonicStreamProcessor(sonic, channels, sampleRate, pitchPercent, quality)
 		_playerProcessors[processorKey] = processor
 	tail = _finishProcessorSafely(retiredProcessor)
 	if retiredProcessor is not None:
@@ -1146,25 +1262,35 @@ def _processPcm16Block(
 	channels: int,
 	sampleRate: int,
 	pitchPercent: int,
+	quality: int,
 ) -> tuple[bytes, _SonicStreamProcessor] | None:
 	frameSize = channels * 2
 	if len(raw) < frameSize or len(raw) % frameSize:
 		return None
-	processor, tail = _getOrCreatePlayerProcessor(player, channels, sampleRate, pitchPercent)
+	processor, tail = _getOrCreatePlayerProcessor(player, channels, sampleRate, pitchPercent, quality)
 	if processor is None:
 		return None
 	processed = processor.process(raw)
 	return (tail + processed, processor)
 
 
-def _logProcessedOnce(synthName: str, channels: int, sampleRate: int, pitch: int, inSize: int, outSize: int) -> None:
-	key = (synthName, channels, sampleRate, pitch)
+def _logProcessedOnce(
+	synthName: str,
+	channels: int,
+	sampleRate: int,
+	pitch: int,
+	quality: int,
+	inSize: int,
+	outSize: int,
+) -> None:
+	key = (synthName, channels, sampleRate, pitch, quality)
 	if key in _processingLogKeys and not _isDebugLoggingEnabled():
 		return
 	_processingLogKeys.add(key)
 	log.info(
 		"globalSonicPitch: processed speech audio; "
 		f"synth={synthName or 'unknown'}; pitch={pitch}; "
+		f"quality={quality} ({_getQualityLabel(quality)}); "
 		f"channels={channels}; sampleRate={sampleRate}; bytes={inSize}->{outSize}",
 	)
 
@@ -1186,12 +1312,12 @@ def _patchedFeed(self, data, size=None, onDone=None):
 			return originalFeed(self, data, size, onDone)
 		processingContext = _getProcessingContext(self, len(raw)) if raw is not None else None
 		if raw is not None and processingContext is not None:
-			synthName, pitch = processingContext
+			synthName, pitch, quality = processingContext
 			waveFormat = _getWaveFormat(self)
 			if waveFormat is not None:
 				channels, sampleRate, bitsPerSample = waveFormat
 				if bitsPerSample == 16:
-					processedResult = _processPcm16Block(self, raw, channels, sampleRate, pitch)
+					processedResult = _processPcm16Block(self, raw, channels, sampleRate, pitch, quality)
 					if processedResult is not None:
 						processed, processor = processedResult
 						_logProcessedOnce(
@@ -1199,6 +1325,7 @@ def _patchedFeed(self, data, size=None, onDone=None):
 							channels,
 							sampleRate,
 							pitch,
+							quality,
 							len(raw),
 							len(processed),
 						)
@@ -1813,6 +1940,21 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 			wx.CheckBox(self, label=_("Increase Sonic pitch range to 20 semitones")),
 		)
 		self.extendedRangeCheckbox.SetValue(bool(conf[EXTENDED_PITCH_RANGE_CONFIG_KEY]))
+		self.qualityCheckbox = helper.addItem(
+			# Translators: Checkbox enabling Sonic's higher-quality analysis mode.
+			wx.CheckBox(self, label=_("Use higher-quality Sonic analysis")),
+		)
+		self.qualityCheckbox.SetValue(_getSonicQuality() == 1)
+		self.qualityDescription = helper.addItem(
+			wx.StaticText(
+				self,
+				# Translators: Help text for Sonic's higher-quality analysis mode.
+				label=_(
+					"Higher quality may improve pitch detection for some voices, but can use more CPU. "
+					"It does not change the pitch range."
+				),
+			),
+		)
 		self.debugCheckbox = helper.addItem(
 			# Translators: Checkbox enabling debug log messages for this add-on.
 			wx.CheckBox(self, label=_("Enable debug logging")),
@@ -1829,6 +1971,8 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 	def _updateControlState(self, event=None):
 		enabled = self.enableCheckbox.IsChecked()
 		self.extendedRangeCheckbox.Enable(enabled)
+		self.qualityCheckbox.Enable(enabled)
+		self.qualityDescription.Enable(enabled)
 		self.debugCheckbox.Enable(enabled)
 
 	def _onSupport(self, event):
@@ -1836,6 +1980,7 @@ class GlobalSonicPitchSettingsPanel(SettingsPanel):
 
 	def onSave(self):
 		_setConfigValue("debugLogging", self.debugCheckbox.IsChecked())
+		_setSonicQuality(1 if self.qualityCheckbox.IsChecked() else 0)
 		_setExtendedPitchRangeEnabled(self.extendedRangeCheckbox.IsChecked())
 		_setGlobalEnabled(self.enableCheckbox.IsChecked())
 		config.conf.save()

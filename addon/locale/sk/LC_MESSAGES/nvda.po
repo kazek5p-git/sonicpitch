@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Global Sonic Pitch 1.0\n"
+"Project-Id-Version: Global Sonic Pitch 1.1\n"
 "POT-Creation-Date: 2026-07-14 00:00+0200\n"
 "PO-Revision-Date: 2026-07-14 00:00+0200\n"
 "Last-Translator: Kazimierz Parzych\n"
@@ -30,6 +30,16 @@ msgstr "Povoliť globálny Sonic pitch"
 
 msgid "Increase Sonic pitch range to 20 semitones"
 msgstr "Zvýšiť rozsah Sonic pitch na 20 poltónov"
+
+msgid "Use higher-quality Sonic analysis"
+msgstr "Použiť presnejšiu analýzu Sonic"
+
+msgid ""
+"Higher quality may improve pitch detection for some voices, but can use more CPU. "
+"It does not change the pitch range."
+msgstr ""
+"Vyššia kvalita môže zlepšiť rozpoznanie výšky pri niektorých hlasoch, ale môže použiť viac CPU. "
+"Nemení rozsah výšky."
 
 msgid "Enable debug logging"
 msgstr "Povoliť ladiace záznamy"
