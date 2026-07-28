@@ -1002,29 +1002,39 @@ def _createSonicStream(sonicModule: Any, sampleRate: int, channels: int) -> Any:
 	return sonicModule.SonicStream(sampleRate, channels)
 
 
-def _applySonicQualityToStream(stream: Any, quality: int, source: str, sampleRate: int, channels: int) -> int:
-	quality = _clampQuality(quality)
+def _getStreamSonicQuality(stream: Any, fallback: int) -> int:
 	try:
-		stream.quality = quality
+		return _clampQuality(stream.quality)
 	except Exception:
-		key = (source, "fallback", quality)
+		return _clampQuality(fallback)
+
+
+def _applySonicQualityToStream(stream: Any, quality: int, source: str, sampleRate: int, channels: int) -> int:
+	requestedQuality = _clampQuality(quality)
+	try:
+		stream.quality = requestedQuality
+	except Exception:
+		appliedQuality = 0
+		key = (source, "fallback", requestedQuality)
 		if key not in _qualityLogKeys:
 			_qualityLogKeys.add(key)
 			log.debugWarning(
 				"globalSonicPitch: failed to set Sonic quality; using stream default fast mode; "
-				f"source={source}; requestedQuality={quality}",
+				f"source={source}; requestedQuality={requestedQuality}; appliedQuality={appliedQuality}",
 				exc_info=True,
 			)
-		return quality
-	key = (source, sampleRate, channels, quality)
+		return appliedQuality
+	appliedQuality = _getStreamSonicQuality(stream, requestedQuality)
+	key = (source, sampleRate, channels, requestedQuality, appliedQuality)
 	if key not in _qualityLogKeys or _isDebugLoggingEnabled():
 		_qualityLogKeys.add(key)
 		log.info(
 			"globalSonicPitch: applied Sonic quality to new stream; "
-			f"source={source}; quality={quality} ({_getQualityLabel(quality)}); "
+			f"source={source}; requestedQuality={requestedQuality}; "
+			f"appliedQuality={appliedQuality} ({_getQualityLabel(appliedQuality)}); "
 			f"sampleRate={sampleRate}; channels={channels}",
 		)
-	return quality
+	return appliedQuality
 
 
 class _SonicStreamProcessor:
@@ -1033,7 +1043,14 @@ class _SonicStreamProcessor:
 		self.sampleRate = sampleRate
 		self.stream = _createSonicStream(sonicModule, sampleRate, channels)
 		self.pitchPercent = _clampPitch(pitchPercent)
-		self.quality = _applySonicQualityToStream(self.stream, quality, "main", sampleRate, channels)
+		self.requestedQuality = _clampQuality(quality)
+		self.appliedQuality = _applySonicQualityToStream(
+			self.stream,
+			self.requestedQuality,
+			"main",
+			sampleRate,
+			channels,
+		)
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent)
 		self.isFirstAudioChunk = True
 		self.isActive = False
@@ -1042,7 +1059,11 @@ class _SonicStreamProcessor:
 		self._lock = threading.RLock()
 
 	def formatMatches(self, channels: int, sampleRate: int, quality: int) -> bool:
-		return self.channels == channels and self.sampleRate == sampleRate and self.quality == _clampQuality(quality)
+		return (
+			self.channels == channels
+			and self.sampleRate == sampleRate
+			and self.requestedQuality == _clampQuality(quality)
+		)
 
 	def isIdleForPitchChange(self) -> bool:
 		with self._lock:
@@ -1325,7 +1346,7 @@ def _patchedFeed(self, data, size=None, onDone=None):
 							channels,
 							sampleRate,
 							pitch,
-							quality,
+							processor.appliedQuality,
 							len(raw),
 							len(processed),
 						)

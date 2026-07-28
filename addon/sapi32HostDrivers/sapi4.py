@@ -33,7 +33,10 @@ _SHORT_AUDIO_CHUNK_MAX_DURATION_MS = 35
 _processingLogKeys: set[tuple[Any, ...]] = set()
 _playerProcessors: dict[int, "_SonicStreamProcessor"] = {}
 _playerProcessorsLock = threading.RLock()
-_retiredProcessors: list["_SonicStreamProcessor"] = []
+# Keep retired native Sonic streams alive for the 32-bit host lifetime. NVDA's
+# _sonic.SonicStream destroys the native stream in __del__, which is unsafe on
+# fragile SAPI4 paths where stream destruction has caused native crashes.
+_retiredSonicStreams: list[Any] = []
 _activePitchLock = threading.RLock()
 _activeSonicPitch = NEUTRAL_PITCH
 _activeExtendedRange = False
@@ -349,19 +352,26 @@ def _ensureSonicInitialized() -> bool:
 
 
 def _applySonicQualityToStream(stream: Any, quality: int, sampleRate: int, channels: int) -> int:
-	quality = _clampQuality(quality)
+	requestedQuality = _clampQuality(quality)
 	try:
-		stream.quality = quality
+		stream.quality = requestedQuality
 	except Exception:
+		appliedQuality = 0
 		_logWarning(
-			"globalSonicPitch sapi4_32 host: failed to set Sonic quality; using stream default fast mode"
+			"globalSonicPitch sapi4_32 host: failed to set Sonic quality; using stream default fast mode; "
+			f"requestedQuality={requestedQuality}; appliedQuality={appliedQuality}"
 		)
-		return quality
+		return appliedQuality
+	try:
+		appliedQuality = _clampQuality(stream.quality)
+	except Exception:
+		appliedQuality = requestedQuality
 	_logInfo(
 		"globalSonicPitch sapi4_32 host: applied Sonic quality to new stream; "
-		f"quality={quality} ({_getQualityLabel(quality)}); sampleRate={sampleRate}; channels={channels}"
+		f"requestedQuality={requestedQuality}; appliedQuality={appliedQuality} "
+		f"({_getQualityLabel(appliedQuality)}); sampleRate={sampleRate}; channels={channels}"
 	)
-	return quality
+	return appliedQuality
 
 
 class _SonicStreamProcessor:
@@ -371,7 +381,13 @@ class _SonicStreamProcessor:
 		self.pitchPercent = _clampPitch(pitchPercent)
 		self.extendedRange = bool(extendedRange)
 		self.stream = _sonic.SonicStream(sampleRate, channels)
-		self.quality = _applySonicQualityToStream(self.stream, quality, sampleRate, channels)
+		self.requestedQuality = _clampQuality(quality)
+		self.appliedQuality = _applySonicQualityToStream(
+			self.stream,
+			self.requestedQuality,
+			sampleRate,
+			channels,
+		)
 		self.stream.pitch = _pitchPercentToSonicRatio(self.pitchPercent, self.extendedRange)
 		self.isFirstAudioChunk = True
 		self.pendingInputBytes = 0
@@ -384,7 +400,7 @@ class _SonicStreamProcessor:
 			and self.sampleRate == sampleRate
 			and self.pitchPercent == _clampPitch(pitchPercent)
 			and self.extendedRange == bool(extendedRange)
-			and self.quality == _clampQuality(quality)
+			and self.requestedQuality == _clampQuality(quality)
 		)
 
 	def _readAvailable(self) -> bytes:
@@ -432,10 +448,11 @@ class _SonicStreamProcessor:
 
 
 def _retireProcessor(processor: "_SonicStreamProcessor" | None) -> None:
-	if processor is not None:
-		_retiredProcessors.append(processor)
-		if len(_retiredProcessors) > 32:
-			del _retiredProcessors[: len(_retiredProcessors) - 32]
+	if processor is None:
+		return
+	stream = getattr(processor, "stream", None)
+	if stream is not None:
+		_retiredSonicStreams.append(stream)
 
 
 def _getPlayerProcessorKey(player: Any) -> int:
@@ -532,7 +549,15 @@ def _processPcm16Block(audio: Any, raw: bytes, channels: int, sampleRate: int) -
 		return None, 0
 	processed, doneBytes = processor.process(raw)
 	if processed is not None:
-		_logProcessedOnce(channels, sampleRate, pitch, extendedRange, quality, len(raw), len(processed))
+		_logProcessedOnce(
+			channels,
+			sampleRate,
+			pitch,
+			extendedRange,
+			processor.appliedQuality,
+			len(raw),
+			len(processed),
+		)
 	return processed, doneBytes
 
 
@@ -649,6 +674,8 @@ class SynthDriver(_BaseSynthDriver):
 
 	def _set_sonicPitch(self, value: int | float) -> None:
 		self._sonicPitch = _clampPitch(value)
+		_setActiveExtendedRange(self._get_sonicPitchExtendedRange())
+		_setActiveSonicQuality(self._get_sonicQuality())
 		_setActiveSonicPitch(self._sonicPitch)
 
 	def _get_sonicPitchExtendedRange(self) -> bool:

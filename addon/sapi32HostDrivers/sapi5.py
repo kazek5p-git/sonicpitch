@@ -378,19 +378,26 @@ if getattr(_sapi5.SynthDriverAudioStream, "_globalSonicPitchRemoteWritePatched",
 
 
 def _applySonicQualityToStream(stream, quality: int, reason: str) -> int:
-	quality = _clampQuality(quality)
+	requestedQuality = _clampQuality(quality)
 	try:
-		stream.quality = quality
+		stream.quality = requestedQuality
 	except Exception:
+		appliedQuality = 0
 		_logWarning(
-			"globalSonicPitch sapi5_32 host: failed to set Sonic quality; using stream default fast mode"
+			"globalSonicPitch sapi5_32 host: failed to set Sonic quality; using stream default fast mode; "
+			f"requestedQuality={requestedQuality}; appliedQuality={appliedQuality}"
 		)
-		return quality
+		return appliedQuality
+	try:
+		appliedQuality = _clampQuality(stream.quality)
+	except Exception:
+		appliedQuality = requestedQuality
 	_logInfo(
 		"globalSonicPitch sapi5_32 host: applied Sonic quality; "
-		f"reason={reason}; quality={quality} ({_getQualityLabel(quality)})"
+		f"reason={reason}; requestedQuality={requestedQuality}; "
+		f"appliedQuality={appliedQuality} ({_getQualityLabel(appliedQuality)})"
 	)
-	return quality
+	return appliedQuality
 
 
 class SynthDriver(_BaseSynthDriver):
@@ -411,6 +418,7 @@ class SynthDriver(_BaseSynthDriver):
 		self._sonicPitchExtendedRange = False
 		self._sonicQuality = 0
 		self._lastAppliedSonicPitch: int | None = None
+		self._lastRequestedSonicState: tuple[int, bool, int] | None = None
 		self._lastAppliedSonicState: tuple[int, bool, int] | None = None
 		self._sonicSampleRate: int | None = None
 		self._sonicChannels: int | None = None
@@ -437,6 +445,7 @@ class SynthDriver(_BaseSynthDriver):
 			return
 		self._sonicPitchExtendedRange = enabled
 		self._lastAppliedSonicPitch = None
+		self._lastRequestedSonicState = None
 		self._lastAppliedSonicState = None
 		self._applySonicPitchIfSafe()
 
@@ -477,21 +486,22 @@ class SynthDriver(_BaseSynthDriver):
 		sonicPitch = _clampPitch(self._sonicPitch)
 		extendedRange = self._get_sonicPitchExtendedRange()
 		quality = self._get_sonicQuality()
-		state = (sonicPitch, extendedRange, quality)
-		if self._lastAppliedSonicState == state:
+		requestedState = (sonicPitch, extendedRange, quality)
+		if self._lastRequestedSonicState == requestedState:
 			return True
 		ratio = _pitchPercentToSonicRatio(sonicPitch, extendedRange)
 		with self._sonicPitchLock:
-			if self._lastAppliedSonicState is not None:
+			if self._lastRequestedSonicState is not None:
 				return self._replaceSonicStream(sonicPitch, "parameter change")
-			_applySonicQualityToStream(stream, quality, "initial apply")
+			appliedQuality = _applySonicQualityToStream(stream, quality, "initial apply")
 			stream.pitch = ratio
 			self._lastAppliedSonicPitch = sonicPitch
-			self._lastAppliedSonicState = state
+			self._lastRequestedSonicState = requestedState
+			self._lastAppliedSonicState = (sonicPitch, extendedRange, appliedQuality)
 			_logInfo(
 				"globalSonicPitch sapi5_32 host: set Sonic pitch; "
 				f"sonicPitch={sonicPitch}; ratio={ratio:.4f}; extendedRange={extendedRange}; "
-				f"quality={quality} ({_getQualityLabel(quality)})",
+				f"quality={appliedQuality} ({_getQualityLabel(appliedQuality)})",
 			)
 		return True
 
@@ -525,7 +535,7 @@ class SynthDriver(_BaseSynthDriver):
 		ratio = _pitchPercentToSonicRatio(sonicPitch, extendedRange)
 		oldStream = getattr(self, "sonicStream", None)
 		newStream = _LockedSonicStream(_sapi5.SonicStream(sampleRate, channels), self._sonicPitchLock, sampleRate, channels)
-		_applySonicQualityToStream(newStream, quality, reason or "stream replacement")
+		appliedQuality = _applySonicQualityToStream(newStream, quality, reason or "stream replacement")
 		if getattr(self, "_rateBoost", False):
 			newStream.speed = self._percentToParam(getattr(self, "_rate", 50), 0.5, 6.0)
 		else:
@@ -536,18 +546,20 @@ class SynthDriver(_BaseSynthDriver):
 		self._sonicSampleRate = sampleRate
 		self._sonicChannels = channels
 		self._lastAppliedSonicPitch = sonicPitch
-		self._lastAppliedSonicState = (sonicPitch, extendedRange, quality)
+		self._lastRequestedSonicState = (sonicPitch, extendedRange, quality)
+		self._lastAppliedSonicState = (sonicPitch, extendedRange, appliedQuality)
 		self._isFirstAudioChunk = True
 		_logInfo(
 			"globalSonicPitch sapi5_32 host: replaced Sonic stream; "
 			f"reason={reason}; sonicPitch={sonicPitch}; ratio={ratio:.4f}; "
-			f"extendedRange={extendedRange}; quality={quality} ({_getQualityLabel(quality)})",
+			f"extendedRange={extendedRange}; quality={appliedQuality} ({_getQualityLabel(appliedQuality)})",
 		)
 		return True
 
 	def _handleSonicStreamFailure(self, reason: str) -> None:
 		with self._sonicPitchLock:
 			self._lastAppliedSonicPitch = None
+			self._lastRequestedSonicState = None
 			self._lastAppliedSonicState = None
 			if not self._replaceSonicStream(self._sonicPitch, reason):
 				_logWarning(f"globalSonicPitch sapi5_32 host: failed to replace Sonic stream; reason={reason}")
@@ -567,6 +579,7 @@ class SynthDriver(_BaseSynthDriver):
 		if self.sonicStream is not None:
 			self.sonicStream = self._wrapSonicStream(self.sonicStream)
 		self._lastAppliedSonicPitch = None
+		self._lastRequestedSonicState = None
 		self._lastAppliedSonicState = None
 		self._applySonicPitch(force=True)
 

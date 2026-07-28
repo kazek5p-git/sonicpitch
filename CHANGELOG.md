@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.1
+
+- Stores the Sonic quality that was actually applied to a new stream, including
+  fallback to fast mode when `stream.quality = 1` fails.
+- Reads back Sonic quality after applying it so processor matching follows the
+  native stream state instead of the requested value.
+- Avoids repeated processor or stream recreation when Sonic falls back from the
+  requested better-quality mode to fast mode.
+- Keeps retired SAPI4 Sonic streams alive for the 32-bit host lifetime to avoid
+  unsafe native stream destruction on fragile SAPI4 paths.
+- Synchronizes SAPI4 extended range and quality before applying remote Sonic
+  pitch changes.
+
 ## 1.1
 
 - Adds optional better-quality Sonic processing. Fast mode remains the default
