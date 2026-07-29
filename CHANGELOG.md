@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.2
+
+- Adds Sonic pitch to synthesizers with dynamic or read-only `supportedSettings`
+  without replacing their original settings logic.
+- Preserves Google TTS automatic language profile behavior while keeping the
+  Sonic pitch setting available.
+- Uses active voice variants as part of the per-voice Sonic pitch key when a
+  synthesizer exposes a meaningful `variant`.
+- Keeps existing per-voice Sonic pitch values working as a fallback when no
+  variant-specific value has been saved yet.
+
 ## 1.1.1
 
 - Stores the Sonic quality that was actually applied to a new stream, including

@@ -72,6 +72,7 @@ PITCH_BY_SYNTH_CONFIG_KEY = "pitchBySynth"
 EXTENDED_PITCH_RANGE_CONFIG_KEY = "extendedPitchRange"
 SONIC_QUALITY_CONFIG_KEY = "sonicQuality"
 VOICE_KEY_SEPARATOR = "::voice::"
+VARIANT_KEY_SEPARATOR = "::variant::"
 
 _ORIGINAL_FEED_ATTR = "_globalSonicPitchOriginalFeed"
 _ORIGINAL_IDLE_ATTR = "_globalSonicPitchOriginalIdle"
@@ -103,7 +104,9 @@ _sonicUnavailableReason: str | None = None
 _sonicPitchDriverSetting: Any | None = None
 _missingClassAttr = object()
 _sonicPitchClassPatches: dict[type, Any] = {}
+_supportedSettingsClassPatches: dict[type, Any] = {}
 _voiceClassPatches: dict[type, Any] = {}
+_variantClassPatches: dict[type, Any] = {}
 _configMigrated = False
 _deferSynthPitchPatchDepth = 0
 _noDestroySonicStreamLogged = False
@@ -315,6 +318,21 @@ def _getBasePitchKeyFromStorageKey(key: str | None) -> str:
 	return _getSynthPitchKey(synthName)
 
 
+def _getVariantlessPitchStorageKey(key: str | None) -> str:
+	key = _normalizePitchStorageKey(key)
+	synthName, separator, voiceId = key.partition(VOICE_KEY_SEPARATOR)
+	if not separator:
+		return key
+	voiceId, variantSeparator, _variantId = voiceId.partition(VARIANT_KEY_SEPARATOR)
+	if not variantSeparator:
+		return key
+	synthKey = _getSynthPitchKey(synthName)
+	voiceId = str(voiceId or "").strip()
+	if not synthKey or not voiceId:
+		return synthKey
+	return f"{synthKey}{VOICE_KEY_SEPARATOR}{voiceId}"
+
+
 def _stringifyVoiceIdentifier(value: Any) -> str:
 	if value is None:
 		return ""
@@ -347,6 +365,29 @@ def _getSynthVoiceId(synth: Any | None) -> str:
 	return ""
 
 
+def _getSynthVariantId(synth: Any | None) -> str:
+	if synth is None:
+		return ""
+	for attr in ("variant", "_variant"):
+		try:
+			variantId = _stringifyVoiceIdentifier(getattr(synth, attr))
+		except Exception:
+			continue
+		if variantId and variantId.lower() != "none":
+			return variantId
+	return ""
+
+
+def _getSynthVoiceIdentity(synth: Any | None) -> str:
+	voiceId = _getSynthVoiceId(synth)
+	if not voiceId:
+		return ""
+	variantId = _getSynthVariantId(synth)
+	if variantId and variantId != voiceId:
+		return f"{voiceId}{VARIANT_KEY_SEPARATOR}{variantId}"
+	return voiceId
+
+
 def _getSonicPitchStorageKey(synthOrName: Any | None = None) -> str:
 	if synthOrName is None:
 		synthOrName = _getCurrentSynth()
@@ -355,7 +396,7 @@ def _getSonicPitchStorageKey(synthOrName: Any | None = None) -> str:
 	synthKey = _getSynthPitchKey(_getSynthName(synthOrName))
 	if not synthKey:
 		return ""
-	voiceId = _getSynthVoiceId(synthOrName)
+	voiceId = _getSynthVoiceIdentity(synthOrName)
 	if not voiceId:
 		return synthKey
 	return _normalizePitchStorageKey(f"{synthKey}{VOICE_KEY_SEPARATOR}{voiceId}")
@@ -676,6 +717,9 @@ def _getStoredSonicPitchForKey(key: str | None) -> int:
 	pitches = _loadSynthPitchMap()
 	if key in pitches:
 		return pitches[key]
+	variantlessKey = _getVariantlessPitchStorageKey(key)
+	if variantlessKey != key and variantlessKey in pitches:
+		return pitches[variantlessKey]
 	baseKey = _getBasePitchKeyFromStorageKey(key)
 	if key != baseKey and baseKey in pitches:
 		pitch = pitches.pop(baseKey)
@@ -1510,13 +1554,174 @@ def _withoutSonicPitchSettings(settings: Any) -> tuple[Any, ...]:
 	try:
 		return tuple(setting for setting in settings if _settingId(setting) not in SONIC_PITCH_HOST_SETTING_IDS)
 	except Exception:
-		return tuple(settings or ())
+		try:
+			return tuple(settings or ())
+		except Exception:
+			return ()
+
+
+def _withSonicPitchSetting(settings: Any, setting: Any | None = None) -> tuple[Any, ...]:
+	filteredSettings = _withoutSonicPitchSettings(settings)
+	if setting is None:
+		setting = _getSonicPitchDriverSetting()
+	if setting is None:
+		return filteredSettings
+	return filteredSettings + (setting,)
+
+
+def _findInheritedSupportedSettingsDescriptor(synthClass: type) -> Any:
+	for baseClass in getattr(synthClass, "__mro__", ())[1:]:
+		try:
+			namespace = getattr(baseClass, "__dict__", {})
+		except Exception:
+			continue
+		if "supportedSettings" in namespace:
+			return namespace["supportedSettings"]
+	return _missingClassAttr
+
+
+def _isDataDescriptor(value: Any) -> bool:
+	return value is not _missingClassAttr and (
+		hasattr(value, "__set__") or hasattr(value, "__delete__")
+	)
+
+
+def _isDynamicSupportedSettingsDescriptor(value: Any) -> bool:
+	if value is _missingClassAttr:
+		return False
+	if isinstance(value, property):
+		return True
+	return hasattr(value, "__get__") or _isDataDescriptor(value)
+
+
+def _supportedSettingsDescriptorForClass(synthClass: type) -> Any:
+	try:
+		value = synthClass.__dict__.get("supportedSettings", _missingClassAttr)
+	except Exception:
+		value = _missingClassAttr
+	if value is not _missingClassAttr:
+		return value
+	return _findInheritedSupportedSettingsDescriptor(synthClass)
+
+
+def _getOriginalSupportedSettings(instance: Any, synthClass: type, originalValue: Any) -> Any:
+	value = originalValue
+	if value is _missingClassAttr:
+		value = _findInheritedSupportedSettingsDescriptor(synthClass)
+	if instance is not None and not _isDataDescriptor(value):
+		try:
+			instanceSettings = getattr(instance, "__dict__", {}).get("supportedSettings", _missingClassAttr)
+		except Exception:
+			instanceSettings = _missingClassAttr
+		if instanceSettings is not _missingClassAttr:
+			return instanceSettings
+	if value is _missingClassAttr:
+		return ()
+	if hasattr(value, "__get__"):
+		return value.__get__(instance, synthClass)
+	return value
+
+
+def _setOriginalSupportedSettings(instance: Any, synthClass: type, originalValue: Any, settings: Any) -> None:
+	value = originalValue
+	if value is _missingClassAttr:
+		value = _findInheritedSupportedSettingsDescriptor(synthClass)
+	filteredSettings = _withoutSonicPitchSettings(settings)
+	if value is not _missingClassAttr and hasattr(value, "__set__"):
+		value.__set__(instance, filteredSettings)
+		return
+	try:
+		getattr(instance, "__dict__")["supportedSettings"] = filteredSettings
+	except Exception:
+		raise AttributeError("supportedSettings")
+
+
+def _patchSupportedSettingsClassProperty(synthClass: type) -> None:
+	if synthClass in _supportedSettingsClassPatches:
+		return
+	try:
+		originalValue = synthClass.__dict__.get("supportedSettings", _missingClassAttr)
+	except Exception:
+		originalValue = _missingClassAttr
+
+	def _getSupportedSettings(instance):
+		settings = _getOriginalSupportedSettings(instance, synthClass, originalValue)
+		if instance is None:
+			return settings
+		if not bool(_getConfigValue("enabled", False)):
+			return _withoutSonicPitchSettings(settings)
+		if not _isGlobalAudioSupportedSynth(_getSynthName(instance)):
+			return _withoutSonicPitchSettings(settings)
+		return _withSonicPitchSetting(settings)
+
+	def _setSupportedSettings(instance, value):
+		_setOriginalSupportedSettings(instance, synthClass, originalValue, value)
+
+	_supportedSettingsClassPatches[synthClass] = originalValue
+	setattr(
+		synthClass,
+		"supportedSettings",
+		property(
+			_getSupportedSettings,
+			_setSupportedSettings,
+			None,
+			getattr(originalValue, "__doc__", None),
+		),
+	)
+
+
+def _restoreSupportedSettingsClassProperty(synthClass: type) -> None:
+	if synthClass not in _supportedSettingsClassPatches:
+		return
+	originalValue = _supportedSettingsClassPatches.pop(synthClass)
+	try:
+		if originalValue is _missingClassAttr:
+			delattr(synthClass, "supportedSettings")
+		else:
+			setattr(synthClass, "supportedSettings", originalValue)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to restore synth supportedSettings property", exc_info=True)
+
+
+def _restoreAllSupportedSettingsClassProperties() -> None:
+	for synthClass in list(_supportedSettingsClassPatches):
+		_restoreSupportedSettingsClassProperty(synthClass)
+
+
+def _patchSynthSupportedSettings(synth: Any, setting: Any) -> bool:
+	synthClass = synth.__class__
+	descriptor = _supportedSettingsDescriptorForClass(synthClass)
+	if _isDynamicSupportedSettingsDescriptor(descriptor):
+		_patchSupportedSettingsClassProperty(synthClass)
+		setattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, True)
+		return _hasSonicPitchSetting(getattr(synth, "supportedSettings", ()))
+	supportedSettings = _withoutSonicPitchSettings(tuple(getattr(synth, "supportedSettings", ())))
+	if not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
+		setattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, supportedSettings)
+		synth.supportedSettings = _withSonicPitchSetting(supportedSettings, setting)
+		setattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, True)
+	elif not _hasSonicPitchSetting(supportedSettings):
+		synth.supportedSettings = _withSonicPitchSetting(supportedSettings, setting)
+	return _hasSonicPitchSetting(getattr(synth, "supportedSettings", ()))
 
 
 def _stripSonicPitchSetting(synth: Any | None) -> None:
 	if synth is None:
 		return
 	try:
+		if synth.__class__ in _supportedSettingsClassPatches:
+			_restoreSupportedSettingsClassProperty(synth.__class__)
+			for attr in (
+				_ORIGINAL_SUPPORTED_SETTINGS_ATTR,
+				_SONIC_PITCH_SETTING_PATCHED_ATTR,
+			):
+				try:
+					delattr(synth, attr)
+				except Exception:
+					pass
+			_updateSynthSettingsRing(synth)
+			log.info(f"globalSonicPitch: hid Sonic pitch voice setting; synth={_getSynthName(synth)}")
+			return
 		supportedSettings = tuple(getattr(synth, "supportedSettings", ()))
 		filteredSettings = _withoutSonicPitchSettings(supportedSettings)
 		if len(filteredSettings) == len(supportedSettings):
@@ -1624,6 +1829,51 @@ def _restoreAllSynthVoiceProperties() -> None:
 		_restoreSynthVoiceProperty(synthClass)
 
 
+def _patchSynthVariantProperty(synth: Any) -> None:
+	synthClass = synth.__class__
+	if synthClass in _variantClassPatches:
+		return
+	originalValue = getattr(synthClass, "variant", _missingClassAttr)
+	if not isinstance(originalValue, property) or originalValue.fset is None:
+		return
+
+	def _getVariant(instance):
+		if originalValue.fget is None:
+			raise AttributeError("variant")
+		return originalValue.fget(instance)
+
+	def _setVariant(instance, value):
+		originalValue.fset(instance, value)
+		_refreshSonicPitchAfterVoiceChange(instance)
+
+	_variantClassPatches[synthClass] = originalValue
+	setattr(
+		synthClass,
+		"variant",
+		property(
+			_getVariant,
+			_setVariant,
+			originalValue.fdel,
+			originalValue.__doc__,
+		),
+	)
+
+
+def _restoreSynthVariantProperty(synthClass: type) -> None:
+	if synthClass not in _variantClassPatches:
+		return
+	originalValue = _variantClassPatches.pop(synthClass)
+	try:
+		setattr(synthClass, "variant", originalValue)
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to restore synth variant class property", exc_info=True)
+
+
+def _restoreAllSynthVariantProperties() -> None:
+	for synthClass in list(_variantClassPatches):
+		_restoreSynthVariantProperty(synthClass)
+
+
 def _restoreSonicPitchClassProperty(synthClass: type) -> None:
 	if synthClass not in _sonicPitchClassPatches:
 		return
@@ -1717,13 +1967,9 @@ def _patchSynthSonicPitchSetting(synth: Any | None) -> None:
 	try:
 		_patchSonicPitchClassProperty(synth)
 		_patchSynthVoiceProperty(synth)
-		supportedSettings = _withoutSonicPitchSettings(tuple(getattr(synth, "supportedSettings", ())))
-		if not getattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, False):
-			setattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, supportedSettings)
-			synth.supportedSettings = supportedSettings + (setting,)
-			setattr(synth, _SONIC_PITCH_SETTING_PATCHED_ATTR, True)
-		elif not _hasSonicPitchSetting(supportedSettings):
-			synth.supportedSettings = supportedSettings + (setting,)
+		_patchSynthVariantProperty(synth)
+		if not _patchSynthSupportedSettings(synth, setting):
+			return
 		settingValue = _getReadableSonicPitchSettingValue(synth)
 		if settingValue is None:
 			_unpatchSynthSonicPitchSetting(synth)
@@ -1744,9 +1990,12 @@ def _unpatchSynthSonicPitchSetting(synth: Any | None) -> None:
 			_stripSonicPitchSetting(synth)
 		return
 	try:
-		originalSupportedSettings = getattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, None)
-		if originalSupportedSettings is not None:
-			synth.supportedSettings = _withoutSonicPitchSettings(originalSupportedSettings)
+		if synth.__class__ in _supportedSettingsClassPatches:
+			_restoreSupportedSettingsClassProperty(synth.__class__)
+		else:
+			originalSupportedSettings = getattr(synth, _ORIGINAL_SUPPORTED_SETTINGS_ATTR, None)
+			if originalSupportedSettings is not None:
+				synth.supportedSettings = _withoutSonicPitchSettings(originalSupportedSettings)
 		for attr in (
 			_ORIGINAL_SUPPORTED_SETTINGS_ATTR,
 			_SONIC_PITCH_SETTING_PATCHED_ATTR,
@@ -1757,6 +2006,7 @@ def _unpatchSynthSonicPitchSetting(synth: Any | None) -> None:
 				pass
 		_restoreSonicPitchClassProperty(synth.__class__)
 		_restoreSynthVoiceProperty(synth.__class__)
+		_restoreSynthVariantProperty(synth.__class__)
 		_updateSynthSettingsRing(synth)
 		log.info(f"globalSonicPitch: removed Sonic pitch voice setting; synth={_getSynthName(synth)}")
 	except Exception:
@@ -1769,8 +2019,10 @@ def _patchCurrentSynthPitch() -> None:
 		_patchSynthSonicPitchSetting(synth)
 	else:
 		_unpatchSynthSonicPitchSetting(synth)
+		_restoreAllSupportedSettingsClassProperties()
 		_restoreAllSonicPitchClassProperties()
 		_restoreAllSynthVoiceProperties()
+		_restoreAllSynthVariantProperties()
 
 
 def _safePatchCurrentSynthPitch() -> None:
@@ -1920,8 +2172,10 @@ def uninstallSynthPitchHook() -> None:
 		return
 	_unpatchSynthSonicPitchSetting(_getCurrentSynth())
 	_runtimeSonicPitchByKey.clear()
+	_restoreAllSupportedSettingsClassProperties()
 	_restoreAllSonicPitchClassProperties()
 	_restoreAllSynthVoiceProperties()
+	_restoreAllSynthVariantProperties()
 	if getattr(settingsDialogs, _SETTINGS_SET_SYNTH_PATCHED_ATTR, False):
 		originalSettingsSetSynth = getattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR, None)
 		if originalSettingsSetSynth is not None and settingsDialogs.setSynth is _patchedSettingsSetSynth:
