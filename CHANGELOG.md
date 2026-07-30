@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.3
+
+- Refreshes the visible `Sonic pitch` control in NVDA Voice settings after
+  changing only a synthesizer voice variant.
+- Preserves separate pending and saved Sonic pitch values for each touched
+  voice variant while the Voice settings dialog is open.
+- Preserves the effective `setSynth` signature when Global Sonic Pitch wraps
+  synthesizer switching, improving compatibility with add-ons such as Google
+  TTS for NVDA 0.4 on older NVDA versions.
+- Filters unsupported `setSynth` keyword arguments before one call to the next
+  wrapper while keeping arguments supported by newer NVDA versions or another
+  add-on wrapper.
+
 ## 1.1.2
 
 - Adds Sonic pitch to synthesizers with dynamic or read-only `supportedSettings`

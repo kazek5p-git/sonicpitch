@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import ctypes
+import functools
+import inspect
 import json
 import os
 import threading
 import webbrowser
+import weakref
 from typing import Any, Callable
 
 import addonHandler
@@ -81,8 +84,10 @@ _ORIGINAL_CLOSE_ATTR = "_globalSonicPitchOriginalClose"
 _FEED_PATCHED_ATTR = "_globalSonicPitchFeedPatched"
 _ORIGINAL_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSetSynth"
 _SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSetSynthPatched"
+_SET_SYNTH_WRAPPER_ATTR = "_globalSonicPitchSetSynthWrapper"
 _ORIGINAL_SETTINGS_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSettingsSetSynth"
 _SETTINGS_SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSettingsSetSynthPatched"
+_SETTINGS_SET_SYNTH_WRAPPER_ATTR = "_globalSonicPitchSettingsSetSynthWrapper"
 _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR = "_globalSonicPitchOriginalVoicePanelMakeSettings"
 _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR = "_globalSonicPitchOriginalVoicePanelOnSave"
 _ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR = "_globalSonicPitchOriginalVoicePanelOnDiscard"
@@ -119,6 +124,8 @@ _SHORT_AUDIO_CHUNK_MAX_DURATION_MS = 35
 _sapi32HostReloading = False
 _sapi32HostReloadRequested = False
 _voiceDialogSessions: dict[int, dict[str, dict[str, int]]] = {}
+_voiceDialogPanelRefs: dict[int, weakref.ReferenceType[Any]] = {}
+_voiceDialogSonicPitchRefreshPending = False
 _runtimeSonicPitchByKey: dict[str, tuple[int, bool, int]] = {}
 _qualityLogKeys: set[tuple[Any, ...]] = set()
 
@@ -655,6 +662,7 @@ def _ensureVoiceDialogSession(panel: Any) -> None:
 	if panelId not in _voiceDialogSessions:
 		_voiceDialogSessions[panelId] = {"snapshots": {}, "pending": {}}
 	_captureVoiceDialogBaseline(_voiceDialogSessions[panelId], _getCurrentSynth())
+	_voiceDialogPanelRefs[panelId] = weakref.ref(panel)
 	if getattr(panel, "_globalSonicPitchVoiceSessionDestroyBound", False):
 		return
 
@@ -667,6 +675,7 @@ def _ensureVoiceDialogSession(panel: Any) -> None:
 					log.debugWarning("globalSonicPitch: failed to restore Voice settings on destroy", exc_info=True)
 				finally:
 					_voiceDialogSessions.pop(panelId, None)
+					_voiceDialogPanelRefs.pop(panelId, None)
 		finally:
 			evt.Skip()
 
@@ -675,6 +684,54 @@ def _ensureVoiceDialogSession(panel: Any) -> None:
 		setattr(panel, "_globalSonicPitchVoiceSessionDestroyBound", True)
 	except Exception:
 		log.debugWarning("globalSonicPitch: failed to bind Voice settings destroy handler", exc_info=True)
+
+
+def _refreshVoiceDialogSonicPitchControls() -> None:
+	global _voiceDialogSonicPitchRefreshPending
+	_voiceDialogSonicPitchRefreshPending = False
+	for panelId, panelRef in list(_voiceDialogPanelRefs.items()):
+		panel = panelRef()
+		if panel is None or panelId not in _voiceDialogSessions:
+			_voiceDialogPanelRefs.pop(panelId, None)
+			continue
+		try:
+			if getattr(panel, "IsBeingDeleted", lambda: False)():
+				_voiceDialogPanelRefs.pop(panelId, None)
+				continue
+		except Exception:
+			pass
+		try:
+			panel.updateDriverSettings(changedSetting="variant")
+		except Exception:
+			log.debugWarning(
+				"globalSonicPitch: failed to refresh Sonic pitch control after variant change",
+				exc_info=True,
+			)
+
+
+def _scheduleVoiceDialogSonicPitchControlRefresh(synth: Any | None) -> None:
+	global _voiceDialogSonicPitchRefreshPending
+	if not _voiceDialogSessions or synth is None:
+		return
+	if not bool(_getConfigValue("enabled", False)):
+		return
+	if not _isGlobalAudioSupportedSynth(_getSynthName(synth)):
+		return
+	for session in list(_voiceDialogSessions.values()):
+		try:
+			_captureVoiceDialogBaseline(session, synth)
+		except Exception:
+			log.debugWarning(
+				"globalSonicPitch: failed to capture Voice settings baseline after variant change",
+				exc_info=True,
+			)
+	if _voiceDialogSonicPitchRefreshPending:
+		return
+	_voiceDialogSonicPitchRefreshPending = True
+	try:
+		wx.CallAfter(_refreshVoiceDialogSonicPitchControls)
+	except Exception:
+		_refreshVoiceDialogSonicPitchControls()
 
 
 def _loadSynthPitchMap() -> dict[str, int]:
@@ -1845,6 +1902,7 @@ def _patchSynthVariantProperty(synth: Any) -> None:
 	def _setVariant(instance, value):
 		originalValue.fset(instance, value)
 		_refreshSonicPitchAfterVoiceChange(instance)
+		_scheduleVoiceDialogSonicPitchControlRefresh(instance)
 
 	_variantClassPatches[synthClass] = originalValue
 	setattr(
@@ -2039,8 +2097,56 @@ def _schedulePatchCurrentSynthPitch() -> None:
 		_safePatchCurrentSynthPitch()
 
 
+def _getCallableSignature(callableObj: Callable[..., Any]) -> inspect.Signature | None:
+	try:
+		return inspect.signature(callableObj)
+	except (TypeError, ValueError):
+		return None
+
+
+def _setWrapperSignature(wrapper: Callable[..., Any], wrapped: Callable[..., Any]) -> None:
+	signature = _getCallableSignature(wrapped)
+	if signature is None:
+		return
+	try:
+		wrapper.__signature__ = signature
+	except Exception:
+		pass
+
+
+def _filterUnsupportedKeywordArguments(
+	callableObj: Callable[..., Any],
+	kwargs: dict[str, Any],
+) -> dict[str, Any]:
+	if not kwargs:
+		return kwargs
+	signature = _getCallableSignature(callableObj)
+	if signature is None:
+		return kwargs
+	parameters = signature.parameters
+	if any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+		return kwargs
+	filteredKwargs = {
+		name: value
+		for name, value in kwargs.items()
+		if (
+			name in parameters
+			and parameters[name].kind
+			in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+		)
+	}
+	if len(filteredKwargs) != len(kwargs) and _isDebugLoggingEnabled():
+		droppedNames = sorted(set(kwargs) - set(filteredKwargs))
+		log.debug(
+			"globalSonicPitch: filtered unsupported setSynth keyword arguments; "
+			f"callable={callableObj!r}; dropped={','.join(droppedNames)}",
+		)
+	return filteredKwargs
+
+
 def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
-	result = originalSetSynth(*args, **kwargs)
+	filteredKwargs = _filterUnsupportedKeywordArguments(originalSetSynth, kwargs)
+	result = originalSetSynth(*args, **filteredKwargs)
 	_resetAllPlayerProcessors()
 	_runtimeSonicPitchByKey.clear()
 	if not _deferSynthPitchPatchDepth:
@@ -2048,21 +2154,34 @@ def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs)
 	return result
 
 
-def _patchedSetSynth(*args, **kwargs):
-	originalSetSynth = getattr(synthDriverHandler, _ORIGINAL_SET_SYNTH_ATTR)
-	return _callSetSynthAndPatch(originalSetSynth, *args, **kwargs)
+def _makeSetSynthWrapper(originalSetSynth: Callable[..., Any]) -> Callable[..., Any]:
+	@functools.wraps(originalSetSynth)
+	def _globalSonicPitchSetSynthWrapper(*args, **kwargs):
+		return _callSetSynthAndPatch(originalSetSynth, *args, **kwargs)
+
+	_setWrapperSignature(_globalSonicPitchSetSynthWrapper, originalSetSynth)
+	return _globalSonicPitchSetSynthWrapper
 
 
-def _patchedSettingsSetSynth(*args, **kwargs):
+def _callSettingsSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
 	global _deferSynthPitchPatchDepth
-	originalSetSynth = getattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR)
 	_deferSynthPitchPatchDepth += 1
 	try:
-		return originalSetSynth(*args, **kwargs)
+		filteredKwargs = _filterUnsupportedKeywordArguments(originalSetSynth, kwargs)
+		return originalSetSynth(*args, **filteredKwargs)
 	finally:
 		_deferSynthPitchPatchDepth = max(0, _deferSynthPitchPatchDepth - 1)
 		if not _deferSynthPitchPatchDepth:
 			_safePatchCurrentSynthPitch()
+
+
+def _makeSettingsSetSynthWrapper(originalSetSynth: Callable[..., Any]) -> Callable[..., Any]:
+	@functools.wraps(originalSetSynth)
+	def _globalSonicPitchSettingsSetSynthWrapper(*args, **kwargs):
+		return _callSettingsSetSynthAndPatch(originalSetSynth, *args, **kwargs)
+
+	_setWrapperSignature(_globalSonicPitchSettingsSetSynthWrapper, originalSetSynth)
+	return _globalSonicPitchSettingsSetSynthWrapper
 
 
 def _patchedVoicePanelMakeSettings(self, *args, **kwargs):
@@ -2081,6 +2200,7 @@ def _patchedVoicePanelOnSave(self, *args, **kwargs):
 		log.debugWarning("globalSonicPitch: failed to commit Voice settings Sonic pitch transaction", exc_info=True)
 	finally:
 		_voiceDialogSessions.pop(panelId, None)
+		_voiceDialogPanelRefs.pop(panelId, None)
 	return result
 
 
@@ -2096,6 +2216,7 @@ def _patchedVoicePanelOnDiscard(self, *args, **kwargs):
 			log.debugWarning("globalSonicPitch: failed to discard Voice settings Sonic pitch transaction", exc_info=True)
 		finally:
 			_voiceDialogSessions.pop(panelId, None)
+			_voiceDialogPanelRefs.pop(panelId, None)
 
 
 def installVoiceSettingsDialogHook() -> None:
@@ -2125,6 +2246,7 @@ def uninstallVoiceSettingsDialogHook() -> None:
 			log.debugWarning("globalSonicPitch: failed to restore Voice settings while uninstalling hook", exc_info=True)
 		finally:
 			_voiceDialogSessions.pop(panelId, None)
+			_voiceDialogPanelRefs.pop(panelId, None)
 	if not getattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, False):
 		return
 	originalMakeSettings = getattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR, None)
@@ -2156,12 +2278,17 @@ def installSynthPitchHook() -> None:
 		_patchCurrentSynthPitch()
 		return
 	settingsSetSynth = getattr(settingsDialogs, "setSynth", None)
-	setattr(synthDriverHandler, _ORIGINAL_SET_SYNTH_ATTR, synthDriverHandler.setSynth)
-	synthDriverHandler.setSynth = _patchedSetSynth
+	originalSetSynth = synthDriverHandler.setSynth
+	setSynthWrapper = _makeSetSynthWrapper(originalSetSynth)
+	setattr(synthDriverHandler, _ORIGINAL_SET_SYNTH_ATTR, originalSetSynth)
+	setattr(synthDriverHandler, _SET_SYNTH_WRAPPER_ATTR, setSynthWrapper)
+	synthDriverHandler.setSynth = setSynthWrapper
 	setattr(synthDriverHandler, _SET_SYNTH_PATCHED_ATTR, True)
 	if callable(settingsSetSynth):
+		settingsSetSynthWrapper = _makeSettingsSetSynthWrapper(settingsSetSynth)
 		setattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR, settingsSetSynth)
-		settingsDialogs.setSynth = _patchedSettingsSetSynth
+		setattr(settingsDialogs, _SETTINGS_SET_SYNTH_WRAPPER_ATTR, settingsSetSynthWrapper)
+		settingsDialogs.setSynth = settingsSetSynthWrapper
 		setattr(settingsDialogs, _SETTINGS_SET_SYNTH_PATCHED_ATTR, True)
 	_patchCurrentSynthPitch()
 	log.info("globalSonicPitch: installed synth Sonic pitch setting hook")
@@ -2178,20 +2305,30 @@ def uninstallSynthPitchHook() -> None:
 	_restoreAllSynthVariantProperties()
 	if getattr(settingsDialogs, _SETTINGS_SET_SYNTH_PATCHED_ATTR, False):
 		originalSettingsSetSynth = getattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR, None)
-		if originalSettingsSetSynth is not None and settingsDialogs.setSynth is _patchedSettingsSetSynth:
+		settingsSetSynthWrapper = getattr(settingsDialogs, _SETTINGS_SET_SYNTH_WRAPPER_ATTR, None)
+		if originalSettingsSetSynth is not None and settingsDialogs.setSynth is settingsSetSynthWrapper:
 			settingsDialogs.setSynth = originalSettingsSetSynth
 		try:
 			delattr(settingsDialogs, _ORIGINAL_SETTINGS_SET_SYNTH_ATTR)
+		except Exception:
+			pass
+		try:
+			delattr(settingsDialogs, _SETTINGS_SET_SYNTH_WRAPPER_ATTR)
 		except Exception:
 			pass
 		setattr(settingsDialogs, _SETTINGS_SET_SYNTH_PATCHED_ATTR, False)
 	if not getattr(synthDriverHandler, _SET_SYNTH_PATCHED_ATTR, False):
 		return
 	originalSetSynth = getattr(synthDriverHandler, _ORIGINAL_SET_SYNTH_ATTR, None)
-	if originalSetSynth is not None and synthDriverHandler.setSynth is _patchedSetSynth:
+	setSynthWrapper = getattr(synthDriverHandler, _SET_SYNTH_WRAPPER_ATTR, None)
+	if originalSetSynth is not None and synthDriverHandler.setSynth is setSynthWrapper:
 		synthDriverHandler.setSynth = originalSetSynth
 	try:
 		delattr(synthDriverHandler, _ORIGINAL_SET_SYNTH_ATTR)
+	except Exception:
+		pass
+	try:
+		delattr(synthDriverHandler, _SET_SYNTH_WRAPPER_ATTR)
 	except Exception:
 		pass
 	setattr(synthDriverHandler, _SET_SYNTH_PATCHED_ATTR, False)

@@ -40,6 +40,9 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 
 ## Changes
 
+- 1.1.3: Refreshes the Voice settings `Sonic pitch` control after variant
+  changes and improves `setSynth` wrapper compatibility with Google TTS for
+  NVDA 0.4 on older NVDA versions.
 - 1.1: Added optional better-quality Sonic processing for supported processing
   paths. Fast mode remains the default.
 - 1.0: Stable release replacing the withdrawn 1.0 build. Improves short audio
@@ -74,7 +77,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 4. Restart NVDA when prompted.
 
 Latest packaged add-on:
-[globalSonicPitch-1.1.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.3.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## License
 

@@ -44,6 +44,9 @@ wysokością syntezatora.
 
 ## Zmiany
 
+- 1.1.3: Odświeża kontrolkę `Sonic pitch` w ustawieniach głosu po zmianie
+  wariantu i poprawia kompatybilność wrappera `setSynth` z Google TTS dla NVDA
+  0.4 na starszych wersjach NVDA.
 - 1.1: Dodano opcjonalne przetwarzanie Sonic w lepszej jakości dla obsługiwanych ścieżek
   przetwarzania. Tryb szybki pozostaje domyślny.
 - 1.0: Stabilne wydanie zastępujące wycofaną kompilację 1.0. Poprawia
@@ -80,7 +83,7 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 4. Zrestartuj NVDA po komunikacie.
 
 Najnowszy pakiet:
-[globalSonicPitch-1.1.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.3.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencja
 

@@ -40,6 +40,9 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 
 ## Zmeny
 
+- 1.1.3: Obnovuje ovládací prvok `Sonic pitch` v nastaveniach hlasu po zmene
+  variantu a zlepšuje kompatibilitu wrappera `setSynth` s Google TTS pre NVDA
+  0.4 na starších verziách NVDA.
 - 1.1: Pridané voliteľné kvalitnejšie spracovanie Sonic pre podporované cesty
   spracovania. Rýchly režim zostáva predvolený.
 - 1.0: Stabilné vydanie nahrádzajúce stiahnuté zostavenie 1.0. Zlepšuje
@@ -76,7 +79,7 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 4. Po výzve reštartujte NVDA.
 
 Najnovší balík:
-[globalSonicPitch-1.1.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.3.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencia
 
