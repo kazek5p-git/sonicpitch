@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.4
+
+- Fixes NVDA settings dialog cleanup on newer 64-bit NVDA builds when using
+  SAPI4 or SAPI5.
+- Avoids leaving a destroyed Voice settings panel referenced after closing the
+  dialog, so NVDA can open settings panels repeatedly.
+- Ignores late refreshes for already destroyed Voice settings controls and
+  schedules cleanup after settings dialogs are destroyed.
+
 ## 1.1.3
 
 - Refreshes the visible `Sonic pitch` control in NVDA Voice settings after

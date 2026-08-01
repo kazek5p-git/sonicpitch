@@ -31,15 +31,17 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 
 ## Documentation
 
-- Full English help: [addon/doc/en/readme.md](addon/doc/en/readme.md)
-- Polish help: [addon/doc/pl/readme.md](addon/doc/pl/readme.md)
-- Slovak help: [addon/doc/sk/readme.md](addon/doc/sk/readme.md)
+- Full English help: [addon/doc/en/readme.html](addon/doc/en/readme.html)
+- Polish help: [addon/doc/pl/readme.html](addon/doc/pl/readme.html)
+- Slovak help: [addon/doc/sk/readme.html](addon/doc/sk/readme.html)
 - Technical notes: [docs/technical-notes.md](docs/technical-notes.md)
 - Manual testing checklist: [TESTING.md](TESTING.md)
 - Translation template: [addon/locale/nvda.pot](addon/locale/nvda.pot)
 
 ## Changes
 
+- 1.1.4: Fixes repeated opening of NVDA settings dialogs on newer 64-bit NVDA
+  builds when SAPI4 or SAPI5 is active.
 - 1.1.3: Refreshes the Voice settings `Sonic pitch` control after variant
   changes and improves `setSynth` wrapper compatibility with Google TTS for
   NVDA 0.4 on older NVDA versions.
@@ -77,7 +79,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 4. Restart NVDA when prompted.
 
 Latest packaged add-on:
-[globalSonicPitch-1.1.3.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.4.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## License
 

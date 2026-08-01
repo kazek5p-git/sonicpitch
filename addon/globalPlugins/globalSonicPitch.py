@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import functools
+import gc
 import inspect
 import json
 import os
@@ -88,6 +89,12 @@ _SET_SYNTH_WRAPPER_ATTR = "_globalSonicPitchSetSynthWrapper"
 _ORIGINAL_SETTINGS_SET_SYNTH_ATTR = "_globalSonicPitchOriginalSettingsSetSynth"
 _SETTINGS_SET_SYNTH_PATCHED_ATTR = "_globalSonicPitchSettingsSetSynthPatched"
 _SETTINGS_SET_SYNTH_WRAPPER_ATTR = "_globalSonicPitchSettingsSetSynthWrapper"
+_ORIGINAL_AUTO_SETTINGS_REFRESH_GUI_ATTR = "_globalSonicPitchOriginalAutoSettingsRefreshGui"
+_AUTO_SETTINGS_REFRESH_GUI_PATCHED_ATTR = "_globalSonicPitchAutoSettingsRefreshGuiPatched"
+_AUTO_SETTINGS_REFRESH_GUI_WRAPPER_ATTR = "_globalSonicPitchAutoSettingsRefreshGuiWrapper"
+_ORIGINAL_SETTINGS_DIALOG_DESTROYED_STATE_ATTR = "_globalSonicPitchOriginalSettingsDialogDestroyedState"
+_SETTINGS_DIALOG_DESTROYED_STATE_PATCHED_ATTR = "_globalSonicPitchSettingsDialogDestroyedStatePatched"
+_SETTINGS_DIALOG_DESTROYED_STATE_WRAPPER_ATTR = "_globalSonicPitchSettingsDialogDestroyedStateWrapper"
 _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR = "_globalSonicPitchOriginalVoicePanelMakeSettings"
 _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR = "_globalSonicPitchOriginalVoicePanelOnSave"
 _ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR = "_globalSonicPitchOriginalVoicePanelOnDiscard"
@@ -126,6 +133,7 @@ _sapi32HostReloadRequested = False
 _voiceDialogSessions: dict[int, dict[str, dict[str, int]]] = {}
 _voiceDialogPanelRefs: dict[int, weakref.ReferenceType[Any]] = {}
 _voiceDialogSonicPitchRefreshPending = False
+_settingsDialogGcPending = False
 _runtimeSonicPitchByKey: dict[str, tuple[int, bool, int]] = {}
 _qualityLogKeys: set[tuple[Any, ...]] = set()
 
@@ -663,19 +671,25 @@ def _ensureVoiceDialogSession(panel: Any) -> None:
 		_voiceDialogSessions[panelId] = {"snapshots": {}, "pending": {}}
 	_captureVoiceDialogBaseline(_voiceDialogSessions[panelId], _getCurrentSynth())
 	_voiceDialogPanelRefs[panelId] = weakref.ref(panel)
+	try:
+		setattr(panel, "_globalSonicPitchVoicePanelReleased", False)
+	except Exception:
+		pass
 	if getattr(panel, "_globalSonicPitchVoiceSessionDestroyBound", False):
 		return
+	panelRef = weakref.ref(panel)
 
 	def _onDestroy(evt):
 		try:
-			if evt.GetEventObject() is panel:
+			targetPanel = panelRef()
+			if targetPanel is not None and evt.GetEventObject() is targetPanel:
 				try:
 					_restoreVoiceDialogSession(panelId)
 				except Exception:
 					log.debugWarning("globalSonicPitch: failed to restore Voice settings on destroy", exc_info=True)
 				finally:
 					_voiceDialogSessions.pop(panelId, None)
-					_voiceDialogPanelRefs.pop(panelId, None)
+					_releaseVoiceDialogPanel(targetPanel)
 		finally:
 			evt.Skip()
 
@@ -686,12 +700,28 @@ def _ensureVoiceDialogSession(panel: Any) -> None:
 		log.debugWarning("globalSonicPitch: failed to bind Voice settings destroy handler", exc_info=True)
 
 
+def _releaseVoiceDialogPanel(panel: Any) -> None:
+	_voiceDialogPanelRefs.pop(id(panel), None)
+	try:
+		setattr(panel, "_globalSonicPitchVoicePanelReleased", True)
+	except Exception:
+		pass
+	try:
+		setattr(panel, "_currentSettingsRef", lambda: True)
+	except Exception:
+		pass
+	_scheduleSettingsDialogGarbageCollection()
+
+
 def _refreshVoiceDialogSonicPitchControls() -> None:
 	global _voiceDialogSonicPitchRefreshPending
 	_voiceDialogSonicPitchRefreshPending = False
 	for panelId, panelRef in list(_voiceDialogPanelRefs.items()):
 		panel = panelRef()
 		if panel is None or panelId not in _voiceDialogSessions:
+			_voiceDialogPanelRefs.pop(panelId, None)
+			continue
+		if getattr(panel, "_globalSonicPitchVoicePanelReleased", False):
 			_voiceDialogPanelRefs.pop(panelId, None)
 			continue
 		try:
@@ -2184,6 +2214,125 @@ def _makeSettingsSetSynthWrapper(originalSetSynth: Callable[..., Any]) -> Callab
 	return _globalSonicPitchSettingsSetSynthWrapper
 
 
+def _makeAutoSettingsRefreshGuiGuard(originalRefreshGui: Callable[..., Any]) -> Callable[..., Any]:
+	@functools.wraps(originalRefreshGui)
+	def _globalSonicPitchAutoSettingsRefreshGuiGuard(self, *args, **kwargs):
+		if getattr(self, "_globalSonicPitchVoicePanelReleased", False):
+			return None
+		try:
+			return originalRefreshGui(self, *args, **kwargs)
+		except RuntimeError as exc:
+			if "has been deleted" not in str(exc):
+				raise
+			log.debug("globalSonicPitch: ignored refresh for destroyed NVDA auto settings panel", exc_info=True)
+			return None
+
+	return _globalSonicPitchAutoSettingsRefreshGuiGuard
+
+
+def _collectSettingsDialogGarbage() -> None:
+	global _settingsDialogGcPending
+	_settingsDialogGcPending = False
+	try:
+		gc.collect()
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to collect destroyed settings dialogs", exc_info=True)
+
+
+def _scheduleSettingsDialogGarbageCollection() -> None:
+	global _settingsDialogGcPending
+	if _settingsDialogGcPending:
+		return
+	_settingsDialogGcPending = True
+	try:
+		wx.CallAfter(_collectSettingsDialogGarbage)
+	except Exception:
+		_collectSettingsDialogGarbage()
+
+
+def _makeSettingsDialogDestroyedStateWrapper(originalDestroyedState: Callable[..., Any]) -> Callable[..., Any]:
+	@functools.wraps(originalDestroyedState)
+	def _globalSonicPitchSettingsDialogDestroyedState(self, *args, **kwargs):
+		try:
+			return originalDestroyedState(self, *args, **kwargs)
+		finally:
+			_scheduleSettingsDialogGarbageCollection()
+
+	return _globalSonicPitchSettingsDialogDestroyedState
+
+
+def _installSettingsDialogDestroyedStateGuard() -> None:
+	settingsDialogClass = getattr(settingsDialogs, "SettingsDialog", None)
+	if settingsDialogClass is None:
+		return
+	if getattr(settingsDialogClass, _SETTINGS_DIALOG_DESTROYED_STATE_PATCHED_ATTR, False):
+		return
+	originalDestroyedState = getattr(settingsDialogClass, "_setInstanceDestroyedState", None)
+	if originalDestroyedState is None:
+		return
+	destroyedStateWrapper = _makeSettingsDialogDestroyedStateWrapper(originalDestroyedState)
+	setattr(settingsDialogClass, _ORIGINAL_SETTINGS_DIALOG_DESTROYED_STATE_ATTR, originalDestroyedState)
+	setattr(settingsDialogClass, _SETTINGS_DIALOG_DESTROYED_STATE_WRAPPER_ATTR, destroyedStateWrapper)
+	settingsDialogClass._setInstanceDestroyedState = destroyedStateWrapper
+	setattr(settingsDialogClass, _SETTINGS_DIALOG_DESTROYED_STATE_PATCHED_ATTR, True)
+
+
+def _uninstallSettingsDialogDestroyedStateGuard() -> None:
+	settingsDialogClass = getattr(settingsDialogs, "SettingsDialog", None)
+	if settingsDialogClass is None:
+		return
+	if not getattr(settingsDialogClass, _SETTINGS_DIALOG_DESTROYED_STATE_PATCHED_ATTR, False):
+		return
+	originalDestroyedState = getattr(settingsDialogClass, _ORIGINAL_SETTINGS_DIALOG_DESTROYED_STATE_ATTR, None)
+	destroyedStateWrapper = getattr(settingsDialogClass, _SETTINGS_DIALOG_DESTROYED_STATE_WRAPPER_ATTR, None)
+	if originalDestroyedState is not None and settingsDialogClass._setInstanceDestroyedState is destroyedStateWrapper:
+		settingsDialogClass._setInstanceDestroyedState = originalDestroyedState
+	for attr in (
+		_ORIGINAL_SETTINGS_DIALOG_DESTROYED_STATE_ATTR,
+		_SETTINGS_DIALOG_DESTROYED_STATE_WRAPPER_ATTR,
+	):
+		try:
+			delattr(settingsDialogClass, attr)
+		except Exception:
+			pass
+	setattr(settingsDialogClass, _SETTINGS_DIALOG_DESTROYED_STATE_PATCHED_ATTR, False)
+
+
+def _installAutoSettingsRefreshGuiGuard() -> None:
+	autoSettingsMixin = getattr(settingsDialogs, "AutoSettingsMixin", None)
+	if autoSettingsMixin is None:
+		return
+	if getattr(autoSettingsMixin, _AUTO_SETTINGS_REFRESH_GUI_PATCHED_ATTR, False):
+		return
+	originalRefreshGui = autoSettingsMixin.refreshGui
+	refreshGuiGuard = _makeAutoSettingsRefreshGuiGuard(originalRefreshGui)
+	setattr(autoSettingsMixin, _ORIGINAL_AUTO_SETTINGS_REFRESH_GUI_ATTR, originalRefreshGui)
+	setattr(autoSettingsMixin, _AUTO_SETTINGS_REFRESH_GUI_WRAPPER_ATTR, refreshGuiGuard)
+	autoSettingsMixin.refreshGui = refreshGuiGuard
+	setattr(autoSettingsMixin, _AUTO_SETTINGS_REFRESH_GUI_PATCHED_ATTR, True)
+
+
+def _uninstallAutoSettingsRefreshGuiGuard() -> None:
+	autoSettingsMixin = getattr(settingsDialogs, "AutoSettingsMixin", None)
+	if autoSettingsMixin is None:
+		return
+	if not getattr(autoSettingsMixin, _AUTO_SETTINGS_REFRESH_GUI_PATCHED_ATTR, False):
+		return
+	originalRefreshGui = getattr(autoSettingsMixin, _ORIGINAL_AUTO_SETTINGS_REFRESH_GUI_ATTR, None)
+	refreshGuiGuard = getattr(autoSettingsMixin, _AUTO_SETTINGS_REFRESH_GUI_WRAPPER_ATTR, None)
+	if originalRefreshGui is not None and autoSettingsMixin.refreshGui is refreshGuiGuard:
+		autoSettingsMixin.refreshGui = originalRefreshGui
+	try:
+		delattr(autoSettingsMixin, _ORIGINAL_AUTO_SETTINGS_REFRESH_GUI_ATTR)
+	except Exception:
+		pass
+	try:
+		delattr(autoSettingsMixin, _AUTO_SETTINGS_REFRESH_GUI_WRAPPER_ATTR)
+	except Exception:
+		pass
+	setattr(autoSettingsMixin, _AUTO_SETTINGS_REFRESH_GUI_PATCHED_ATTR, False)
+
+
 def _patchedVoicePanelMakeSettings(self, *args, **kwargs):
 	_ensureVoiceDialogSession(self)
 	originalMakeSettings = getattr(settingsDialogs.VoiceSettingsPanel, _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR)
@@ -2200,7 +2349,7 @@ def _patchedVoicePanelOnSave(self, *args, **kwargs):
 		log.debugWarning("globalSonicPitch: failed to commit Voice settings Sonic pitch transaction", exc_info=True)
 	finally:
 		_voiceDialogSessions.pop(panelId, None)
-		_voiceDialogPanelRefs.pop(panelId, None)
+		_releaseVoiceDialogPanel(self)
 	return result
 
 
@@ -2216,7 +2365,7 @@ def _patchedVoicePanelOnDiscard(self, *args, **kwargs):
 			log.debugWarning("globalSonicPitch: failed to discard Voice settings Sonic pitch transaction", exc_info=True)
 		finally:
 			_voiceDialogSessions.pop(panelId, None)
-			_voiceDialogPanelRefs.pop(panelId, None)
+			_releaseVoiceDialogPanel(self)
 
 
 def installVoiceSettingsDialogHook() -> None:
@@ -2225,6 +2374,8 @@ def installVoiceSettingsDialogHook() -> None:
 		return
 	if getattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, False):
 		return
+	_installSettingsDialogDestroyedStateGuard()
+	_installAutoSettingsRefreshGuiGuard()
 	setattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR, voicePanelClass.makeSettings)
 	setattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR, voicePanelClass.onSave)
 	setattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_ON_DISCARD_ATTR, voicePanelClass.onDiscard)
@@ -2246,8 +2397,15 @@ def uninstallVoiceSettingsDialogHook() -> None:
 			log.debugWarning("globalSonicPitch: failed to restore Voice settings while uninstalling hook", exc_info=True)
 		finally:
 			_voiceDialogSessions.pop(panelId, None)
-			_voiceDialogPanelRefs.pop(panelId, None)
+			panelRef = _voiceDialogPanelRefs.get(panelId)
+			panel = panelRef() if panelRef is not None else None
+			if panel is not None:
+				_releaseVoiceDialogPanel(panel)
+			else:
+				_voiceDialogPanelRefs.pop(panelId, None)
 	if not getattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, False):
+		_uninstallAutoSettingsRefreshGuiGuard()
+		_uninstallSettingsDialogDestroyedStateGuard()
 		return
 	originalMakeSettings = getattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_MAKE_SETTINGS_ATTR, None)
 	originalOnSave = getattr(voicePanelClass, _ORIGINAL_VOICE_PANEL_ON_SAVE_ATTR, None)
@@ -2268,6 +2426,8 @@ def uninstallVoiceSettingsDialogHook() -> None:
 		except Exception:
 			pass
 	setattr(voicePanelClass, _VOICE_PANEL_PATCHED_ATTR, False)
+	_uninstallAutoSettingsRefreshGuiGuard()
+	_uninstallSettingsDialogDestroyedStateGuard()
 	log.info("globalSonicPitch: removed Voice settings Sonic pitch transaction hook")
 
 

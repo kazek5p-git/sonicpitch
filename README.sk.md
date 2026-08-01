@@ -31,15 +31,17 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 
 ## Dokumentácia
 
-- Anglická pomoc: [addon/doc/en/readme.md](addon/doc/en/readme.md)
-- Poľská pomoc: [addon/doc/pl/readme.md](addon/doc/pl/readme.md)
-- Slovenská pomoc: [addon/doc/sk/readme.md](addon/doc/sk/readme.md)
+- Anglická pomoc: [addon/doc/en/readme.html](addon/doc/en/readme.html)
+- Poľská pomoc: [addon/doc/pl/readme.html](addon/doc/pl/readme.html)
+- Slovenská pomoc: [addon/doc/sk/readme.html](addon/doc/sk/readme.html)
 - Technické poznámky: [docs/technical-notes.md](docs/technical-notes.md)
 - Kontrolný zoznam testov: [TESTING.md](TESTING.md)
 - Šablóna prekladu: [addon/locale/nvda.pot](addon/locale/nvda.pot)
 
 ## Zmeny
 
+- 1.1.4: Opravuje opakované otváranie dialógov nastavení NVDA na novších
+  64-bitových verziách NVDA, keď je aktívne SAPI4 alebo SAPI5.
 - 1.1.3: Obnovuje ovládací prvok `Sonic pitch` v nastaveniach hlasu po zmene
   variantu a zlepšuje kompatibilitu wrappera `setSynth` s Google TTS pre NVDA
   0.4 na starších verziách NVDA.
@@ -79,7 +81,7 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 4. Po výzve reštartujte NVDA.
 
 Najnovší balík:
-[globalSonicPitch-1.1.3.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.4.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencia
 

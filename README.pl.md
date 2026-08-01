@@ -35,15 +35,17 @@ wysokością syntezatora.
 
 ## Dokumentacja
 
-- Pełna pomoc angielska: [addon/doc/en/readme.md](addon/doc/en/readme.md)
-- Pomoc polska: [addon/doc/pl/readme.md](addon/doc/pl/readme.md)
-- Pomoc słowacka: [addon/doc/sk/readme.md](addon/doc/sk/readme.md)
+- Pełna pomoc angielska: [addon/doc/en/readme.html](addon/doc/en/readme.html)
+- Pomoc polska: [addon/doc/pl/readme.html](addon/doc/pl/readme.html)
+- Pomoc słowacka: [addon/doc/sk/readme.html](addon/doc/sk/readme.html)
 - Notatki techniczne: [docs/technical-notes.md](docs/technical-notes.md)
 - Lista testów ręcznych: [TESTING.md](TESTING.md)
 - Szablon tłumaczeń: [addon/locale/nvda.pot](addon/locale/nvda.pot)
 
 ## Zmiany
 
+- 1.1.4: Naprawia ponowne otwieranie okien ustawień NVDA na nowszych
+  64-bitowych wersjach NVDA, gdy aktywne jest SAPI4 albo SAPI5.
 - 1.1.3: Odświeża kontrolkę `Sonic pitch` w ustawieniach głosu po zmianie
   wariantu i poprawia kompatybilność wrappera `setSynth` z Google TTS dla NVDA
   0.4 na starszych wersjach NVDA.
@@ -83,7 +85,7 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 4. Zrestartuj NVDA po komunikacie.
 
 Najnowszy pakiet:
-[globalSonicPitch-1.1.3.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.4.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencja
 
