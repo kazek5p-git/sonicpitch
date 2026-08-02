@@ -2174,11 +2174,16 @@ def _filterUnsupportedKeywordArguments(
 	return filteredKwargs
 
 
-def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
-	filteredKwargs = _filterUnsupportedKeywordArguments(originalSetSynth, kwargs)
-	result = originalSetSynth(*args, **filteredKwargs)
+def _resetSynthSwitchRuntimeState() -> None:
 	_resetAllPlayerProcessors()
 	_runtimeSonicPitchByKey.clear()
+
+
+def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
+	filteredKwargs = _filterUnsupportedKeywordArguments(originalSetSynth, kwargs)
+	_resetSynthSwitchRuntimeState()
+	result = originalSetSynth(*args, **filteredKwargs)
+	_resetSynthSwitchRuntimeState()
 	if not _deferSynthPitchPatchDepth:
 		_safePatchCurrentSynthPitch()
 	return result
@@ -2198,9 +2203,11 @@ def _callSettingsSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, *
 	_deferSynthPitchPatchDepth += 1
 	try:
 		filteredKwargs = _filterUnsupportedKeywordArguments(originalSetSynth, kwargs)
+		_resetSynthSwitchRuntimeState()
 		return originalSetSynth(*args, **filteredKwargs)
 	finally:
 		_deferSynthPitchPatchDepth = max(0, _deferSynthPitchPatchDepth - 1)
+		_resetSynthSwitchRuntimeState()
 		if not _deferSynthPitchPatchDepth:
 			_safePatchCurrentSynthPitch()
 

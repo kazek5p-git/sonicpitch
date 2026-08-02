@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.5
+
+- Fixes restoring the saved `Sonic pitch` value when switching back to
+  `sapi5_32` after using another synthesizer.
+- Clears per-instance runtime Sonic pitch synchronization state around
+  synthesizer switches, so a newly created 32-bit SAPI host receives the saved
+  per-voice pitch instead of staying at the neutral value.
+
 ## 1.1.4
 
 - Fixes NVDA settings dialog cleanup on newer 64-bit NVDA builds when using
