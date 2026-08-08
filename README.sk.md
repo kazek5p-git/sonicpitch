@@ -40,6 +40,8 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 
 ## Zmeny
 
+- 1.1.6: Opravuje opakované otváranie dialógov nastavení NVDA po prepnutí na
+  SAPI4 alebo 32-bitové SAPI5 v novších 64-bitových verziách NVDA.
 - 1.1.5: Správne obnovuje uloženú hodnotu `Sonic pitch` pre jednotlivé hlasy
   po návrate na `sapi5_32` z iného syntetizéra.
 - 1.1.4: Opravuje opakované otváranie dialógov nastavení NVDA na novších
@@ -83,7 +85,7 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 4. Po výzve reštartujte NVDA.
 
 Najnovší balík:
-[globalSonicPitch-1.1.5.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.6.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencia
 

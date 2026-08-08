@@ -40,6 +40,8 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 
 ## Changes
 
+- 1.1.6: Fixes repeated opening of NVDA settings dialogs after switching to
+  SAPI4 or 32-bit SAPI5 on newer 64-bit NVDA builds.
 - 1.1.5: Restores saved per-voice `Sonic pitch` correctly when switching back
   to `sapi5_32` after using another synthesizer.
 - 1.1.4: Fixes repeated opening of NVDA settings dialogs on newer 64-bit NVDA
@@ -81,7 +83,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 4. Restart NVDA when prompted.
 
 Latest packaged add-on:
-[globalSonicPitch-1.1.5.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.6.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## License
 

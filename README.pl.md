@@ -44,6 +44,8 @@ wysokością syntezatora.
 
 ## Zmiany
 
+- 1.1.6: Naprawia ponowne otwieranie okien ustawień NVDA po przełączeniu na
+  SAPI4 albo 32-bitowe SAPI5 w nowszych 64-bitowych wersjach NVDA.
 - 1.1.5: Poprawnie przywraca zapisaną wartość `Sonic pitch` per głos po
   powrocie na `sapi5_32` z innego syntezatora.
 - 1.1.4: Naprawia ponowne otwieranie okien ustawień NVDA na nowszych
@@ -87,7 +89,7 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 4. Zrestartuj NVDA po komunikacie.
 
 Najnowszy pakiet:
-[globalSonicPitch-1.1.5.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+[globalSonicPitch-1.1.6.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
 
 ## Licencja
 

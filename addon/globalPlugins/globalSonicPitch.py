@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import ctypes
 import functools
-import gc
 import inspect
 import json
 import os
 import threading
+import time
 import webbrowser
 import weakref
 from typing import Any, Callable
@@ -136,6 +136,14 @@ _voiceDialogSonicPitchRefreshPending = False
 _settingsDialogGcPending = False
 _runtimeSonicPitchByKey: dict[str, tuple[int, bool, int]] = {}
 _qualityLogKeys: set[tuple[Any, ...]] = set()
+_synthSwitchDiagnosticSequence = 0
+_lastSynthSwitchStartedAt: float | None = None
+_lastSynthSwitchCompletedAt: float | None = None
+_lastSynthSwitchSource = ""
+_lastSynthSwitchRequestedSynth = ""
+_lastSynthSwitchBeforeSynth = ""
+_lastSynthSwitchAfterSynth = ""
+_lastSynthSwitchFailed = False
 
 
 class _SonicStreamP(ctypes.c_void_p):
@@ -710,7 +718,7 @@ def _releaseVoiceDialogPanel(panel: Any) -> None:
 		setattr(panel, "_currentSettingsRef", lambda: True)
 	except Exception:
 		pass
-	_scheduleSettingsDialogGarbageCollection()
+	_scheduleSettingsDialogGarbageCollection("voice panel released")
 
 
 def _refreshVoiceDialogSonicPitchControls() -> None:
@@ -2174,6 +2182,186 @@ def _filterUnsupportedKeywordArguments(
 	return filteredKwargs
 
 
+def _formatDiagnosticAge(timestamp: float | None) -> str:
+	if timestamp is None:
+		return "none"
+	try:
+		return f"{max(0.0, time.monotonic() - timestamp):.3f}s"
+	except Exception:
+		return "unknown"
+
+
+def _getRequestedSynthNameFromCall(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+	value = None
+	if args:
+		value = args[0]
+	else:
+		for key in ("name", "synthName", "synth"):
+			if key in kwargs:
+				value = kwargs[key]
+				break
+	if value is None:
+		return ""
+	if isinstance(value, str):
+		return value
+	return _getSynthName(value)
+
+
+def _beginSynthSwitchDiagnostics(
+	source: str,
+	args: tuple[Any, ...],
+	kwargs: dict[str, Any],
+) -> tuple[int, float]:
+	global _synthSwitchDiagnosticSequence
+	global _lastSynthSwitchStartedAt
+	global _lastSynthSwitchCompletedAt
+	global _lastSynthSwitchSource
+	global _lastSynthSwitchRequestedSynth
+	global _lastSynthSwitchBeforeSynth
+	global _lastSynthSwitchAfterSynth
+	global _lastSynthSwitchFailed
+	_synthSwitchDiagnosticSequence += 1
+	sequence = _synthSwitchDiagnosticSequence
+	startedAt = time.monotonic()
+	beforeSynth = _getSynthName()
+	requestedSynth = _getRequestedSynthNameFromCall(args, kwargs)
+	_lastSynthSwitchStartedAt = startedAt
+	_lastSynthSwitchCompletedAt = None
+	_lastSynthSwitchSource = source
+	_lastSynthSwitchRequestedSynth = requestedSynth
+	_lastSynthSwitchBeforeSynth = beforeSynth
+	_lastSynthSwitchAfterSynth = ""
+	_lastSynthSwitchFailed = False
+	log.info(
+		"globalSonicPitch: setSynth diagnostic start; "
+		f"sequence={sequence}; source={source}; requestedSynth={requestedSynth or 'unknown'}; "
+		f"beforeSynth={beforeSynth or 'unknown'}; remoteBefore={_isRemoteSapi32Synth(beforeSynth)}"
+	)
+	return sequence, startedAt
+
+
+def _finishSynthSwitchDiagnostics(
+	sequence: int,
+	source: str,
+	startedAt: float,
+	error: BaseException | None = None,
+) -> None:
+	global _lastSynthSwitchCompletedAt
+	global _lastSynthSwitchAfterSynth
+	global _lastSynthSwitchFailed
+	completedAt = time.monotonic()
+	afterSynth = _getSynthName()
+	_lastSynthSwitchCompletedAt = completedAt
+	_lastSynthSwitchAfterSynth = afterSynth
+	_lastSynthSwitchFailed = error is not None
+	log.info(
+		"globalSonicPitch: setSynth diagnostic end; "
+		f"sequence={sequence}; source={source}; afterSynth={afterSynth or 'unknown'}; "
+		f"remoteAfter={_isRemoteSapi32Synth(afterSynth)}; elapsedMs={(completedAt - startedAt) * 1000.0:.1f}; "
+		f"failed={error is not None}; errorType={type(error).__name__ if error is not None else 'none'}"
+	)
+
+
+def _getSynthSwitchDiagnosticState() -> str:
+	return (
+		f"synthSwitchSequence={_synthSwitchDiagnosticSequence}; "
+		f"synthSwitchSource={_lastSynthSwitchSource or 'none'}; "
+		f"requestedSynth={_lastSynthSwitchRequestedSynth or 'unknown'}; "
+		f"beforeSynth={_lastSynthSwitchBeforeSynth or 'unknown'}; "
+		f"afterSynth={_lastSynthSwitchAfterSynth or 'unknown'}; "
+		f"sinceSwitchStart={_formatDiagnosticAge(_lastSynthSwitchStartedAt)}; "
+		f"sinceSwitchEnd={_formatDiagnosticAge(_lastSynthSwitchCompletedAt)}; "
+		f"synthSwitchFailed={_lastSynthSwitchFailed}"
+	)
+
+
+def _getVoiceDialogPanelDiagnosticCounts() -> tuple[int, int, int]:
+	alive = 0
+	dead = 0
+	released = 0
+	for panelRef in list(_voiceDialogPanelRefs.values()):
+		try:
+			panel = panelRef()
+		except Exception:
+			dead += 1
+			continue
+		if panel is None:
+			dead += 1
+			continue
+		alive += 1
+		if getattr(panel, "_globalSonicPitchVoicePanelReleased", False):
+			released += 1
+	return alive, dead, released
+
+
+def _getSettingsDialogCleanupDiagnosticState(reason: str) -> str:
+	synthName = _getSynthName()
+	aliveRefs, deadRefs, releasedRefs = _getVoiceDialogPanelDiagnosticCounts()
+	return (
+		f"reason={reason}; currentSynth={synthName or 'unknown'}; "
+		f"remoteSapi32={_isRemoteSapi32Synth(synthName)}; "
+		f"voiceDialogSessions={len(_voiceDialogSessions)}; "
+		f"panelRefs={len(_voiceDialogPanelRefs)}; alivePanelRefs={aliveRefs}; "
+		f"deadPanelRefs={deadRefs}; releasedPanelRefs={releasedRefs}; "
+		f"pendingGc={_settingsDialogGcPending}; thread={threading.current_thread().name}; "
+		f"{_getSynthSwitchDiagnosticState()}"
+	)
+
+
+def _isDestroyedSettingsDialogState(settingsDialogClass: Any, state: Any) -> bool:
+	try:
+		return state is settingsDialogClass.DialogState.DESTROYED or state == settingsDialogClass.DialogState.DESTROYED
+	except Exception:
+		return False
+
+
+def _isDestroyedWxDialog(dialog: Any) -> bool:
+	try:
+		if not bool(dialog):
+			return True
+	except Exception:
+		return True
+	try:
+		isBeingDeleted = getattr(dialog, "IsBeingDeleted", None)
+		if callable(isBeingDeleted) and isBeingDeleted():
+			return True
+	except Exception:
+		return True
+	return False
+
+
+def _purgeDestroyedSettingsDialogInstances(reason: str) -> int:
+	settingsDialogClass = getattr(settingsDialogs, "SettingsDialog", None)
+	if settingsDialogClass is None:
+		return 0
+	instances = getattr(settingsDialogClass, "_instances", None)
+	if instances is None:
+		return 0
+	try:
+		instanceItems = list(instances.items())
+	except Exception:
+		log.debugWarning("globalSonicPitch: failed to inspect destroyed settings dialogs", exc_info=True)
+		return 0
+	purged = 0
+	for dialog, state in instanceItems:
+		if not _isDestroyedSettingsDialogState(settingsDialogClass, state):
+			continue
+		if not _isDestroyedWxDialog(dialog):
+			continue
+		try:
+			instances.pop(dialog, None)
+		except Exception:
+			log.debugWarning("globalSonicPitch: failed to purge destroyed settings dialog instance", exc_info=True)
+			continue
+		purged += 1
+	if purged:
+		log.info(
+			"globalSonicPitch: purged destroyed settings dialog registry entries; "
+			f"purged={purged}; {_getSettingsDialogCleanupDiagnosticState(reason)}"
+		)
+	return purged
+
+
 def _resetSynthSwitchRuntimeState() -> None:
 	_resetAllPlayerProcessors()
 	_runtimeSonicPitchByKey.clear()
@@ -2181,11 +2369,17 @@ def _resetSynthSwitchRuntimeState() -> None:
 
 def _callSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
 	filteredKwargs = _filterUnsupportedKeywordArguments(originalSetSynth, kwargs)
+	sequence, startedAt = _beginSynthSwitchDiagnostics("synthDriverHandler.setSynth", args, filteredKwargs)
 	_resetSynthSwitchRuntimeState()
-	result = originalSetSynth(*args, **filteredKwargs)
+	try:
+		result = originalSetSynth(*args, **filteredKwargs)
+	except Exception as exc:
+		_finishSynthSwitchDiagnostics(sequence, "synthDriverHandler.setSynth", startedAt, exc)
+		raise
 	_resetSynthSwitchRuntimeState()
 	if not _deferSynthPitchPatchDepth:
 		_safePatchCurrentSynthPitch()
+	_finishSynthSwitchDiagnostics(sequence, "synthDriverHandler.setSynth", startedAt)
 	return result
 
 
@@ -2201,10 +2395,19 @@ def _makeSetSynthWrapper(originalSetSynth: Callable[..., Any]) -> Callable[..., 
 def _callSettingsSetSynthAndPatch(originalSetSynth: Callable[..., Any], *args, **kwargs):
 	global _deferSynthPitchPatchDepth
 	_deferSynthPitchPatchDepth += 1
+	sequence = None
+	startedAt = None
 	try:
 		filteredKwargs = _filterUnsupportedKeywordArguments(originalSetSynth, kwargs)
+		sequence, startedAt = _beginSynthSwitchDiagnostics("settingsDialogs.setSynth", args, filteredKwargs)
 		_resetSynthSwitchRuntimeState()
-		return originalSetSynth(*args, **filteredKwargs)
+		try:
+			result = originalSetSynth(*args, **filteredKwargs)
+		except Exception as exc:
+			_finishSynthSwitchDiagnostics(sequence, "settingsDialogs.setSynth", startedAt, exc)
+			raise
+		_finishSynthSwitchDiagnostics(sequence, "settingsDialogs.setSynth", startedAt)
+		return result
 	finally:
 		_deferSynthPitchPatchDepth = max(0, _deferSynthPitchPatchDepth - 1)
 		_resetSynthSwitchRuntimeState()
@@ -2237,24 +2440,37 @@ def _makeAutoSettingsRefreshGuiGuard(originalRefreshGui: Callable[..., Any]) -> 
 	return _globalSonicPitchAutoSettingsRefreshGuiGuard
 
 
-def _collectSettingsDialogGarbage() -> None:
+def _collectSettingsDialogGarbage(reason: str = "unknown") -> None:
 	global _settingsDialogGcPending
 	_settingsDialogGcPending = False
-	try:
-		gc.collect()
-	except Exception:
-		log.debugWarning("globalSonicPitch: failed to collect destroyed settings dialogs", exc_info=True)
+	log.info(
+		"globalSonicPitch: settings dialog cleanup start; "
+		f"{_getSettingsDialogCleanupDiagnosticState(reason)}"
+	)
+	purged = _purgeDestroyedSettingsDialogInstances(reason)
+	log.info(
+		"globalSonicPitch: settings dialog cleanup end; "
+		f"purged={purged}; forcedGc=False; {_getSettingsDialogCleanupDiagnosticState(reason)}"
+	)
 
 
-def _scheduleSettingsDialogGarbageCollection() -> None:
+def _scheduleSettingsDialogGarbageCollection(reason: str = "unknown") -> None:
 	global _settingsDialogGcPending
 	if _settingsDialogGcPending:
+		log.info(
+			"globalSonicPitch: settings dialog cleanup already pending; "
+			f"{_getSettingsDialogCleanupDiagnosticState(reason)}"
+		)
 		return
 	_settingsDialogGcPending = True
+	log.info(
+		"globalSonicPitch: settings dialog cleanup scheduled; "
+		f"{_getSettingsDialogCleanupDiagnosticState(reason)}"
+	)
 	try:
-		wx.CallAfter(_collectSettingsDialogGarbage)
+		wx.CallAfter(_collectSettingsDialogGarbage, reason)
 	except Exception:
-		_collectSettingsDialogGarbage()
+		_collectSettingsDialogGarbage(reason)
 
 
 def _makeSettingsDialogDestroyedStateWrapper(originalDestroyedState: Callable[..., Any]) -> Callable[..., Any]:
@@ -2263,7 +2479,7 @@ def _makeSettingsDialogDestroyedStateWrapper(originalDestroyedState: Callable[..
 		try:
 			return originalDestroyedState(self, *args, **kwargs)
 		finally:
-			_scheduleSettingsDialogGarbageCollection()
+			_scheduleSettingsDialogGarbageCollection("settings dialog destroyed")
 
 	return _globalSonicPitchSettingsDialogDestroyedState
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.6
+
+- Fixes repeated opening of NVDA settings dialogs after switching to SAPI4 or
+  32-bit SAPI5 on newer 64-bit NVDA builds.
+- Replaces broad garbage collection during settings dialog cleanup with targeted
+  removal of destroyed NVDA settings dialog registry entries.
+- Keeps the existing Sonic stream lifetime protections unchanged while avoiding
+  the dialog-registry issue that could block the second settings window.
+
 ## 1.1.5
 
 - Fixes restoring the saved `Sonic pitch` value when switching back to
