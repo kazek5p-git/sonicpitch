@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 1.0.
+Status: mostly ready after version 1.1.6.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version is `1.0`.
+- Package version is `1.1.6`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -33,8 +33,9 @@ Completed:
   host Sonic streams on applied pitch changes.
 - Voice dialog Sonic pitch changes now follow normal settings behavior: OK or
   Apply commits, while Escape or Cancel restores the previous value.
-- Release packaging is documented and should publish one `.nvda-addon` asset
-  per GitHub Release.
+- Each GitHub Release publishes exactly one `.nvda-addon` asset named
+  `globalSonicPitch.nvda-addon`. The add-on version remains in `manifest.ini`,
+  while the fixed asset name keeps the latest-download URL stable.
 - Manifest author metadata lists `Kazimierz Parzych, DJ Graco`.
 - User documentation exists in English, Polish, and Slovak.
 - Store submission metadata draft is recorded below.
@@ -43,7 +44,8 @@ Before submitting:
 
 - Run one final smoke test on the exact stable NVDA version named in the
   manifest if the local machine is not already on that version.
-- Confirm the GitHub Release download URL points to the newest package.
+- Confirm the stable download URL points to the newest package:
+  `https://github.com/kazek5p-git/sonicpitch/releases/latest/download/globalSonicPitch.nvda-addon`.
 - Confirm old unstable GitHub Releases have been deleted.
 
 ## Store Metadata Draft
@@ -56,18 +58,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "9D9B516931FE110169E6B3E3EABD5697AC72E3DB4617230534CAAA134466CB4B",
-  "addonVersionName": "1.0",
+  "sha256": "1366233F3BD29650B82C190B7155181BE58EE16CD4BC5E1CCF9F838BF827141B",
+  "addonVersionName": "1.1.6",
   "channel": "stable",
   "publisher": "Kazimierz Parzych, DJ Graco",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v1.0/globalSonicPitch-1.0.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v1.1.6/globalSonicPitch.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v1.0"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v1.1.6"
 }
 ```
 
@@ -146,8 +148,8 @@ Before each store-facing release:
    - `sapi32HostDrivers/sapi4.py`
    - `globalPlugins/sonicPitchNative/sonicPitchSonic32.dll`
    - `globalPlugins/sonicPitchNative/sonicPitchSonic64.dll`
-   - `doc/en/readme.md`
-   - `doc/pl/readme.md`
+   - `doc/en/readme.html`
+   - `doc/pl/readme.html`
 
 4. Verify the archive does not contain `__pycache__`.
 
@@ -168,6 +170,8 @@ Before each store-facing release:
    - `failed to finish retired Sonic stream`
    - `OSError: exception: access violation`
 
-7. Publish one GitHub Release with exactly one `.nvda-addon` asset.
+7. Publish one GitHub Release with exactly one `.nvda-addon` asset named
+   `globalSonicPitch.nvda-addon`. Keep this filename unchanged in every
+   future release so the stable download URL never changes.
 
 8. Update the `sha256` field in the metadata draft.

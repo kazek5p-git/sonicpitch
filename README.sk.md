@@ -84,8 +84,8 @@ História vydaní je v [CHANGELOG.md](CHANGELOG.md).
 3. Vyberte stiahnutý balík doplnku.
 4. Po výzve reštartujte NVDA.
 
-Najnovší balík:
-[globalSonicPitch-1.1.6.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+Stabilný odkaz na najnovší balík:
+[globalSonicPitch.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest/download/globalSonicPitch.nvda-addon)
 
 ## Licencia
 

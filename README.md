@@ -82,8 +82,8 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 3. Select the downloaded add-on package.
 4. Restart NVDA when prompted.
 
-Latest packaged add-on:
-[globalSonicPitch-1.1.6.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+Stable link to the latest package:
+[globalSonicPitch.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest/download/globalSonicPitch.nvda-addon)
 
 ## License
 

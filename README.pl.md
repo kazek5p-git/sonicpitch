@@ -88,8 +88,8 @@ Historia wydań jest w [CHANGELOG.md](CHANGELOG.md).
 3. Wskaż pobrany pakiet dodatku.
 4. Zrestartuj NVDA po komunikacie.
 
-Najnowszy pakiet:
-[globalSonicPitch-1.1.6.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest)
+Stały link do najnowszego pakietu:
+[globalSonicPitch.nvda-addon](https://github.com/kazek5p-git/sonicpitch/releases/latest/download/globalSonicPitch.nvda-addon)
 
 ## Licencja
 
