@@ -5,12 +5,12 @@ NVDA Add-on Store.
 
 ## Current Store Readiness
 
-Status: mostly ready after version 1.1.6.
+Status: mostly ready after version 1.1.7.
 
 Completed:
 
 - Add-on name is unique: `globalSonicPitch`.
-- Package version is `1.1.6`.
+- Package version is `1.1.7`.
 - Manifest uses HTTPS project URL.
 - Manifest declares stable compatibility:
   - `minimumNVDAVersion = 2025.1.0`
@@ -58,18 +58,18 @@ Use this as the basis for the add-on store submission issue or JSON metadata.
   "displayName": "Global Sonic Pitch",
   "URL": "https://github.com/kazek5p-git/sonicpitch",
   "description": "Adds optional global Sonic pitch processing for NVDA speech audio.",
-  "sha256": "1366233F3BD29650B82C190B7155181BE58EE16CD4BC5E1CCF9F838BF827141B",
-  "addonVersionName": "1.1.6",
+  "sha256": "40A219395E52A89826E9CDFAB91DC6C211A622EFD91E4A2E3149A1F5D7A5E331",
+  "addonVersionName": "1.1.7",
   "channel": "stable",
   "publisher": "Kazimierz Parzych, DJ Graco",
   "sourceURL": "https://github.com/kazek5p-git/sonicpitch",
   "license": "GPL v2 or later",
   "licenseURL": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
   "homepage": "https://github.com/kazek5p-git/sonicpitch",
-  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v1.1.6/globalSonicPitch.nvda-addon",
+  "downloadURL": "https://github.com/kazek5p-git/sonicpitch/releases/download/v1.1.7/globalSonicPitch.nvda-addon",
   "minimumNVDAVersion": "2025.1.0",
   "lastTestedNVDAVersion": "2026.1.1",
-  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v1.1.6"
+  "reviewURL": "https://github.com/kazek5p-git/sonicpitch/releases/tag/v1.1.7"
 }
 ```
 

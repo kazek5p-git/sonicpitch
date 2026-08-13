@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.7
+
+- Fixes compatibility with soundWave, which temporarily replaces
+  `nvwave.WavePlayer` with a factory function during audio rendering.
+- Keeps direct references to the original `WavePlayer` class and methods, so
+  feed, idle, stop, and close remain safe while soundWave is active.
+- Avoids patching a temporary factory function and restores the original hook
+  state correctly when the add-on is unloaded.
+
 ## 1.1.6
 
 - Fixes repeated opening of NVDA settings dialogs after switching to SAPI4 or

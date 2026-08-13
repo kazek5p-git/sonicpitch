@@ -119,6 +119,8 @@ _sonicPitchClassPatches: dict[type, Any] = {}
 _supportedSettingsClassPatches: dict[type, Any] = {}
 _voiceClassPatches: dict[type, Any] = {}
 _variantClassPatches: dict[type, Any] = {}
+_originalWavePlayerClass: Any | None = None
+_originalWavePlayerMethods: dict[str, Callable[..., Any]] = {}
 _configMigrated = False
 _deferSynthPitchPatchDepth = 0
 _noDestroySonicStreamLogged = False
@@ -1455,8 +1457,15 @@ def _logProcessedOnce(
 	)
 
 
+def _getOriginalWavePlayerMethod(methodName: str) -> Callable[..., Any]:
+	originalMethod = _originalWavePlayerMethods.get(methodName)
+	if originalMethod is None:
+		raise RuntimeError(f"globalSonicPitch: original WavePlayer method is unavailable: {methodName}")
+	return originalMethod
+
+
 def _patchedFeed(self, data, size=None, onDone=None):
-	originalFeed = getattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR)
+	originalFeed = _getOriginalWavePlayerMethod("feed")
 	if callable(size) and onDone is None:
 		onDone = size
 		size = None
@@ -1505,7 +1514,7 @@ def _patchedFeed(self, data, size=None, onDone=None):
 
 
 def _feedProcessorTail(player: nvwave.WavePlayer) -> None:
-	originalFeed = getattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR)
+	originalFeed = _getOriginalWavePlayerMethod("feed")
 	try:
 		tail, onDone = _finishPlayerProcessor(player)
 		if tail:
@@ -1521,68 +1530,101 @@ def _feedProcessorTail(player: nvwave.WavePlayer) -> None:
 
 def _patchedIdle(self, *args, **kwargs):
 	_feedProcessorTail(self)
-	originalIdle = getattr(nvwave.WavePlayer, _ORIGINAL_IDLE_ATTR)
+	originalIdle = _getOriginalWavePlayerMethod("idle")
 	return originalIdle(self, *args, **kwargs)
 
 
 def _patchedStop(self, *args, **kwargs):
 	_resetPlayerProcessor(self)
 	_clearPlayerUtterancePitch(self)
-	originalStop = getattr(nvwave.WavePlayer, _ORIGINAL_STOP_ATTR)
+	originalStop = _getOriginalWavePlayerMethod("stop")
 	return originalStop(self, *args, **kwargs)
 
 
 def _patchedClose(self, *args, **kwargs):
 	_resetPlayerProcessor(self)
 	_clearPlayerUtterancePitch(self)
-	originalClose = getattr(nvwave.WavePlayer, _ORIGINAL_CLOSE_ATTR)
+	originalClose = _getOriginalWavePlayerMethod("close")
 	return originalClose(self, *args, **kwargs)
 
 
 def installWavePlayerHook() -> None:
-	if getattr(nvwave.WavePlayer, _FEED_PATCHED_ATTR, False):
+	global _originalWavePlayerClass, _originalWavePlayerMethods
+	wavePlayerClass = getattr(nvwave, "WavePlayer", None)
+	if not inspect.isclass(wavePlayerClass):
+		log.debugWarning(
+			"globalSonicPitch: WavePlayer hook not installed because nvwave.WavePlayer is not a class",
+		)
 		return
-	setattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR, nvwave.WavePlayer.feed)
-	nvwave.WavePlayer.feed = _patchedFeed
-	if callable(getattr(nvwave.WavePlayer, "idle", None)):
-		setattr(nvwave.WavePlayer, _ORIGINAL_IDLE_ATTR, nvwave.WavePlayer.idle)
-		nvwave.WavePlayer.idle = _patchedIdle
-	if callable(getattr(nvwave.WavePlayer, "stop", None)):
-		setattr(nvwave.WavePlayer, _ORIGINAL_STOP_ATTR, nvwave.WavePlayer.stop)
-		nvwave.WavePlayer.stop = _patchedStop
-	if callable(getattr(nvwave.WavePlayer, "close", None)):
-		setattr(nvwave.WavePlayer, _ORIGINAL_CLOSE_ATTR, nvwave.WavePlayer.close)
-		nvwave.WavePlayer.close = _patchedClose
-	setattr(nvwave.WavePlayer, _FEED_PATCHED_ATTR, True)
+	if getattr(wavePlayerClass, _FEED_PATCHED_ATTR, False):
+		_originalWavePlayerClass = wavePlayerClass
+		_originalWavePlayerMethods = {
+			methodName: getattr(wavePlayerClass, attrName)
+			for methodName, attrName in (
+				("feed", _ORIGINAL_FEED_ATTR),
+				("idle", _ORIGINAL_IDLE_ATTR),
+				("stop", _ORIGINAL_STOP_ATTR),
+				("close", _ORIGINAL_CLOSE_ATTR),
+			)
+			if callable(getattr(wavePlayerClass, attrName, None))
+		}
+		return
+	originalFeed = getattr(wavePlayerClass, "feed", None)
+	if not callable(originalFeed):
+		log.debugWarning("globalSonicPitch: WavePlayer hook not installed because feed is unavailable")
+		return
+	_originalWavePlayerClass = wavePlayerClass
+	_originalWavePlayerMethods = {"feed": originalFeed}
+	setattr(wavePlayerClass, _ORIGINAL_FEED_ATTR, originalFeed)
+	wavePlayerClass.feed = _patchedFeed
+	for methodName, methodAttr, patchedMethod in (
+		("idle", _ORIGINAL_IDLE_ATTR, _patchedIdle),
+		("stop", _ORIGINAL_STOP_ATTR, _patchedStop),
+		("close", _ORIGINAL_CLOSE_ATTR, _patchedClose),
+	):
+		originalMethod = getattr(wavePlayerClass, methodName, None)
+		if not callable(originalMethod):
+			continue
+		_originalWavePlayerMethods[methodName] = originalMethod
+		setattr(wavePlayerClass, methodAttr, originalMethod)
+		setattr(wavePlayerClass, methodName, patchedMethod)
+	setattr(wavePlayerClass, _FEED_PATCHED_ATTR, True)
 	log.info("globalSonicPitch: installed WavePlayer speech feed hook")
 
 
 def uninstallWavePlayerHook() -> None:
-	if not getattr(nvwave.WavePlayer, _FEED_PATCHED_ATTR, False):
+	global _originalWavePlayerClass, _originalWavePlayerMethods
+	wavePlayerClass = _originalWavePlayerClass
+	if wavePlayerClass is None:
+		currentWavePlayerClass = getattr(nvwave, "WavePlayer", None)
+		if inspect.isclass(currentWavePlayerClass) and getattr(currentWavePlayerClass, _FEED_PATCHED_ATTR, False):
+			wavePlayerClass = currentWavePlayerClass
+	if wavePlayerClass is None or not getattr(wavePlayerClass, _FEED_PATCHED_ATTR, False):
 		return
-	originalFeed = getattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR, None)
-	if originalFeed is not None and nvwave.WavePlayer.feed is _patchedFeed:
-		nvwave.WavePlayer.feed = originalFeed
-	originalIdle = getattr(nvwave.WavePlayer, _ORIGINAL_IDLE_ATTR, None)
-	if originalIdle is not None and getattr(nvwave.WavePlayer, "idle", None) is _patchedIdle:
-		nvwave.WavePlayer.idle = originalIdle
-	originalStop = getattr(nvwave.WavePlayer, _ORIGINAL_STOP_ATTR, None)
-	if originalStop is not None and getattr(nvwave.WavePlayer, "stop", None) is _patchedStop:
-		nvwave.WavePlayer.stop = originalStop
-	originalClose = getattr(nvwave.WavePlayer, _ORIGINAL_CLOSE_ATTR, None)
-	if originalClose is not None and getattr(nvwave.WavePlayer, "close", None) is _patchedClose:
-		nvwave.WavePlayer.close = originalClose
+	for methodName, methodAttr, patchedMethod in (
+		("feed", _ORIGINAL_FEED_ATTR, _patchedFeed),
+		("idle", _ORIGINAL_IDLE_ATTR, _patchedIdle),
+		("stop", _ORIGINAL_STOP_ATTR, _patchedStop),
+		("close", _ORIGINAL_CLOSE_ATTR, _patchedClose),
+	):
+		originalMethod = _originalWavePlayerMethods.get(methodName)
+		if originalMethod is None:
+			originalMethod = getattr(wavePlayerClass, methodAttr, None)
+		if originalMethod is not None and getattr(wavePlayerClass, methodName, None) is patchedMethod:
+			setattr(wavePlayerClass, methodName, originalMethod)
 	try:
-		delattr(nvwave.WavePlayer, _ORIGINAL_FEED_ATTR)
+		delattr(wavePlayerClass, _ORIGINAL_FEED_ATTR)
 	except Exception:
 		pass
 	for attr in (_ORIGINAL_IDLE_ATTR, _ORIGINAL_STOP_ATTR, _ORIGINAL_CLOSE_ATTR):
 		try:
-			delattr(nvwave.WavePlayer, attr)
+			delattr(wavePlayerClass, attr)
 		except Exception:
 			pass
 	_resetAllPlayerProcessors()
-	setattr(nvwave.WavePlayer, _FEED_PATCHED_ATTR, False)
+	setattr(wavePlayerClass, _FEED_PATCHED_ATTR, False)
+	_originalWavePlayerClass = None
+	_originalWavePlayerMethods = {}
 	log.info("globalSonicPitch: removed WavePlayer speech feed hook")
 
 

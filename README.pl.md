@@ -44,6 +44,8 @@ wysokością syntezatora.
 
 ## Zmiany
 
+- 1.1.7: Naprawiono zgodność z soundWave, który tymczasowo zastępuje
+  `nvwave.WavePlayer` podczas renderowania dźwięku.
 - 1.1.6: Naprawia ponowne otwieranie okien ustawień NVDA po przełączeniu na
   SAPI4 albo 32-bitowe SAPI5 w nowszych 64-bitowych wersjach NVDA.
 - 1.1.5: Poprawnie przywraca zapisaną wartość `Sonic pitch` per głos po

@@ -40,6 +40,8 @@ Sonic a bežné nastavenie NVDA `Výška` ponecháva ako natívnu výšku syntet
 
 ## Zmeny
 
+- 1.1.7: Opravená kompatibilita so soundWave, ktorý počas vykresľovania zvuku
+  dočasne nahrádza `nvwave.WavePlayer`.
 - 1.1.6: Opravuje opakované otváranie dialógov nastavení NVDA po prepnutí na
   SAPI4 alebo 32-bitové SAPI5 v novších 64-bitových verziách NVDA.
 - 1.1.5: Správne obnovuje uloženú hodnotu `Sonic pitch` pre jednotlivé hlasy

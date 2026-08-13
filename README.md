@@ -40,6 +40,8 @@ processing while leaving NVDA's normal native `Pitch` setting unchanged.
 
 ## Changes
 
+- 1.1.7: Fixes compatibility with soundWave when it temporarily replaces
+  `nvwave.WavePlayer` during audio rendering.
 - 1.1.6: Fixes repeated opening of NVDA settings dialogs after switching to
   SAPI4 or 32-bit SAPI5 on newer 64-bit NVDA builds.
 - 1.1.5: Restores saved per-voice `Sonic pitch` correctly when switching back
