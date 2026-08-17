@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.8
+
+- Replaces the locally compiled bundled Sonic DLLs with unmodified binaries
+  from an official NV Access alpha build.
+- Uses Sonic binaries built from the same upstream Sonic revision previously
+  used by Global Sonic Pitch:
+  `b93885dcb70aae50c6f76b0fe4e0868f029a077e`.
+- Renames the bundled native libraries to `sonic32.dll` and `sonic64.dll`.
+- Keeps separate add-on-local Sonic library instances so Global Sonic Pitch
+  can manage its Sonic stream lifetime independently from NVDA's internal
+  Sonic module.
+- Keeps the existing fallback to NVDA's internal Sonic library if the bundled
+  library cannot be loaded.
+- No intended change to Sonic audio processing behavior.
+
 ## 1.1.7
 
 - Fixes compatibility with soundWave, which temporarily replaces
